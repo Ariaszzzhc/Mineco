@@ -1,7 +1,8 @@
 import { Anthropic } from '@anthropic-ai/sdk';
-import type { ProviderConfig, Message, Part } from '../../shared/types';
+import type { ProviderConfig, Message } from '../../shared/types';
 import type { ToolDefinition } from '../../shared/tool';
 import { z } from 'zod';
+import { toJSONSchema } from 'zod/v4/core';
 
 export class AnthropicProvider {
   private client: Anthropic;
@@ -24,10 +25,7 @@ export class AnthropicProvider {
     | { type: 'tool-call'; toolCallId: string; toolName: string; args: unknown }
   > {
     // Convert messages to Anthropic format
-    const anthropicMessages = messages.map((msg) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: this.convertParts(msg.parts),
-    }));
+    const anthropicMessages = this.convertMessages(messages);
 
     // Convert tools to Anthropic format
     const anthropicTools = tools.map((tool) => ({
@@ -35,6 +33,14 @@ export class AnthropicProvider {
       description: tool.description,
       input_schema: zodToAnthropicSchema(tool.parameters),
     }));
+
+    console.log('[AnthropicProvider] Sending request:', {
+      model: this.model,
+      messageCount: anthropicMessages.length,
+      toolCount: anthropicTools.length,
+      tools: JSON.stringify(anthropicTools, null, 2),
+      messages: JSON.stringify(anthropicMessages, null, 2),
+    });
 
     const stream = this.client.messages.stream({
       model: this.model,
@@ -44,87 +50,127 @@ export class AnthropicProvider {
       tools: anthropicTools.length > 0 ? anthropicTools : undefined,
     });
 
+    // Track content blocks being streamed
+    const contentBlocks: Map<number, { type: 'text' | 'tool_use'; id?: string; name?: string; jsonBuffer: string }> = new Map();
+
     for await (const event of stream) {
-      if (
-        event.type === 'content_block_delta' &&
-        event.delta.type === 'text_delta'
-      ) {
-        yield {
-          type: 'text-delta',
-          delta: event.delta.text,
-        };
-      } else if (event.type === 'content_block_start') {
-        if (event.content_block.type === 'tool_use') {
+      if (event.type === 'content_block_start') {
+        const index = event.index;
+        if (event.content_block.type === 'text') {
+          contentBlocks.set(index, { type: 'text', jsonBuffer: '' });
+        } else if (event.content_block.type === 'tool_use') {
           const block = event.content_block as Anthropic.Messages.ToolUseBlock;
+          contentBlocks.set(index, {
+            type: 'tool_use',
+            id: block.id,
+            name: block.name,
+            jsonBuffer: '',
+          });
+        }
+      } else if (event.type === 'content_block_delta') {
+        const index = event.index;
+        const block = contentBlocks.get(index);
+
+        if (event.delta.type === 'text_delta' && block?.type === 'text') {
+          yield {
+            type: 'text-delta',
+            delta: event.delta.text,
+          };
+        } else if (event.delta.type === 'input_json_delta' && block?.type === 'tool_use') {
+          // Accumulate JSON fragments for tool input
+          block.jsonBuffer += event.delta.partial_json;
+        }
+      } else if (event.type === 'content_block_stop') {
+        const index = event.index;
+        const block = contentBlocks.get(index);
+
+        if (block?.type === 'tool_use') {
+          // Parse complete JSON and yield tool call
+          let args: unknown = {};
+          try {
+            if (block.jsonBuffer.trim()) {
+              args = JSON.parse(block.jsonBuffer);
+            }
+          } catch (e) {
+            console.error('[AnthropicProvider] Failed to parse tool args:', e, 'JSON:', block.jsonBuffer);
+          }
+
+          console.log('[AnthropicProvider] Tool call:', {
+            id: block.id,
+            name: block.name,
+            args,
+          });
+
           yield {
             type: 'tool-call',
-            toolCallId: block.id,
-            toolName: block.name,
-            args: block.input,
+            toolCallId: block.id as string,
+            toolName: block.name as string,
+            args,
           };
+        }
+
+        contentBlocks.delete(index);
+      }
+    }
+
+    console.log('[AnthropicProvider] Stream complete');
+  }
+
+  private convertMessages(messages: Message[]): Anthropic.Messages.MessageParam[] {
+    const result: Anthropic.Messages.MessageParam[] = [];
+
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        // User message: can contain text and tool_result
+        const content: Anthropic.Messages.ContentBlockParam[] = [];
+
+        for (const part of msg.parts) {
+          if (part.type === 'text') {
+            content.push({ type: 'text', text: part.text });
+          } else if (part.type === 'tool-result') {
+            content.push({
+              type: 'tool_result',
+              tool_use_id: part.toolCallId,
+              content: typeof part.result === 'string' ? part.result : JSON.stringify(part.result),
+              is_error: part.isError,
+            });
+          }
+        }
+
+        if (content.length > 0) {
+          result.push({ role: 'user', content });
+        }
+      } else {
+        // Assistant message: can contain text and tool-use
+        const content: Anthropic.Messages.ContentBlockParam[] = [];
+
+        for (const part of msg.parts) {
+          if (part.type === 'text') {
+            content.push({ type: 'text', text: part.text });
+          } else if (part.type === 'tool-call') {
+            content.push({
+              type: 'tool_use',
+              id: part.toolCallId,
+              name: part.toolName,
+              input: part.args,
+            });
+          }
+        }
+
+        if (content.length > 0) {
+          result.push({ role: 'assistant', content });
         }
       }
     }
-  }
 
-  private convertParts(parts: Part[]): Anthropic.Messages.ContentBlockParam[] {
-    return parts
-      .filter((p): p is TextPart => p.type === 'text')
-      .map((p) => ({
-        type: 'text' as const,
-        text: p.text,
-      }));
+    return result;
   }
 }
 
 function zodToAnthropicSchema(zodSchema: z.ZodSchema): Anthropic.Messages.Tool['input_schema'] {
-  // Simple conversion - in production you might want more robust handling
-  return zodToSchema(zodSchema);
-}
-
-function zodToSchema(zodSchema: z.ZodSchema): Record<string, unknown> {
-  if (zodSchema instanceof z.ZodObject) {
-    const shape = zodSchema.shape;
-    const properties: Record<string, unknown> = {};
-    const required: string[] = [];
-
-    for (const [key, value] of Object.entries(shape)) {
-      properties[key] = zodToSchema(value as z.ZodSchema);
-      if (!(value instanceof z.ZodOptional)) {
-        required.push(key);
-      }
-    }
-
-    return {
-      type: 'object',
-      properties,
-      required: required.length > 0 ? required : undefined,
-    };
-  }
-
-  if (zodSchema instanceof z.ZodString) {
-    return { type: 'string' };
-  }
-
-  if (zodSchema instanceof z.ZodNumber) {
-    return { type: 'number' };
-  }
-
-  if (zodSchema instanceof z.ZodBoolean) {
-    return { type: 'boolean' };
-  }
-
-  if (zodSchema instanceof z.ZodArray) {
-    return { type: 'array', items: zodToSchema(zodSchema.element) };
-  }
-
-  if (zodSchema instanceof z.ZodOptional) {
-    return zodToSchema(zodSchema.unwrap());
-  }
-
-  if (zodSchema instanceof z.ZodDefault) {
-    return zodToSchema(zodSchema.removeDefault());
-  }
-
-  return { type: 'object' };
+  const schema = toJSONSchema(zodSchema) as Record<string, unknown>;
+  // Remove $schema field - it's metadata not needed for API calls
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { $schema: _, ...inputSchema } = schema;
+  return inputSchema as Anthropic.Messages.Tool['input_schema'];
 }

@@ -5,21 +5,24 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 const ListDirSchema = z.object({
-  path: z.string().describe('The absolute path to the directory to list'),
+  path: z.string().optional().describe('The path to the directory to list. Defaults to current working directory.'),
 });
 
 export const listDirTool = defineTool({
   name: 'list_dir',
-  description: 'List contents of a directory.',
+  description: 'List contents of a directory. If no path is provided, lists the current working directory.',
   parameters: ListDirSchema,
   execute: async (
     params: z.infer<typeof ListDirSchema>,
     context: ToolContext
   ) => {
     try {
-      const dirPath = path.isAbsolute(params.path)
-        ? params.path
-        : path.join(context.workingDir, params.path);
+      // Default to working directory if no path provided
+      const dirPath = params.path
+        ? (path.isAbsolute(params.path) ? params.path : path.join(context.workingDir, params.path))
+        : context.workingDir;
+
+      console.log('[list_dir] Listing directory:', dirPath);
 
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
       const lines = entries.map((entry) => {
@@ -32,10 +35,12 @@ export const listDirTool = defineTool({
         output: lines.join('\n') || '(empty directory)',
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.log('[list_dir] Error:', errorMsg);
       return {
         success: false,
-        output: '',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        output: `Error: ${errorMsg}`,
+        error: errorMsg,
       };
     }
   },

@@ -20,12 +20,23 @@ export const searchFileTool = defineTool({
     params: z.infer<typeof SearchFileSchema>,
     context: ToolContext
   ) => {
+    // Validate pattern parameter
+    if (!params.pattern || params.pattern.trim() === '') {
+      return {
+        success: false,
+        output: 'Error: No search pattern provided. Please specify a glob pattern.',
+        error: 'Missing pattern parameter',
+      };
+    }
+
     try {
       const searchPath = params.path
         ? path.isAbsolute(params.path)
           ? params.path
           : path.join(context.workingDir, params.path)
         : context.workingDir;
+
+      console.log('[search_file] Searching:', { pattern: params.pattern, path: searchPath });
 
       const files = await glob(params.pattern, {
         cwd: searchPath,
@@ -44,10 +55,12 @@ export const searchFileTool = defineTool({
         output: files.slice(0, 100).join('\n'),
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.log('[search_file] Error:', errorMsg);
       return {
         success: false,
-        output: '',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        output: `Error: ${errorMsg}`,
+        error: errorMsg,
       };
     }
   },

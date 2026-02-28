@@ -5,7 +5,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 const WriteFileSchema = z.object({
-  file_path: z.string().describe('The absolute path to the file to write'),
+  file_path: z.string().describe('The path to the file to write'),
   content: z.string().describe('The content to write to the file'),
 });
 
@@ -18,10 +18,28 @@ export const writeFileTool = defineTool({
     params: z.infer<typeof WriteFileSchema>,
     context: ToolContext
   ) => {
+    // Validate parameters
+    if (!params.file_path || params.file_path.trim() === '') {
+      return {
+        success: false,
+        output: 'Error: No file path provided. Please specify a file path.',
+        error: 'Missing file_path parameter',
+      };
+    }
+    if (params.content === undefined || params.content === null) {
+      return {
+        success: false,
+        output: 'Error: No content provided. Please specify content to write.',
+        error: 'Missing content parameter',
+      };
+    }
+
     try {
       const filePath = path.isAbsolute(params.file_path)
         ? params.file_path
         : path.join(context.workingDir, params.file_path);
+
+      console.log('[write_file] Writing file:', filePath);
 
       // Ensure directory exists
       const dir = path.dirname(filePath);
@@ -34,10 +52,12 @@ export const writeFileTool = defineTool({
         output: `File written successfully: ${filePath}`,
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.log('[write_file] Error:', errorMsg);
       return {
         success: false,
-        output: '',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        output: `Error: ${errorMsg}`,
+        error: errorMsg,
       };
     }
   },

@@ -2,7 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message, Part } from '../../shared/types';
-import { ToolPartView } from './ToolPartView';
+import { ToolGroupCollapse } from './ToolGroupCollapse';
 
 interface MessageItemProps {
   message: Message;
@@ -17,6 +17,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 }) => {
   const parts = isStreaming && pendingParts ? pendingParts : message.parts;
   const isUser = message.role === 'user';
+
+  // Separate tool parts and text parts
+  const toolParts = parts.filter((p) => p.type !== 'text');
+  const textParts = parts.filter((p) => p.type === 'text');
 
   return (
     <div
@@ -44,7 +48,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
         {/* Content */}
         <div className="pl-8">
-          {parts.map((part, idx) => {
+          {/* Tool calls grouped in collapsible section */}
+          {toolParts.length > 0 && <ToolGroupCollapse parts={toolParts} />}
+
+          {/* Text content */}
+          {textParts.map((part, idx) => {
             if (part.type === 'text') {
               return (
                 <div key={idx} className="prose prose-invert max-w-none">
@@ -54,7 +62,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 </div>
               );
             }
-            return <ToolPartView key={idx} part={part} />;
+            return null;
           })}
 
           {/* Show typing indicator if streaming with no text yet */}

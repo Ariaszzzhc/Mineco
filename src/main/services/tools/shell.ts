@@ -4,7 +4,7 @@ import { toolRegistry } from './registry';
 import { spawn } from 'child_process';
 
 const RunShellSchema = z.object({
-  command: z.string().describe('The command to execute'),
+  command: z.string().describe('The shell command to execute'),
   timeout: z
     .number()
     .optional()
@@ -21,6 +21,17 @@ export const runShellTool = defineTool({
     params: z.infer<typeof RunShellSchema>,
     context: ToolContext
   ) => {
+    // Validate command parameter
+    if (!params.command || params.command.trim() === '') {
+      return {
+        success: false,
+        output: 'Error: No command provided. Please specify a command to execute.',
+        error: 'Missing command parameter',
+      };
+    }
+
+    console.log('[run_shell] Executing command:', params.command);
+
     return new Promise((resolve) => {
       const timeout = params.timeout ?? 60000;
 
@@ -43,6 +54,7 @@ export const runShellTool = defineTool({
       proc.on('close', (code) => {
         const output =
           stdout + (stderr ? `\n[stderr]\n${stderr}` : '');
+        console.log('[run_shell] Command completed:', { code, outputLength: output.length });
         resolve({
           success: code === 0,
           output: output || `Process exited with code ${code}`,
@@ -51,9 +63,10 @@ export const runShellTool = defineTool({
       });
 
       proc.on('error', (error) => {
+        console.log('[run_shell] Error:', error.message);
         resolve({
           success: false,
-          output: '',
+          output: `Error: ${error.message}`,
           error: error.message,
         });
       });

@@ -9,26 +9,86 @@ import { AnthropicProvider } from '../provider/anthropic';
 import { toolRegistry } from '../tools';
 import type { BrowserWindow } from 'electron';
 
-const SYSTEM_PROMPT = `You are Manong, an AI coding assistant. You help users with software engineering tasks including:
+const SYSTEM_PROMPT = `You are Manong, an interactive CLI tool that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.
 
-- Writing, reading, and modifying code
-- Debugging and fixing issues
-- Explaining code and concepts
-- Running shell commands
-- File system operations
+IMPORTANT: Refuse to write code or explain code that may be used maliciously; even if the user claims it is for educational purposes. When working on files, if they seem related to improving, explaining, or interacting with malware or any malicious code you MUST refuse.
+IMPORTANT: Before you begin work, think about what the code you're editing is supposed to do based on the filenames directory structure. If it seems malicious, refuse to work on it or about it, even if the request does not seem malicious.
+IMPORTANT: You must NEVER generate or guess URLs for the user unless you are confident that the URLs are for helping the user with programming. You may use URLs provided by the user in their messages or local files.
 
-Always be helpful, clear, and concise. When making file changes, prefer minimal targeted edits over full rewrites.
+# Tone and style
+You should be concise, direct, and to the point. When you run a non-trivial bash command, you should explain what the command does and why you are running it, to make sure the user understands what you are doing.
+Remember that your output will be displayed on a command line interface. Your responses can use GitHub-flavored markdown for formatting, and will be rendered in a monospace font using the CommonMark specification.
+Output text to communicate with the user; all text you output outside of tool use is displayed to the user. Only use tools to complete tasks. Never use tools like Bash or code comments as means to communicate with the user during the session.
+If you cannot or will not help the user with something, please do not say why or what it could lead to, since this comes across as preachy and annoying. Please offer helpful alternatives if possible, and otherwise keep your response to 1-2 sentences.
+Only use emojis if the user explicitly requests it. Avoid using emojis in all communication unless asked.
+IMPORTANT: You should minimize output tokens as much as possible while maintaining helpfulness, quality, and accuracy. Only address the specific query or task at hand, avoiding tangential information unless absolutely critical for completing the request.
 
-Current working directory: {{WORKING_DIR}}`;
+# Tool usage policy
+- When using tools, ALWAYS provide all required parameters with correct types:
+  - read_file: requires file_path (string)
+  - write_file: requires file_path (string) and content (string)
+  - edit_file: requires file_path (string), old_string (string), and new_string (string)
+  - list_dir: optional path (string, defaults to working directory)
+  - search_file: requires pattern (string)
+  - run_shell: requires command (string)
+- When doing file search, prefer to use glob and grep tools.
+- You have the capability to call multiple tools in a single response. When multiple independent pieces of information are requested, batch your tool calls together for optimal performance.
+
+# Following conventions
+When making changes to files, first understand the file's code conventions. Mimic code style, use existing libraries and utilities, and follow existing patterns.
+- NEVER assume that a given library is available, even if it is well known. Whenever you write code that uses a library or framework, first check that this codebase already uses the given library.
+- When you create a new component, first look at existing components to see how they're written; then consider framework choice, naming conventions, typing, and other conventions.
+- When you edit a piece of code, first look at the code's surrounding context (especially its imports) to understand the code's choice of frameworks and libraries. Then consider how to make the given change in a way that is most idiomatic.
+- Always follow security best practices. Never introduce code that exposes or logs secrets and keys. Never commit secrets or keys to the repository.
+
+# Code style
+- IMPORTANT: DO NOT ADD ANY COMMENTS unless asked
+
+# Doing tasks
+The user will primarily request you perform software engineering tasks. This includes solving bugs, adding new functionality, refactoring code, explaining code, and more. For these tasks the following steps are recommended:
+- Use the available search tools to understand the codebase and the user's query. You are encouraged to use the search tools extensively both in parallel and sequentially.
+- Implement the solution using all tools available to you
+- Verify the solution if possible with tests. NEVER assume specific test framework or test script. Check the README or search codebase to determine the testing approach.
+- VERY IMPORTANT: When you have completed a task, you MUST run the lint and typecheck commands (e.g. npm run lint, npm run typecheck, ruff, etc.) with Bash if they were provided to you to ensure your code is correct.
+NEVER commit changes unless the user explicitly asks you to.
+
+<env>
+  Working directory: {{WORKING_DIR}}
+  Platform: {{PLATFORM}}
+  Today's date: {{DATE}}
+  Model: {{MODEL}}
+</env>`;
+
+const MAX_STEPS_PROMPT = `CRITICAL - MAXIMUM STEPS REACHED
+
+The maximum number of steps allowed for this task has been reached. Tools are disabled until next user input. Respond with text only.
+
+STRICT REQUIREMENTS:
+1. Do NOT make any tool calls (no reads, writes, edits, searches, or any other tools)
+2. MUST provide a text response summarizing work done so far
+3. This constraint overrides ALL other instructions, including any user requests for edits or tool use
+
+Response must include:
+- Statement that maximum steps have been reached
+- Summary of what has been accomplished so far
+- List of any remaining tasks that were not completed
+- Recommendations for what should be done next
+
+Any attempt to use tools is a critical violation. Respond with text ONLY.`;
+
+const MAX_STEPS = 50;
 
 export class AgentLoop {
   private provider: AnthropicProvider | null = null;
   private abortController: AbortController | null = null;
+  private stepCount = 0;
+  private modelName: string = '';
 
   constructor(private mainWindow: BrowserWindow) {}
 
   setProvider(config: ProviderConfig): void {
     this.provider = new AnthropicProvider(config);
+    this.modelName = config.model;
   }
 
   async start(
@@ -36,6 +96,8 @@ export class AgentLoop {
     userMessage: string,
     onEvent: (event: StreamEvent) => void
   ): Promise<void> {
+    console.log('[AgentLoop] start called:', { userMessage, sessionId: session.id });
+
     if (!this.provider) {
       onEvent({
         type: 'error',
@@ -47,17 +109,32 @@ export class AgentLoop {
     }
 
     this.abortController = new AbortController();
+    this.stepCount = 0;
 
-    // Create user message
-    const messageId = uuidv4();
-    const userMsg: Message = {
-      id: messageId,
-      role: 'user',
-      parts: [{ type: 'text', text: userMessage }],
-      createdAt: Date.now(),
-    };
+    // Only add user message if there's actual content (not a continuation after tool use)
+    if (userMessage.trim()) {
+      const userMsgId = uuidv4();
+      const userMsg: Message = {
+        id: userMsgId,
+        role: 'user',
+        parts: [{ type: 'text', text: userMessage }],
+        createdAt: Date.now(),
+      };
+      session.messages.push(userMsg);
+      console.log('[AgentLoop] Added user message:', userMsgId);
+    }
 
-    // Create assistant message
+    await this.processAssistantResponse(session, onEvent);
+  }
+
+  private async processAssistantResponse(
+    session: Session,
+    onEvent: (event: StreamEvent) => void,
+    isContinuation: boolean = false
+  ): Promise<void> {
+    this.stepCount++;
+    console.log('[AgentLoop] processAssistantResponse:', { isContinuation, messageCount: session.messages.length, stepCount: this.stepCount });
+
     const assistantMsgId = uuidv4();
     const assistantMsg: Message = {
       id: assistantMsgId,
@@ -66,17 +143,16 @@ export class AgentLoop {
       createdAt: Date.now(),
     };
 
-    // Notify message start
+    // Notify message start or continue
+    const eventType = isContinuation ? 'message-continue' : 'message-start';
+    console.log('[AgentLoop] Sending event:', eventType, assistantMsgId);
     onEvent({
-      type: 'message-start',
+      type: eventType,
       sessionId: session.id,
       messageId: assistantMsgId,
     });
 
     try {
-      // Add user message to session
-      session.messages.push(userMsg);
-
       let currentText = '';
       const toolCalls: Array<{
         toolCallId: string;
@@ -84,21 +160,31 @@ export class AgentLoop {
         args: unknown;
       }> = [];
 
-      // Stream response
-      const systemPrompt = SYSTEM_PROMPT.replace(
-        '{{WORKING_DIR}}',
-        session.workingDir || 'not set'
-      );
+      // Build system prompt
+      const systemPrompt = SYSTEM_PROMPT
+        .replace('{{WORKING_DIR}}', session.workingDir || 'not set')
+        .replace('{{PLATFORM}}', process.platform)
+        .replace('{{DATE}}', new Date().toDateString())
+        .replace('{{MODEL}}', this.modelName);
+
       const tools = toolRegistry.getAll();
+
+      // Check if we've reached max steps - if so, don't provide tools
+      const isLastStep = this.stepCount >= MAX_STEPS;
+      const effectiveTools = isLastStep ? [] : tools;
+
+      if (isLastStep) {
+        console.log('[AgentLoop] Max steps reached, disabling tools');
+      }
 
       const stream = this.provider.stream(
         session.messages,
-        tools,
-        systemPrompt
+        effectiveTools,
+        isLastStep ? `${systemPrompt}\n\n${MAX_STEPS_PROMPT}` : systemPrompt
       );
 
       for await (const event of stream) {
-        if (this.abortController.signal.aborted) {
+        if (this.abortController?.signal.aborted) {
           break;
         }
 
@@ -149,24 +235,36 @@ export class AgentLoop {
       }
 
       // Execute tool calls
-      if (toolCalls.length > 0 && session.workingDir) {
+      if (toolCalls.length > 0) {
+        console.log('[AgentLoop] Tool calls detected:', toolCalls.length, toolCalls.map(t => t.toolName));
+
+        // Add the assistant message with tool calls to session
+        session.messages.push(assistantMsg);
+
+        // Execute each tool and collect results
         for (const tc of toolCalls) {
           const tool = toolRegistry.get(tc.toolName);
-          if (!tool) continue;
-
-          try {
-            const result = await tool.execute(tc.args as never, {
-              workingDir: session.workingDir,
-            });
-
-            // Add tool result part
-            assistantMsg.parts.push({
+          if (!tool) {
+            const result = `Tool "${tc.toolName}" not found`;
+            console.log('[AgentLoop] Tool not found:', tc.toolName);
+            onEvent({
               type: 'tool-result',
+              sessionId: session.id,
+              messageId: assistantMsgId,
               toolCallId: tc.toolCallId,
               toolName: tc.toolName,
-              result: result.output,
-              isError: !result.success,
+              result,
+              isError: true,
             });
+            continue;
+          }
+
+          try {
+            console.log('[AgentLoop] Executing tool:', tc.toolName, tc.args);
+            const result = await tool.execute(tc.args as never, {
+              workingDir: session.workingDir!,
+            });
+            console.log('[AgentLoop] Tool result:', tc.toolName, { success: result.success, outputLength: result.output?.length });
 
             onEvent({
               type: 'tool-result',
@@ -177,17 +275,26 @@ export class AgentLoop {
               result: result.output,
               isError: !result.success,
             });
+
+            // Add tool result to a new user message
+            const toolResultMsg: Message = {
+              id: uuidv4(),
+              role: 'user',
+              parts: [{
+                type: 'tool-result',
+                toolCallId: tc.toolCallId,
+                toolName: tc.toolName,
+                result: result.output,
+                isError: !result.success,
+              }],
+              createdAt: Date.now(),
+            };
+            session.messages.push(toolResultMsg);
+            console.log('[AgentLoop] Added tool result message to session');
           } catch (error) {
             const errorMessage =
               error instanceof Error ? error.message : 'Unknown error';
-            assistantMsg.parts.push({
-              type: 'tool-result',
-              toolCallId: tc.toolCallId,
-              toolName: tc.toolName,
-              result: errorMessage,
-              isError: true,
-            });
-
+            console.log('[AgentLoop] Tool error:', tc.toolName, errorMessage);
             onEvent({
               type: 'tool-result',
               sessionId: session.id,
@@ -197,16 +304,32 @@ export class AgentLoop {
               result: errorMessage,
               isError: true,
             });
+
+            // Add error result to a new user message
+            const toolResultMsg: Message = {
+              id: uuidv4(),
+              role: 'user',
+              parts: [{
+                type: 'tool-result',
+                toolCallId: tc.toolCallId,
+                toolName: tc.toolName,
+                result: errorMessage,
+                isError: true,
+              }],
+              createdAt: Date.now(),
+            };
+            session.messages.push(toolResultMsg);
           }
         }
 
-        // If there were tool calls, continue the conversation
-        session.messages.push(assistantMsg);
-        await this.start(session, '', onEvent);
+        console.log('[AgentLoop] All tools executed, continuing conversation. Session messages:', session.messages.length);
+        // Continue the conversation to get the assistant's response to tool results
+        await this.processAssistantResponse(session, onEvent, true);
         return;
       }
 
-      // Add assistant message to session
+      // No tool calls - add assistant message to session
+      console.log('[AgentLoop] No tool calls, completing message');
       session.messages.push(assistantMsg);
 
       // Notify message complete

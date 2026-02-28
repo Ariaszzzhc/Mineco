@@ -34,7 +34,7 @@ export const ChatPanel: React.FC = () => {
   }, [handleStreamEvent]);
 
   const handleSend = async () => {
-    if (!input.trim() || isStreaming || !currentSession) return;
+    if (!input.trim() || isStreaming || !currentSession || !currentSession.workingDir) return;
 
     const userMessage: Message = {
       id: uuidv4(),
@@ -108,6 +108,8 @@ export const ChatPanel: React.FC = () => {
     );
   }
 
+  const hasWorkingDir = !!currentSession.workingDir;
+
   return (
     <div className="flex-1 flex flex-col bg-zinc-950">
       {/* Header */}
@@ -157,14 +159,14 @@ export const ChatPanel: React.FC = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Send a message..."
-              className="w-full bg-zinc-800 text-white rounded-lg px-4 py-3 pr-12 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-600"
+              placeholder={hasWorkingDir ? 'Send a message...' : 'Please select a folder first...'}
+              className="w-full bg-zinc-800 text-white rounded-lg px-4 py-3 pr-12 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-600 disabled:opacity-50"
               rows={1}
-              disabled={isStreaming}
+              disabled={isStreaming || !hasWorkingDir}
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim() || isStreaming}
+              disabled={!input.trim() || isStreaming || !hasWorkingDir}
               className="absolute right-2 bottom-2 p-2 text-zinc-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg
@@ -183,7 +185,7 @@ export const ChatPanel: React.FC = () => {
             </button>
           </div>
           <div className="mt-2 text-xs text-zinc-500">
-            Press Enter to send, Shift+Enter for new line
+            {hasWorkingDir ? 'Press Enter to send, Shift+Enter for new line' : 'Open a folder to start chatting'}
           </div>
         </div>
       </div>

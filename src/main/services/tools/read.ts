@@ -5,7 +5,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 const ReadFileSchema = z.object({
-  file_path: z.string().describe('The absolute path to the file to read'),
+  file_path: z.string().describe('The path to the file to read'),
   offset: z.number().optional().describe('Line number to start reading from'),
   limit: z.number().optional().describe('Number of lines to read'),
 });
@@ -19,10 +19,21 @@ export const readFileTool = defineTool({
     params: z.infer<typeof ReadFileSchema>,
     context: ToolContext
   ) => {
+    // Validate file_path parameter
+    if (!params.file_path || params.file_path.trim() === '') {
+      return {
+        success: false,
+        output: 'Error: No file path provided. Please specify a file to read.',
+        error: 'Missing file_path parameter',
+      };
+    }
+
     try {
       const filePath = path.isAbsolute(params.file_path)
         ? params.file_path
         : path.join(context.workingDir, params.file_path);
+
+      console.log('[read_file] Reading file:', filePath);
 
       const content = await fs.readFile(filePath, 'utf-8');
       const lines = content.split('\n');
@@ -40,10 +51,12 @@ export const readFileTool = defineTool({
         output: numberedContent,
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.log('[read_file] Error:', errorMsg);
       return {
         success: false,
-        output: '',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        output: `Error: ${errorMsg}`,
+        error: errorMsg,
       };
     }
   },

@@ -89,7 +89,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   handleStreamEvent: (event) => {
     const state = get();
 
-    if (event.type === 'text-delta') {
+    if (event.type === 'message-start') {
+      // Reset streaming state for new assistant message
+      set({
+        isStreaming: true,
+        pendingMessageId: event.messageId,
+        pendingParts: [],
+      });
+    } else if (event.type === 'message-continue') {
+      // Continue streaming after tool use - keep pendingParts, just update messageId
+      set({
+        isStreaming: true,
+        pendingMessageId: event.messageId,
+      });
+    } else if (event.type === 'text-delta') {
       // Update pending text part
       set((state) => {
         const parts = [...state.pendingParts];

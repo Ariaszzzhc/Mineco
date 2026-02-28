@@ -53,6 +53,7 @@ export type StreamEventType =
   | 'tool-call'
   | 'tool-result'
   | 'message-start'
+  | 'message-continue'
   | 'message-complete'
   | 'error';
 

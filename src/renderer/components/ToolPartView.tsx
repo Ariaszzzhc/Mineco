@@ -1,11 +1,46 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Part } from '../../shared/types';
 
 interface ToolPartViewProps {
   part: Part;
 }
 
+// Chevron icons for expand/collapse
+const ChevronRight: React.FC = () => (
+  <svg
+    className="w-4 h-4 text-zinc-400"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 5l7 7-7 7"
+    />
+  </svg>
+);
+
+const ChevronDown: React.FC = () => (
+  <svg
+    className="w-4 h-4 text-zinc-400"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M19 9l-7 7-7-7"
+    />
+  </svg>
+);
+
 export const ToolPartView: React.FC<ToolPartViewProps> = ({ part }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   if (part.type === 'text') {
     return null;
   }
@@ -13,7 +48,11 @@ export const ToolPartView: React.FC<ToolPartViewProps> = ({ part }) => {
   if (part.type === 'tool-call') {
     return (
       <div className="my-2 border border-zinc-700 rounded-lg overflow-hidden">
-        <div className="bg-zinc-800 px-3 py-2 text-sm flex items-center gap-2">
+        <div
+          className="bg-zinc-800 px-3 py-2 text-sm flex items-center gap-2 cursor-pointer hover:bg-zinc-750"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? <ChevronDown /> : <ChevronRight />}
           <svg
             className="w-4 h-4 text-zinc-400"
             fill="none"
@@ -35,11 +74,13 @@ export const ToolPartView: React.FC<ToolPartViewProps> = ({ part }) => {
           </svg>
           <span className="font-mono text-zinc-300">{part.toolName}</span>
         </div>
-        <div className="bg-zinc-900 px-3 py-2">
-          <pre className="text-xs text-zinc-400 overflow-x-auto">
-            {JSON.stringify(part.args, null, 2)}
-          </pre>
-        </div>
+        {isExpanded && (
+          <div className="bg-zinc-900 px-3 py-2">
+            <pre className="text-xs text-zinc-400 overflow-x-auto">
+              {JSON.stringify(part.args, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
     );
   }
@@ -52,10 +93,14 @@ export const ToolPartView: React.FC<ToolPartViewProps> = ({ part }) => {
         }`}
       >
         <div
-          className={`px-3 py-2 text-sm flex items-center gap-2 ${
-            part.isError ? 'bg-red-900/30' : 'bg-zinc-800'
+          className={`px-3 py-2 text-sm flex items-center gap-2 cursor-pointer ${
+            part.isError
+              ? 'bg-red-900/30 hover:bg-red-900/40'
+              : 'bg-zinc-800 hover:bg-zinc-750'
           }`}
+          onClick={() => setIsExpanded(!isExpanded)}
         >
+          {isExpanded ? <ChevronDown /> : <ChevronRight />}
           {part.isError ? (
             <svg
               className="w-4 h-4 text-red-400"
@@ -87,13 +132,15 @@ export const ToolPartView: React.FC<ToolPartViewProps> = ({ part }) => {
           )}
           <span className="font-mono text-zinc-300">Result: {part.toolName}</span>
         </div>
-        <div className="bg-zinc-900 px-3 py-2">
-          <pre className="text-xs text-zinc-400 overflow-x-auto max-h-40">
-            {typeof part.result === 'string'
-              ? part.result
-              : JSON.stringify(part.result, null, 2)}
-          </pre>
-        </div>
+        {isExpanded && (
+          <div className="bg-zinc-900 px-3 py-2">
+            <pre className="text-xs text-zinc-400 overflow-x-auto max-h-40">
+              {typeof part.result === 'string'
+                ? part.result
+                : JSON.stringify(part.result, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
     );
   }

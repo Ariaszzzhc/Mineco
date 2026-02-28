@@ -5,7 +5,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 const EditFileSchema = z.object({
-  file_path: z.string().describe('The absolute path to the file to edit'),
+  file_path: z.string().describe('The path to the file to edit'),
   old_string: z.string().describe('The text to replace'),
   new_string: z.string().describe('The text to replace it with'),
   replace_all: z
@@ -23,18 +23,43 @@ export const editFileTool = defineTool({
     params: z.infer<typeof EditFileSchema>,
     context: ToolContext
   ) => {
+    // Validate parameters
+    if (!params.file_path || params.file_path.trim() === '') {
+      return {
+        success: false,
+        output: 'Error: No file path provided. Please specify a file to edit.',
+        error: 'Missing file_path parameter',
+      };
+    }
+    if (!params.old_string) {
+      return {
+        success: false,
+        output: 'Error: No old_string provided. Please specify text to replace.',
+        error: 'Missing old_string parameter',
+      };
+    }
+    if (params.new_string === undefined || params.new_string === null) {
+      return {
+        success: false,
+        output: 'Error: No new_string provided. Please specify replacement text.',
+        error: 'Missing new_string parameter',
+      };
+    }
+
     try {
       const filePath = path.isAbsolute(params.file_path)
         ? params.file_path
         : path.join(context.workingDir, params.file_path);
+
+      console.log('[edit_file] Editing file:', filePath);
 
       const content = await fs.readFile(filePath, 'utf-8');
 
       if (!content.includes(params.old_string)) {
         return {
           success: false,
-          output: '',
-          error: `Text not found in file: "${params.old_string.slice(0, 50)}..."`,
+          output: `Error: Text not found in file: "${params.old_string.slice(0, 50)}..."`,
+          error: `Text not found in file`,
         };
       }
 
@@ -49,10 +74,12 @@ export const editFileTool = defineTool({
         output: `File edited successfully: ${filePath}`,
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.log('[edit_file] Error:', errorMsg);
       return {
         success: false,
-        output: '',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        output: `Error: ${errorMsg}`,
+        error: errorMsg,
       };
     }
   },
