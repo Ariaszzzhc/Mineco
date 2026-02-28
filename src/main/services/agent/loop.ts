@@ -154,6 +154,7 @@ export class AgentLoop {
 
     try {
       let currentText = '';
+      let currentThinking = '';
       const toolCalls: Array<{
         toolCallId: string;
         toolName: string;
@@ -204,6 +205,26 @@ export class AgentLoop {
           }
           onEvent({
             type: 'text-delta',
+            sessionId: session.id,
+            messageId: assistantMsgId,
+            delta: event.delta,
+          });
+        } else if (event.type === 'thinking-delta') {
+          currentThinking += event.delta;
+          // Update thinking part
+          const existingThinkingPart = assistantMsg.parts.find(
+            (p) => p.type === 'thinking'
+          );
+          if (existingThinkingPart && existingThinkingPart.type === 'thinking') {
+            existingThinkingPart.text = currentThinking;
+          } else {
+            assistantMsg.parts.unshift({
+              type: 'thinking',
+              text: currentThinking,
+            });
+          }
+          onEvent({
+            type: 'thinking-delta',
             sessionId: session.id,
             messageId: assistantMsgId,
             delta: event.delta,

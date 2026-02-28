@@ -117,6 +117,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return { pendingParts: parts };
       });
+    } else if (event.type === 'thinking-delta') {
+      // Update pending thinking part
+      set((state) => {
+        const parts = [...state.pendingParts];
+        const thinkingPartIdx = parts.findIndex((p) => p.type === 'thinking');
+        if (thinkingPartIdx >= 0) {
+          const tp = parts[thinkingPartIdx];
+          if (tp.type === 'thinking') {
+            parts[thinkingPartIdx] = { ...tp, text: tp.text + event.delta };
+          }
+        } else {
+          parts.unshift({ type: 'thinking', text: event.delta! });
+        }
+        return { pendingParts: parts };
+      });
     } else if (event.type === 'tool-call') {
       set((state) => ({
         pendingParts: [

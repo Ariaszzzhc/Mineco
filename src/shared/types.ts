@@ -20,7 +20,12 @@ export interface ToolResultPart {
   isError?: boolean;
 }
 
-export type Part = TextPart | ToolCallPart | ToolResultPart;
+export interface ThinkingPart {
+  type: 'thinking';
+  text: string;
+}
+
+export type Part = TextPart | ToolCallPart | ToolResultPart | ThinkingPart;
 
 export interface UserMessage {
   id: string;
@@ -50,6 +55,7 @@ export interface Session {
 // Stream events for IPC communication
 export type StreamEventType =
   | 'text-delta'
+  | 'thinking-delta'
   | 'tool-call'
   | 'tool-result'
   | 'message-start'
@@ -61,7 +67,7 @@ export interface StreamEvent {
   type: StreamEventType;
   sessionId: string;
   messageId: string;
-  // For text-delta
+  // For text-delta and thinking-delta
   delta?: string;
   // For tool-call
   toolCallId?: string;
@@ -81,6 +87,7 @@ export interface ProviderConfig {
   apiKey: string;
   baseURL: string;
   model: string;
+  enableThinking?: boolean;
 }
 
 // App configuration

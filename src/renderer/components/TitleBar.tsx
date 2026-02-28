@@ -7,6 +7,7 @@ export const TitleBar: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('claude-sonnet-4-20250514');
   const [baseURL, setBaseURL] = useState('https://api.anthropic.com');
+  const [enableThinking, setEnableThinking] = useState(false);
 
   useEffect(() => {
     // Load config on mount
@@ -16,6 +17,7 @@ export const TitleBar: React.FC = () => {
         setApiKey(cfg.providers[0].apiKey);
         setModelName(cfg.providers[0].model);
         setBaseURL(cfg.providers[0].baseURL);
+        setEnableThinking(cfg.providers[0].enableThinking ?? false);
       }
     });
   }, [setConfig]);
@@ -30,6 +32,7 @@ export const TitleBar: React.FC = () => {
           apiKey,
           model: modelName,
           baseURL,
+          enableThinking,
         },
       ],
       defaultProvider: 'claude',
@@ -125,6 +128,19 @@ export const TitleBar: React.FC = () => {
                   placeholder="claude-sonnet-4-20250514"
                   className="w-full bg-zinc-800 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-600"
                 />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="enableThinking"
+                  checked={enableThinking}
+                  onChange={(e) => setEnableThinking(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-blue-600 focus:ring-2 focus:ring-zinc-600"
+                />
+                <label htmlFor="enableThinking" className="text-sm text-zinc-400">
+                  Enable Thinking (for models like GLM-4.7)
+                </label>
               </div>
             </div>
 

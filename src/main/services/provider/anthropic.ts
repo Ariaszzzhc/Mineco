@@ -7,6 +7,7 @@ import { toJSONSchema } from 'zod/v4/core';
 export class AnthropicProvider {
   private client: Anthropic;
   private model: string;
+  private config: ProviderConfig;
 
   constructor(config: ProviderConfig) {
     this.client = new Anthropic({
@@ -14,6 +15,7 @@ export class AnthropicProvider {
       baseURL: config.baseURL,
     });
     this.model = config.model;
+    this.config = config;
   }
 
   async *stream(
@@ -22,6 +24,7 @@ export class AnthropicProvider {
     systemPrompt?: string
   ): AsyncGenerator<
     | { type: 'text-delta'; delta: string }
+    | { type: 'thinking-delta'; delta: string }
     | { type: 'tool-call'; toolCallId: string; toolName: string; args: unknown }
   > {
     // Convert messages to Anthropic format
@@ -38,26 +41,39 @@ export class AnthropicProvider {
       model: this.model,
       messageCount: anthropicMessages.length,
       toolCount: anthropicTools.length,
+      enableThinking: this.config.enableThinking,
       tools: JSON.stringify(anthropicTools, null, 2),
       messages: JSON.stringify(anthropicMessages, null, 2),
     });
 
-    const stream = this.client.messages.stream({
+    const requestOptions: Anthropic.Messages.MessageCreateParams = {
       model: this.model,
       max_tokens: 4096,
       messages: anthropicMessages,
       system: systemPrompt,
       tools: anthropicTools.length > 0 ? anthropicTools : undefined,
-    });
+    };
+
+    // Add thinking parameter if enabled (for models like GLM that support it)
+    if (this.config.enableThinking) {
+      (requestOptions as Record<string, unknown>).thinking = {
+        type: 'enabled',
+        clear_thinking: false,
+      };
+    }
+
+    const stream = this.client.messages.stream(requestOptions);
 
     // Track content blocks being streamed
-    const contentBlocks: Map<number, { type: 'text' | 'tool_use'; id?: string; name?: string; jsonBuffer: string }> = new Map();
+    const contentBlocks: Map<number, { type: 'text' | 'thinking' | 'tool_use'; id?: string; name?: string; jsonBuffer: string }> = new Map();
 
     for await (const event of stream) {
       if (event.type === 'content_block_start') {
         const index = event.index;
         if (event.content_block.type === 'text') {
           contentBlocks.set(index, { type: 'text', jsonBuffer: '' });
+        } else if (event.content_block.type === 'thinking') {
+          contentBlocks.set(index, { type: 'thinking', jsonBuffer: '' });
         } else if (event.content_block.type === 'tool_use') {
           const block = event.content_block as Anthropic.Messages.ToolUseBlock;
           contentBlocks.set(index, {
@@ -75,6 +91,11 @@ export class AnthropicProvider {
           yield {
             type: 'text-delta',
             delta: event.delta.text,
+          };
+        } else if (event.delta.type === 'thinking_delta' && block?.type === 'thinking') {
+          yield {
+            type: 'thinking-delta',
+            delta: event.delta.thinking,
           };
         } else if (event.delta.type === 'input_json_delta' && block?.type === 'tool_use') {
           // Accumulate JSON fragments for tool input
