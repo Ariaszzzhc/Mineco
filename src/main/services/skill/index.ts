@@ -56,14 +56,25 @@ class SkillService {
       const entries = await fs.readdir(dirPath, { withFileTypes: true })
 
       for (const entry of entries) {
+        const entryPath = path.join(dirPath, entry.name)
+
+        // Pattern 1: Top-level .md files (backward compatibility)
         if (entry.isFile() && entry.name.endsWith('.md')) {
-          const skillPath = path.join(dirPath, entry.name)
-          const content = await fs.readFile(skillPath, 'utf-8')
+          const content = await fs.readFile(entryPath, 'utf-8')
           const name = entry.name.replace(/\.md$/, '')
           const skill = parseSkillMarkdown(content, name, source)
+          if (skill) skills.push(skill)
+        }
 
-          if (skill) {
-            skills.push(skill)
+        // Pattern 2: Subdirectory with SKILL.md (supports symbolic links)
+        if (entry.isDirectory() || entry.isSymbolicLink()) {
+          const skillFile = path.join(entryPath, 'SKILL.md')
+          try {
+            const content = await fs.readFile(skillFile, 'utf-8')
+            const skill = parseSkillMarkdown(content, entry.name, source)
+            if (skill) skills.push(skill)
+          } catch {
+            // SKILL.md doesn't exist, skip
           }
         }
       }
