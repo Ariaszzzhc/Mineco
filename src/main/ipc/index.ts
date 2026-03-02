@@ -7,7 +7,9 @@ import type {
   QuestionAnswer,
 } from '../../shared/types';
 import type { MCPConfig, MCPServerStatus, LayeredMCPConfig } from '../../shared/mcp-types';
+import type { AgentMessage } from '../../shared/agent-types';
 import { AgentLoop } from '../services/agent/loop';
+import { teammateManager } from '../services/agent/teammate-manager';
 import { storageService } from '../services/storage';
 import { skillService } from '../services/skill';
 import { mcpManager } from '../services/mcp';
@@ -16,7 +18,14 @@ import {
   resolveQuestion,
   skipQuestion,
 } from '../services/tools/ask';
-import '../services/tools'; // Register tools
+import {
+  setGetProviderConfig,
+  setTeammateManager,
+  setShutdownTeammateManager,
+  setMessageService,
+  setInboxService,
+} from '../services/tools';
+import '../services/tools';
 
 const agentLoops = new Map<string, AgentLoop>();
 
@@ -26,6 +35,25 @@ export function setupIPC(mainWindow: BrowserWindow): void {
 
   // Set the window reference for question tool
   setQuestionWindow(mainWindow);
+
+  // Set up teammate manager
+  teammateManager.setMainWindow(mainWindow);
+
+  // Set up tool dependencies
+  let currentProviderConfig: AppConfig['providers'][0] | null = null;
+  setGetProviderConfig(() => currentProviderConfig);
+  setTeammateManager(teammateManager);
+  setShutdownTeammateManager(teammateManager);
+  setMessageService({
+    sendMessage: (config) => teammateManager.sendMessage(config),
+    getCurrentAgentId: () => teammateManager.getCurrentAgentId(),
+  });
+  setInboxService({
+    readInbox: (agentId) => teammateManager.readInbox(agentId),
+    markAsRead: (_agentId: string, _messageIds: string[]) => {
+      // Messages remain in inbox until explicitly cleared
+    },
+  });
 
   // =====================
   // Workspace Management
@@ -145,6 +173,8 @@ export function setupIPC(mainWindow: BrowserWindow): void {
 
       if (providerConfig) {
         agentLoop.setProvider(providerConfig);
+        teammateManager.setProviderConfig(providerConfig);
+        currentProviderConfig = providerConfig;
       }
 
       agentLoop.start(session, workspacePath, message, (event: StreamEvent) => {
@@ -302,5 +332,78 @@ export function setupIPC(mainWindow: BrowserWindow): void {
 
   mcpManager.onStatusChange((statuses) => {
     mainWindow.webContents.send(IPC_CHANNELS.MCP_STATUS_CHANGED, statuses);
+  });
+
+  // =====================
+  // Teammate Management
+  // =====================
+
+  ipcMain.handle(
+    IPC_CHANNELS.TEAMMATE_SPAWN,
+    async (_event, { name, role, prompt, tools }: {
+      name: string;
+      role: string;
+      prompt: string;
+      tools?: string[];
+    }) => {
+      const workspacePath = storageService.getCurrentWorkspacePath();
+      if (!workspacePath) {
+        throw new Error('No workspace selected');
+      }
+
+      const sessionId = 'default';
+      const result = await teammateManager.spawnTeammate({
+        name,
+        role,
+        systemPrompt: prompt,
+        allowedTools: tools || [],
+        workingDir: workspacePath,
+        leadSessionId: sessionId,
+      });
+
+      return teammateManager.getTeammateState(result.id);
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.TEAMMATE_SEND_MESSAGE,
+    async (_event, { recipient, content, summary, type }: {
+      recipient: string;
+      content: string;
+      summary: string;
+      type?: AgentMessage['type'];
+    }) => {
+      const result = await teammateManager.sendMessage({
+        from: 'lead',
+        to: recipient,
+        content,
+        type: type || 'message',
+        summary,
+      });
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+    }
+  );
+
+  ipcMain.handle(IPC_CHANNELS.TEAMMATE_READ_INBOX, async () => {
+    return teammateManager.readInbox('lead');
+  });
+
+  ipcMain.handle(IPC_CHANNELS.TEAMMATE_GET_STATE, async (_event, teammateId: string) => {
+    return teammateManager.getTeammateState(teammateId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.TEAMMATE_GET_CONVERSATION, async (_event, teammateId: string) => {
+    return teammateManager.getConversation(teammateId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.TEAMMATE_LIST, async () => {
+    return teammateManager.listTeammates();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.TEAMMATE_SHUTDOWN, async (_event, teammateId: string) => {
+    await teammateManager.shutdownTeammate(teammateId);
   });
 }

@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { Session, Message, Part, AppConfig, StreamEvent, Workspace, WorkspaceData, Skill, QuestionRequest } from '../../shared/types';
 import type { MCPServerStatus, MCPConfig, LayeredMCPConfig } from '../../shared/mcp-types';
+import type { AgentState, AgentMessage } from '../../shared/agent-types';
+import type { MCPServerStatus, MCPConfig, LayeredMCPConfig } from '../../shared/mcp-types';
+import type { AgentState, AgentMessage } from '../../shared/agent-types';
 
 interface AppState {
   // Workspace
@@ -31,6 +34,12 @@ interface AppState {
   // Skills
   skills: Skill[];
   commandPaletteOpen: boolean;
+
+  // Team state
+  teammates: AgentState[];
+  teammateMessages: AgentMessage[];
+  activeAgentId: string | null; // null = team-lead, string = teammate id
+  teammateConversations: Record<string, Message[]>; // Conversation history by teammate id
 
   // Workspace Actions
   setWorkspace: (data: WorkspaceData | null) => void;
@@ -69,6 +78,17 @@ interface AppState {
   setMCPLayeredConfig: (config: LayeredMCPConfig) => void;
   loadMCPStatus: () => Promise<void>;
   loadMCPLayeredConfig: () => Promise<void>;
+
+  // Team Actions
+  setTeammates: (teammates: AgentState[]) => void;
+  addTeammate: (teammate: AgentState) => void;
+  updateTeammate: (teammate: AgentState) => void;
+  removeTeammate: (teammateId: string) => void;
+  addTeammateMessage: (message: AgentMessage) => void;
+  loadTeammates: () => Promise<void>;
+  setActiveAgent: (agentId: string | null) => void;
+  loadTeammateConversation: (teammateId: string) => Promise<void>;
+  setTeammateConversation: (teammateId: string, messages: Message[]) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -87,6 +107,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   config: null,
   skills: [],
   commandPaletteOpen: false,
+  teammates: [],
+  teammateMessages: [],
+  activeAgentId: null,
+  teammateConversations: {} as Record<string, Message[]>,
 
   // =====================
   // Workspace Actions
@@ -394,5 +418,73 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error('Failed to load MCP layered config:', error);
     }
+  },
+
+  // =====================
+  // Team Actions
+  // =====================
+
+  setTeammates: (teammates) =>
+    set((state) => ({
+      teammates:
+        typeof teammates === 'function'
+          ? (teammates as (prev: AgentState[]) => AgentState[])(state.teammates)
+          : teammates,
+    })),
+
+  addTeammate: (teammate) =>
+    set((state) => ({
+      teammates: [...state.teammates, teammate],
+    })),
+
+  updateTeammate: (teammate) =>
+    set((state) => ({
+      teammates: state.teammates.map((t) =>
+        t.id === teammate.id ? teammate : t
+      ),
+    })),
+
+  removeTeammate: (teammateId) =>
+    set((state) => ({
+      teammates: state.teammates.filter((t) => t.id !== teammateId),
+    })),
+
+  addTeammateMessage: (message) =>
+    set((state) => ({
+      teammateMessages: [...state.teammateMessages, message],
+    })),
+
+  loadTeammates: async () => {
+    try {
+      const teammates = await window.manong.teammate.list();
+      set({ teammates });
+    } catch (error) {
+      console.error('Failed to load teammates:', error);
+    }
+  },
+
+  setActiveAgent: (agentId) => set({ activeAgentId: agentId }),
+
+  loadTeammateConversation: async (teammateId: string) => {
+    try {
+      const messages = await window.manong.teammate.getConversation(teammateId);
+      set((state) => ({
+        teammateConversations: {
+          ...state.teammateConversations,
+          [teammateId]: messages,
+        },
+      }));
+    } catch (error) {
+      console.error('Failed to load teammate conversation:', error);
+    }
+  },
+
+  setTeammateConversation: (teammateId: string, messages: Message[]) => {
+    set((state) => ({
+      teammateConversations: {
+        ...state.teammateConversations,
+        [teammateId]: messages,
+      },
+    }));
   },
 }));

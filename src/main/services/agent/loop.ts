@@ -5,9 +5,7 @@ import type {
   StreamEvent,
   ProviderConfig,
 } from '../../../shared/types';
-import { DEFAULT_TOKEN_USAGE } from '../../../shared/types';
-import { AnthropicProvider } from '../provider/anthropic';
-import { toolRegistry } from '../tools';
+import { AgentExecutor } from './executor';
 import { cancelPendingQuestions } from '../tools/ask';
 import type { BrowserWindow } from 'electron';
 import { createLogger } from '../logger';
@@ -110,36 +108,16 @@ NEVER commit changes unless the user explicitly asks you to.
   Model: {{MODEL}}
 </env>`;
 
-const MAX_STEPS_PROMPT = `CRITICAL - MAXIMUM STEPS REACHED
-
-The maximum number of steps allowed for this task has been reached. Tools are disabled until next user input. Respond with text only.
-
-STRICT REQUIREMENTS:
-1. Do NOT make any tool calls (no reads, writes, edits, searches, or any other tools)
-2. MUST provide a text response summarizing work done so far
-3. This constraint overrides ALL other instructions, including any user requests for edits or tool use
-
-Response must include:
-- Statement that maximum steps have been reached
-- Summary of what has been accomplished so far
-- List of any remaining tasks that were not completed
-- Recommendations for what should be done next
-
-Any attempt to use tools is a critical violation. Respond with text ONLY.`;
-
-const MAX_STEPS = 50;
-
 export class AgentLoop {
-  private provider: AnthropicProvider | null = null;
-  private abortController: AbortController | null = null;
-  private stepCount = 0;
+  private provider: ProviderConfig | null = null;
+  private executor: AgentExecutor | null = null;
   private modelName = '';
   private workingDir = '';
 
   constructor(private mainWindow: BrowserWindow) {}
 
   setProvider(config: ProviderConfig): void {
-    this.provider = new AnthropicProvider(config);
+    this.provider = config;
     this.modelName = config.model;
   }
 
@@ -159,15 +137,11 @@ export class AgentLoop {
       return;
     }
 
-    this.abortController = new AbortController();
-    this.stepCount = 0;
     this.workingDir = workingDir;
 
-    // Only add user message if there's actual content (not a continuation after tool use)
     if (userMessage.trim()) {
-      const userMsgId = uuidv4();
       const userMsg: Message = {
-        id: userMsgId,
+        id: uuidv4(),
         role: 'user',
         parts: [{ type: 'text', text: userMessage }],
         createdAt: Date.now(),
@@ -175,272 +149,44 @@ export class AgentLoop {
       session.messages.push(userMsg);
     }
 
-    await this.processAssistantResponse(session, onEvent);
-  }
+    const systemPrompt = SYSTEM_PROMPT
+      .replace('{{WORKING_DIR}}', this.workingDir || 'not set')
+      .replace('{{PLATFORM}}', process.platform)
+      .replace('{{DATE}}', new Date().toDateString())
+      .replace('{{MODEL}}', this.modelName);
 
-  private async processAssistantResponse(
-    session: Session,
-    onEvent: (event: StreamEvent) => void,
-    isContinuation = false
-  ): Promise<void> {
-    this.stepCount++;
-
-    const assistantMsgId = uuidv4();
-    const assistantMsg: Message = {
-      id: assistantMsgId,
-      role: 'assistant',
-      parts: [],
-      createdAt: Date.now(),
-    };
-
-    // Notify message start or continue
-    const eventType = isContinuation ? 'message-continue' : 'message-start';
-    onEvent({
-      type: eventType,
+    this.executor = new AgentExecutor({
+      provider: this.provider,
+      systemPrompt,
+      workingDir: this.workingDir,
       sessionId: session.id,
-      messageId: assistantMsgId,
     });
 
     try {
-      let currentText = '';
-      let currentThinking = '';
-      const toolCalls: Array<{
-        toolCallId: string;
-        toolName: string;
-        args: unknown;
-      }> = [];
+      const result = await this.executor.execute(session.messages, onEvent);
 
-      // Build system prompt
-      const systemPrompt = SYSTEM_PROMPT
-        .replace('{{WORKING_DIR}}', this.workingDir || 'not set')
-        .replace('{{PLATFORM}}', process.platform)
-        .replace('{{DATE}}', new Date().toDateString())
-        .replace('{{MODEL}}', this.modelName);
+      session.messages.length = 0;
+      session.messages.push(...result.messages);
 
-      const tools = toolRegistry.getAll();
-
-      // Check if we've reached max steps - if so, don't provide tools
-      const isLastStep = this.stepCount >= MAX_STEPS;
-      const effectiveTools = isLastStep ? [] : tools;
-
-      if (isLastStep) {
-        log.warn('Max steps reached, disabling tools');
-      }
-
-      const stream = this.provider.stream(
-        session.messages,
-        effectiveTools,
-        isLastStep ? `${systemPrompt}\n\n${MAX_STEPS_PROMPT}` : systemPrompt
-      );
-
-      for await (const event of stream) {
-        if (this.abortController?.signal.aborted) {
-          break;
-        }
-
-        if (event.type === 'text-delta') {
-          currentText += event.delta;
-          // Update text part
-          const existingTextPart = assistantMsg.parts.find(
-            (p) => p.type === 'text'
-          );
-          if (existingTextPart && existingTextPart.type === 'text') {
-            existingTextPart.text = currentText;
-          } else {
-            assistantMsg.parts.unshift({
-              type: 'text',
-              text: currentText,
-            });
-          }
-          onEvent({
-            type: 'text-delta',
-            sessionId: session.id,
-            messageId: assistantMsgId,
-            delta: event.delta,
-          });
-        } else if (event.type === 'thinking-delta') {
-          currentThinking += event.delta;
-          // Update thinking part
-          const existingThinkingPart = assistantMsg.parts.find(
-            (p) => p.type === 'thinking'
-          );
-          if (existingThinkingPart && existingThinkingPart.type === 'thinking') {
-            existingThinkingPart.text = currentThinking;
-          } else {
-            assistantMsg.parts.unshift({
-              type: 'thinking',
-              text: currentThinking,
-            });
-          }
-          onEvent({
-            type: 'thinking-delta',
-            sessionId: session.id,
-            messageId: assistantMsgId,
-            delta: event.delta,
-          });
-        } else if (event.type === 'tool-call') {
-          toolCalls.push({
-            toolCallId: event.toolCallId,
-            toolName: event.toolName,
-            args: event.args,
-          });
-
-          // Add tool call part
-          assistantMsg.parts.push({
-            type: 'tool-call',
-            toolCallId: event.toolCallId,
-            toolName: event.toolName,
-            args: event.args as Record<string, unknown>,
-          });
-
-          onEvent({
-            type: 'tool-call',
-            sessionId: session.id,
-            messageId: assistantMsgId,
-            toolCallId: event.toolCallId,
-            toolName: event.toolName,
-            args: event.args as Record<string, unknown>,
-          });
-        } else if (event.type === 'usage') {
-          if (!session.tokenUsage) {
-            session.tokenUsage = { ...DEFAULT_TOKEN_USAGE };
-          }
-          session.tokenUsage.inputTokens += event.usage.inputTokens;
-          session.tokenUsage.outputTokens += event.usage.outputTokens;
-          session.tokenUsage.cacheCreationInputTokens += event.usage.cacheCreationInputTokens;
-          session.tokenUsage.cacheReadInputTokens += event.usage.cacheReadInputTokens;
-
-          session.lastUsage = {
-            inputTokens: event.usage.inputTokens,
-            outputTokens: event.usage.outputTokens,
-            cacheCreationInputTokens: event.usage.cacheCreationInputTokens,
-            cacheReadInputTokens: event.usage.cacheReadInputTokens,
-          };
-
-          onEvent({
-            type: 'usage',
-            sessionId: session.id,
-            messageId: assistantMsgId,
-            usage: session.tokenUsage,
-            lastUsage: session.lastUsage,
-          });
-        }
-      }
-
-      // Execute tool calls
-      if (toolCalls.length > 0) {
-        // Add the assistant message with tool calls to session
-        session.messages.push(assistantMsg);
-
-        // Execute each tool and collect results
-        for (const tc of toolCalls) {
-          const tool = toolRegistry.get(tc.toolName);
-          if (!tool) {
-            const result = `Tool "${tc.toolName}" not found`;
-            log.error('Tool not found:', tc.toolName);
-            onEvent({
-              type: 'tool-result',
-              sessionId: session.id,
-              messageId: assistantMsgId,
-              toolCallId: tc.toolCallId,
-              toolName: tc.toolName,
-              result,
-              isError: true,
-            });
-            continue;
-          }
-
-          try {
-            const result = await tool.execute(tc.args as never, {
-              workingDir: this.workingDir,
-            });
-
-            onEvent({
-              type: 'tool-result',
-              sessionId: session.id,
-              messageId: assistantMsgId,
-              toolCallId: tc.toolCallId,
-              toolName: tc.toolName,
-              result: result.output,
-              isError: !result.success,
-            });
-
-            // Add tool result to a new user message
-            const toolResultMsg: Message = {
-              id: uuidv4(),
-              role: 'user',
-              parts: [{
-                type: 'tool-result',
-                toolCallId: tc.toolCallId,
-                toolName: tc.toolName,
-                result: result.output,
-                isError: !result.success,
-              }],
-              createdAt: Date.now(),
-            };
-            session.messages.push(toolResultMsg);
-          } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : 'Unknown error';
-            log.error('Tool error:', tc.toolName, errorMessage);
-            onEvent({
-              type: 'tool-result',
-              sessionId: session.id,
-              messageId: assistantMsgId,
-              toolCallId: tc.toolCallId,
-              toolName: tc.toolName,
-              result: errorMessage,
-              isError: true,
-            });
-
-            // Add error result to a new user message
-            const toolResultMsg: Message = {
-              id: uuidv4(),
-              role: 'user',
-              parts: [{
-                type: 'tool-result',
-                toolCallId: tc.toolCallId,
-                toolName: tc.toolName,
-                result: errorMessage,
-                isError: true,
-              }],
-              createdAt: Date.now(),
-            };
-            session.messages.push(toolResultMsg);
-          }
-        }
-
-        // Continue the conversation to get the assistant's response to tool results
-        await this.processAssistantResponse(session, onEvent, true);
-        return;
-      }
-
-      // No tool calls - add assistant message to session
-      session.messages.push(assistantMsg);
-
-      // Notify message complete
-      onEvent({
-        type: 'message-complete',
-        sessionId: session.id,
-        messageId: assistantMsgId,
-      });
+      session.tokenUsage = result.tokenUsage;
+      session.lastUsage = result.tokenUsage;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log.error('AgentLoop error:', errorMessage);
       onEvent({
         type: 'error',
         sessionId: session.id,
-        messageId: assistantMsgId,
+        messageId: '',
         error: errorMessage,
       });
     }
   }
 
   stop(): void {
-    if (this.abortController) {
-      this.abortController.abort();
-      this.abortController = null;
+    if (this.executor) {
+      this.executor.abort();
+      this.executor = null;
     }
-    // Cancel all pending questions
     cancelPendingQuestions();
   }
 }

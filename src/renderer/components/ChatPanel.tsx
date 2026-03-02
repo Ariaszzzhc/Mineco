@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { PlusCircle, Image, Terminal, ArrowUp } from 'lucide-react';
+import { PlusCircle, Image, Terminal, ArrowUp, Bot, X } from 'lucide-react';
 import { useAppStore } from '../stores/app';
 import { MessageItem } from './MessageItem';
 import { QuestionCard } from './QuestionCard';
@@ -18,11 +18,16 @@ export const ChatPanel: React.FC = () => {
     pendingQuestion,
     config,
     skills,
+    activeAgentId,
+    teammates,
+    teammateConversations,
     updateSession,
     startStreaming,
     handleStreamEvent,
     loadSkills,
     setPendingQuestion,
+    setActiveAgent,
+    loadTeammateConversation,
   } = useAppStore();
 
   const [input, setInput] = useState('');
@@ -30,6 +35,33 @@ export const ChatPanel: React.FC = () => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const rafRef = useRef<number>();
+
+  // Find active teammate
+  const activeTeammate = activeAgentId
+    ? teammates.find((t) => t.id === activeAgentId)
+    : null;
+
+  // Get conversation for active teammate
+  const teammateConversation = activeAgentId
+    ? teammateConversations[activeAgentId] || []
+    : [];
+
+  // Load conversation when teammate is selected
+  useEffect(() => {
+    if (activeAgentId) {
+      loadTeammateConversation(activeAgentId);
+    }
+  }, [activeAgentId, loadTeammateConversation]);
+
+  // Listen for conversation updates
+  useEffect(() => {
+    const unsubscribe = window.manong.teammate.onEvent((event) => {
+      if (event.type === 'conversation_updated' && activeAgentId === (event.data as { id: string }).id) {
+        loadTeammateConversation(activeAgentId);
+      }
+    });
+    return unsubscribe;
+  }, [activeAgentId, loadTeammateConversation]);
 
   useEffect(() => {
     // Use requestAnimationFrame to throttle scroll calls
@@ -212,33 +244,90 @@ export const ChatPanel: React.FC = () => {
 
   return (
     <main className="flex-1 flex flex-col bg-background">
+      {/* Agent Header - shows when viewing a teammate */}
+      {activeAgentId && activeTeammate && (
+        <div className="border-b border-border bg-surface px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bot size={16} className="text-primary" />
+            <span className="font-medium text-sm">{activeTeammate.name}</span>
+            <span className="text-xs text-text-secondary">{activeTeammate.role}</span>
+            <span className={`ml-2 px-2 py-0.5 rounded text-[10px] ${
+              activeTeammate.status === 'running' ? 'bg-green-500/20 text-green-500' :
+              activeTeammate.status === 'idle' ? 'bg-yellow-500/20 text-yellow-500' :
+              activeTeammate.status === 'waiting' ? 'bg-blue-500/20 text-blue-500' :
+              'bg-gray-500/20 text-gray-500'
+            }`}>
+              {activeTeammate.status}
+            </span>
+          </div>
+          <button
+            onClick={() => setActiveAgent(null)}
+            className="text-xs text-text-secondary hover:text-text-primary px-2 py-1 rounded hover:bg-hover flex items-center gap-1"
+          >
+            <X size={12} />
+            Back to Lead
+          </button>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
-        {currentSession.messages.map((message) => (
-          <MessageItem key={message.id} message={message} />
-        ))}
+        {activeAgentId && activeTeammate ? (
+          // Show teammate's conversation history
+          <div className="p-4">
+            {teammateConversation.length === 0 ? (
+              <div className="text-center text-text-secondary py-8">
+                <Bot size={48} className="mx-auto mb-4 text-text-secondary/30" strokeWidth={1} />
+                <p className="text-sm">No conversation history yet</p>
+                <p className="text-xs mt-1">
+                  {activeTeammate.hasHistory
+                    ? 'Loading conversation...'
+                    : `${activeTeammate.name} hasn't processed any tasks yet.`}
+                </p>
+              </div>
+            ) : (
+              <>
+                {teammateConversation.map((message) => (
+                  <MessageItem key={message.id} message={message} />
+                ))}
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            {currentSession.messages.map((message) => (
+              <MessageItem key={message.id} message={message} />
+            ))}
 
-        {/* Streaming message */}
-        {isStreaming && pendingMessageId && (
-          <MessageItem
-            message={{
-              id: pendingMessageId,
-              role: 'assistant',
-              parts: pendingParts,
-              createdAt: Date.now(),
-            }}
-            isStreaming
-            pendingParts={pendingParts}
-          />
+            {/* Streaming message */}
+            {isStreaming && pendingMessageId && (
+              <MessageItem
+                message={{
+                  id: pendingMessageId,
+                  role: 'assistant',
+                  parts: pendingParts,
+                  createdAt: Date.now(),
+                }}
+                isStreaming
+                pendingParts={pendingParts}
+              />
+            )}
+          </>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input area - replaced by QuestionCard when there's a pending question */}
+      {/* Input area */}
       <div className="border-t border-border p-4">
         <div className="max-w-3xl mx-auto">
-          {pendingQuestion ? (
+          {activeAgentId && activeTeammate ? (
+            // Read-only view for teammate conversations
+            <div className="text-center text-text-secondary text-xs py-2">
+              <p>Viewing conversation history of {activeTeammate.name}</p>
+              <p className="text-[10px] mt-1">Messages are sent via Team-lead using send_message tool</p>
+            </div>
+          ) : pendingQuestion ? (
             <QuestionCard
               questions={pendingQuestion.questions}
               onSubmit={handleQuestionSubmit}

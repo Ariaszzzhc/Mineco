@@ -56,4 +56,14 @@ export const IPC_CHANNELS = {
   MCP_SAVE_PROJECT_CONFIG: 'mcp:save-project-config',
   MCP_SET_WORKSPACE: 'mcp:set-workspace',
   MCP_STATUS_CHANGED: 'mcp:status-changed',
+
+  // Teammate management
+  TEAMMATE_SPAWN: 'teammate:spawn',
+  TEAMMATE_SEND_MESSAGE: 'teammate:send-message',
+  TEAMMATE_READ_INBOX: 'teammate:read-inbox',
+  TEAMMATE_GET_STATE: 'teammate:get-state',
+  TEAMMATE_GET_CONVERSATION: 'teammate:get-conversation',
+  TEAMMATE_LIST: 'teammate:list',
+  TEAMMATE_SHUTDOWN: 'teammate:shutdown',
+  TEAMMATE_EVENT: 'teammate:event',
 } as const;
