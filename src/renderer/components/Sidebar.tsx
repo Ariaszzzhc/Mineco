@@ -1,7 +1,6 @@
 import React from 'react';
-import { Plus, Terminal, Code, ChevronRight, Users } from 'lucide-react';
+import { Plus, Terminal, Code, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../stores/app';
-import { TeamPanel } from './TeamPanel';
 
 const formatTokens = (count: number): string => {
   if (count >= 1000000) {
@@ -13,9 +12,8 @@ const formatTokens = (count: number): string => {
 };
 
 export const Sidebar: React.FC = () => {
-  const { sessions, currentSessionId, setCurrentSession, deleteSession, teammates } =
+  const { sessions, currentSessionId, setCurrentSession, deleteSession } =
     useAppStore();
-  const [showTeam, setShowTeam] = React.useState(false);
 
   const handleNewSession = async () => {
     const session = await window.manong.session.create();
@@ -134,28 +132,6 @@ export const Sidebar: React.FC = () => {
         {totalTokens > 0 && (
           <div className="text-[10px] text-text-secondary mt-1 font-mono">
             {formatTokens(totalTokens)} tokens
-          </div>
-        )}
-      </div>
-
-      {/* Team Panel Toggle */}
-      <div className="border-t border-border">
-        <button
-          onClick={() => setShowTeam(!showTeam)}
-          className="w-full p-3 flex items-center justify-between text-xs text-text-secondary hover:text-text-primary hover:bg-hover transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Users size={14} strokeWidth={1.5} />
-            <span>Team {teammates.length > 0 ? `(${teammates.length})` : ''}</span>
-          </div>
-          <ChevronRight
-            size={12}
-            className={`transform transition-transform ${showTeam ? 'rotate-90' : ''}`}
-          />
-        </button>
-        {showTeam && (
-          <div className="border-t border-border bg-surface max-h-64 overflow-y-auto">
-            <TeamPanel />
           </div>
         )}
       </div>

@@ -16,7 +16,6 @@ export interface ExecutorConfig {
   workingDir: string;
   sessionId: string;
   agentId?: string;
-  isSubagent?: boolean;
   maxSteps?: number;
 }
 
@@ -33,10 +32,11 @@ export class AgentExecutor {
   private workingDir: string;
   private sessionId: string;
   private agentId: string;
-  private isSubagent: boolean;
   private maxSteps: number;
   private stepCount = 0;
   private abortController: AbortController | null = null;
+  private isPaused = false;
+  private pauseResolver: (() => void) | null = null;
 
   constructor(config: ExecutorConfig) {
     this.provider = new AnthropicProvider(config.provider);
@@ -45,7 +45,6 @@ export class AgentExecutor {
     this.workingDir = config.workingDir;
     this.sessionId = config.sessionId;
     this.agentId = config.agentId || uuidv4();
-    this.isSubagent = config.isSubagent ?? false;
     this.maxSteps = config.maxSteps ?? 50;
   }
 
@@ -123,6 +122,8 @@ export class AgentExecutor {
         if (this.abortController?.signal.aborted) {
           break;
         }
+
+        await this.waitForResume();
 
         if (event.type === 'text-delta') {
           currentText += event.delta;
@@ -202,11 +203,12 @@ export class AgentExecutor {
           }
 
           try {
+            await this.waitForResume();
+
             const context: ToolContext = {
               workingDir: this.workingDir,
               sessionId: this.sessionId,
               agentId: this.agentId,
-              isSubagent: this.isSubagent,
             };
 
             const result = await tool.execute(tc.args as never, context);
@@ -315,5 +317,31 @@ export class AgentExecutor {
       this.abortController.abort();
       this.abortController = null;
     }
+  }
+
+  pause(): void {
+    this.isPaused = true;
+    log.info(`Executor ${this.agentId} paused`);
+  }
+
+  resume(): void {
+    this.isPaused = false;
+    if (this.pauseResolver) {
+      this.pauseResolver();
+      this.pauseResolver = null;
+    }
+    log.info(`Executor ${this.agentId} resumed`);
+  }
+
+  getIsPaused(): boolean {
+    return this.isPaused;
+  }
+
+  private async waitForResume(): Promise<void> {
+    if (!this.isPaused) return;
+
+    return new Promise<void>((resolve) => {
+      this.pauseResolver = resolve;
+    });
   }
 }

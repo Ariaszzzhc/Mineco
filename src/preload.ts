@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from './shared/ipc';
 import type { Session, StreamEvent, AppConfig, Workspace, WorkspaceData, Skill, SkillExecuteResult, QuestionRequest, QuestionAnswer, Message } from './shared/types';
 import type { MCPConfig, MCPServerStatus, LayeredMCPConfig } from './shared/mcp-types';
-import type { AgentState, AgentMessage } from './shared/agent-types';
 
 const api = {
   agent: {
@@ -166,57 +165,6 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.MCP_STATUS_CHANGED, handler);
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.MCP_STATUS_CHANGED, handler);
-      };
-    },
-  },
-
-  teammate: {
-    spawn: (
-      name: string,
-      role: string,
-      prompt: string,
-      tools?: string[]
-    ): Promise<AgentState> => {
-      return ipcRenderer.invoke(IPC_CHANNELS.TEAMMATE_SPAWN, {
-        name,
-        role,
-        prompt,
-        tools,
-      });
-    },
-    sendMessage: (
-      recipient: string,
-      content: string,
-      summary: string,
-      type?: AgentMessage['type']
-    ): Promise<void> => {
-      return ipcRenderer.invoke(IPC_CHANNELS.TEAMMATE_SEND_MESSAGE, {
-        recipient,
-        content,
-        summary,
-        type,
-      });
-    },
-    readInbox: (): Promise<AgentMessage[]> => {
-      return ipcRenderer.invoke(IPC_CHANNELS.TEAMMATE_READ_INBOX);
-    },
-    getState: (teammateId: string): Promise<AgentState | undefined> => {
-      return ipcRenderer.invoke(IPC_CHANNELS.TEAMMATE_GET_STATE, teammateId);
-    },
-    getConversation: (teammateId: string): Promise<Message[]> => {
-      return ipcRenderer.invoke(IPC_CHANNELS.TEAMMATE_GET_CONVERSATION, teammateId);
-    },
-    list: (): Promise<AgentState[]> => {
-      return ipcRenderer.invoke(IPC_CHANNELS.TEAMMATE_LIST);
-    },
-    shutdown: (teammateId: string): Promise<void> => {
-      return ipcRenderer.invoke(IPC_CHANNELS.TEAMMATE_SHUTDOWN, teammateId);
-    },
-    onEvent: (callback: (event: { type: string; data: unknown }) => void) => {
-      const handler = (_event: unknown, data: unknown) => callback(data as { type: string; data: unknown });
-      ipcRenderer.on(IPC_CHANNELS.TEAMMATE_EVENT, handler);
-      return () => {
-        ipcRenderer.removeListener(IPC_CHANNELS.TEAMMATE_EVENT, handler);
       };
     },
   },

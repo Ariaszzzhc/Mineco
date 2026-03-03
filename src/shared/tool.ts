@@ -11,7 +11,6 @@ export interface ToolContext {
   workingDir: string;
   sessionId?: string;
   agentId?: string;
-  isSubagent?: boolean;
 }
 
 export interface ToolResult {
