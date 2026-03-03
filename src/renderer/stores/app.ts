@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Session, Message, Part, AppConfig, StreamEvent, Workspace, WorkspaceData, Skill, QuestionRequest } from '../../shared/types';
+import type { Session, Message, Part, AppConfig, StreamEvent, Workspace, WorkspaceData, Skill, QuestionRequest, Todo } from '../../shared/types';
 import type { MCPServerStatus, MCPConfig, LayeredMCPConfig } from '../../shared/mcp-types';
 
 interface AppState {
@@ -19,6 +19,9 @@ interface AppState {
 
   // Question state
   pendingQuestion: QuestionRequest | null;
+
+  // Todo state
+  todos: Todo[];
 
   // MCP state
   mcpStatuses: MCPServerStatus[];
@@ -63,6 +66,9 @@ interface AppState {
   // Question Actions
   setPendingQuestion: (question: QuestionRequest | null) => void;
 
+  // Todo Actions
+  setTodos: (todos: Todo[]) => void;
+
   // MCP Actions
   setMCPStatuses: (statuses: MCPServerStatus[]) => void;
   setMCPConfig: (config: MCPConfig) => void;
@@ -81,6 +87,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   pendingMessageId: null,
   pendingParts: [],
   pendingQuestion: null,
+  todos: [],
   mcpStatuses: [],
   mcpConfig: null,
   mcpLayeredConfig: null,
@@ -100,6 +107,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         sessions: [],
         currentSession: null,
         currentSessionId: null,
+        todos: [],
       });
       return;
     }
@@ -110,6 +118,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       sessions: data.sessions,
       currentSession: data.sessions[0] || null,
       currentSessionId: data.sessions[0]?.id || null,
+      todos: data.sessions[0]?.todos || [],
     });
   },
 
@@ -120,6 +129,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       sessions: [],
       currentSession: null,
       currentSessionId: null,
+      todos: [],
     });
   },
 
@@ -133,6 +143,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       currentSession: session,
       currentSessionId: session?.id ?? null,
+      todos: session?.todos || [],
     }),
 
   addSession: (session) =>
@@ -367,6 +378,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   // =====================
 
   setPendingQuestion: (question) => set({ pendingQuestion: question }),
+
+  // =====================
+  // Todo Actions
+  // =====================
+
+  setTodos: (todos) => set({ todos }),
 
   // =====================
   // MCP Actions

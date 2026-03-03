@@ -14,7 +14,7 @@ import type { ThemeName } from './themes';
 import type { Skill } from './shared/types';
 
 export const App: React.FC = () => {
-  const { currentWorkspace, currentWorkspacePath, setWorkspace, config, setConfig, openCommandPalette, loadSkills, mcpStatuses, setMCPStatuses } = useAppStore();
+  const { currentWorkspace, currentWorkspacePath, setWorkspace, config, setConfig, openCommandPalette, loadSkills, mcpStatuses, setMCPStatuses, setTodos, currentSessionId } = useAppStore();
   const [showSettings, setShowSettings] = useState(false);
   const [showMCPConfig, setShowMCPConfig] = useState(false);
 
@@ -41,12 +41,20 @@ export const App: React.FC = () => {
       setMCPStatuses(statuses);
     });
 
+    const unsubscribeTodo = window.manong.todo.onUpdate((data) => {
+      // Only update if it's for the current session
+      if (data.sessionId === currentSessionId) {
+        setTodos(data.todos);
+      }
+    });
+
     window.manong.mcp.getStatus().then(setMCPStatuses);
 
     return () => {
       unsubscribe();
+      unsubscribeTodo();
     };
-  }, [setConfig, setWorkspace, loadSkills, setMCPStatuses]);
+  }, [setConfig, setWorkspace, loadSkills, setMCPStatuses, setTodos, currentSessionId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

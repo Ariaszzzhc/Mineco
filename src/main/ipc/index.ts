@@ -16,6 +16,7 @@ import {
   resolveQuestion,
   skipQuestion,
 } from '../services/tools/ask';
+import { setTodoWindow } from '../services/tools/todo';
 import '../services/tools';
 
 const agentLoops = new Map<string, AgentLoop>();
@@ -26,6 +27,9 @@ export function setupIPC(mainWindow: BrowserWindow): void {
 
   // Set the window reference for question tool
   setQuestionWindow(mainWindow);
+
+  // Set the window reference for todo tool
+  setTodoWindow(mainWindow);
 
   // =====================
   // Workspace Management

@@ -45,6 +45,9 @@ export const IPC_CHANNELS = {
   QUESTION_ANSWER: 'question:answer',
   QUESTION_SKIP: 'question:skip',
 
+  // Todo
+  TODO_UPDATE: 'todo:update',
+
   // MCP (Model Context Protocol)
   MCP_GET_STATUS: 'mcp:get-status',
   MCP_CONNECT: 'mcp:connect',

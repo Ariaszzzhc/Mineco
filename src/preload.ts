@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from './shared/ipc';
-import type { Session, StreamEvent, AppConfig, Workspace, WorkspaceData, Skill, SkillExecuteResult, QuestionRequest, QuestionAnswer, Message } from './shared/types';
+import type { Session, StreamEvent, AppConfig, Workspace, WorkspaceData, Skill, SkillExecuteResult, QuestionRequest, QuestionAnswer, Message, Todo } from './shared/types';
 import type { MCPConfig, MCPServerStatus, LayeredMCPConfig } from './shared/mcp-types';
 
 const api = {
@@ -165,6 +165,16 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.MCP_STATUS_CHANGED, handler);
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.MCP_STATUS_CHANGED, handler);
+      };
+    },
+  },
+
+  todo: {
+    onUpdate: (callback: (data: { sessionId: string; todos: Todo[] }) => void) => {
+      const handler = (_event: unknown, data: { sessionId: string; todos: Todo[] }) => callback(data);
+      ipcRenderer.on(IPC_CHANNELS.TODO_UPDATE, handler);
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.TODO_UPDATE, handler);
       };
     },
   },

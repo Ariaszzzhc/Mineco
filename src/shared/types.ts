@@ -65,6 +65,7 @@ export interface Session {
   updatedAt: number;
   tokenUsage: TokenUsage;
   lastUsage?: TokenUsage;
+  todos?: Todo[];
 }
 
 // Workspace - represents a working directory context
@@ -171,3 +172,13 @@ export interface QuestionRequest {
 }
 
 export type QuestionAnswer = string[];
+
+// Todo types
+export type TodoStatus = 'pending' | 'in_progress' | 'completed';
+export type TodoPriority = 'high' | 'medium' | 'low';
+
+export interface Todo {
+  content: string;
+  status: TodoStatus;
+  priority: TodoPriority;
+}

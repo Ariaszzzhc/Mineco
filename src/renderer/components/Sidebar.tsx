@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Terminal, Code, ChevronRight } from 'lucide-react';
+import { Plus, Terminal, Code, ChevronRight, Circle, CircleDot, CheckCircle } from 'lucide-react';
 import { useAppStore } from '../stores/app';
 
 const formatTokens = (count: number): string => {
@@ -12,7 +12,7 @@ const formatTokens = (count: number): string => {
 };
 
 export const Sidebar: React.FC = () => {
-  const { sessions, currentSessionId, setCurrentSession, deleteSession } =
+  const { sessions, currentSessionId, setCurrentSession, deleteSession, todos } =
     useAppStore();
 
   const handleNewSession = async () => {
@@ -116,6 +116,43 @@ export const Sidebar: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Todo List */}
+      {todos && todos.length > 0 && (
+        <div className="px-3 py-2 border-t border-border">
+          <div className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-2">
+            Tasks
+          </div>
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {todos.map((todo, index) => (
+              <div
+                key={index}
+                className={`flex items-center gap-2 text-xs py-1 ${
+                  todo.status === 'completed'
+                    ? 'text-text-secondary line-through'
+                    : todo.status === 'in_progress'
+                    ? 'text-primary'
+                    : 'text-text-primary'
+                }`}
+              >
+                {todo.status === 'completed' ? (
+                  <CheckCircle size={12} className="text-success shrink-0" strokeWidth={1.5} />
+                ) : todo.status === 'in_progress' ? (
+                  <CircleDot size={12} className="text-primary shrink-0" strokeWidth={1.5} />
+                ) : (
+                  <Circle size={12} className="text-text-secondary shrink-0" strokeWidth={1.5} />
+                )}
+                <span className="truncate flex-1">
+                  {todo.priority === 'high' && (
+                    <span className="text-error mr-1">!</span>
+                  )}
+                  {todo.content}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Context Usage Bar */}
       <div className="p-3 border-t border-border bg-surface-elevated">

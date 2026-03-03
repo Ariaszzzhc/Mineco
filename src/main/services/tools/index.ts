@@ -8,5 +8,6 @@ import './search';
 import './shell';
 import './skill';
 import './ask';
+import './todo';
 
 export { toolRegistry } from './registry';
