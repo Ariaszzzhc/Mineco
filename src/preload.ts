@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from './shared/ipc';
-import type { Session, StreamEvent, AppConfig, Workspace, WorkspaceData, Skill, SkillExecuteResult, QuestionRequest, QuestionAnswer, Message, Todo, ImagePart } from './shared/types';
+import type { Session, StreamEvent, AppConfig, Workspace, WorkspaceData, Skill, SkillExecuteResult, QuestionRequest, QuestionAnswer, Todo, ImagePart } from './shared/types';
 import type { MCPConfig, MCPServerStatus, LayeredMCPConfig } from './shared/mcp-types';
 
 const api = {
@@ -179,6 +179,23 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.TODO_UPDATE, handler);
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.TODO_UPDATE, handler);
+      };
+    },
+  },
+
+  menu: {
+    onNewSession: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('menu:new-session', handler);
+      return () => {
+        ipcRenderer.removeListener('menu:new-session', handler);
+      };
+    },
+    onOpenFolder: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('menu:open-folder', handler);
+      return () => {
+        ipcRenderer.removeListener('menu:open-folder', handler);
       };
     },
   },

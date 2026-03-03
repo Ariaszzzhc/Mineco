@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, Terminal, Code, ChevronRight, Circle, CircleDot, CheckCircle } from 'lucide-react';
 import { useAppStore } from '../stores/app';
 import { useTranslation, tf } from '../i18n';
+import { shortcutTitle } from '../hooks/useShortcutHint';
 
 const formatTokens = (count: number): string => {
   if (count >= 1000000) {
@@ -52,7 +53,7 @@ export const Sidebar: React.FC = () => {
         <button
           onClick={handleNewSession}
           className="text-text-secondary hover:text-text-primary transition-colors"
-          title={t['sidebar.newSession']}
+          title={shortcutTitle(t['sidebar.newSession'], 'newSession')}
         >
           <Plus size={16} strokeWidth={1.5} />
         </button>

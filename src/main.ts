@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { setupIPC } from './main/ipc';
@@ -10,6 +10,70 @@ if (started) {
 }
 
 let mainWindow: BrowserWindow | null = null;
+
+const buildMenu = () => {
+  const isMac = process.platform === 'darwin';
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' as const },
+              { type: 'separator' as const },
+              { role: 'hide' as const },
+              { role: 'hideOthers' as const },
+              { role: 'unhide' as const },
+              { type: 'separator' as const },
+              { role: 'quit' as const },
+            ],
+          },
+        ]
+      : []),
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New Session',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => {
+            // Let the renderer handle it — just prevent Chromium's default
+            mainWindow?.webContents.send('menu:new-session');
+          },
+        },
+        {
+          label: 'Open Folder',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => {
+            mainWindow?.webContents.send('menu:open-folder');
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Close Window',
+          accelerator: 'CmdOrCtrl+W',
+          click: () => {
+            mainWindow?.close();
+          },
+        },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+};
 
 const createWindow = async () => {
   // Create the browser window with frameless design
@@ -46,6 +110,9 @@ const createWindow = async () => {
 
   // Setup IPC handlers
   setupIPC(mainWindow);
+
+  // Build application menu to capture Ctrl+N/Ctrl+W
+  buildMenu();
 
   // Initialize MCP and connect to servers
   try {

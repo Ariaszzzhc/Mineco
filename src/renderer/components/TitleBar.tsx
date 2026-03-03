@@ -2,6 +2,7 @@ import React from 'react';
 import { FolderOpen, Minus, Square, X } from 'lucide-react';
 import { useAppStore } from '../stores/app';
 import { useTranslation } from '../i18n';
+import { shortcutTitle } from '../hooks/useShortcutHint';
 
 const isMac = window.manong.platform === 'darwin';
 
@@ -33,7 +34,7 @@ export const TitleBar: React.FC = () => {
             <button
               onClick={handleSwitchWorkspace}
               className="flex items-center gap-1.5 text-text-secondary hover:text-primary cursor-pointer transition-colors font-mono text-[11px]"
-              title={t['titlebar.switchWorkspace']}
+              title={shortcutTitle(t['titlebar.switchWorkspace'], 'openFolder')}
             >
               <FolderOpen size={14} strokeWidth={1.5} />
               <span>{currentWorkspace.name}</span>

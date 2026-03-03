@@ -11,6 +11,9 @@ export const zhCN: Translations = {
   'chat.sendMessage': '发送消息',
   'chat.uploadImage': '上传图片',
   'chat.ctrlEnter': 'CTRL + ENTER',
+  'chat.shortcutSend.mac': '⌘ ENTER',
+  'chat.shortcutSend.other': 'CTRL + ENTER',
+  'chat.escToStop': '再按一次 Esc 停止生成',
 
   // Sidebar
   'sidebar.sessions': '会话',
@@ -173,4 +176,20 @@ export const zhCN: Translations = {
   // Language names
   'lang.en': 'English',
   'lang.zhCN': '简体中文',
+
+  // Shortcuts
+  'shortcuts.newSession': '新会话',
+  'shortcuts.prevSession': '上一个会话',
+  'shortcuts.nextSession': '下一个会话',
+  'shortcuts.focusInput': '聚焦输入',
+  'shortcuts.stopGeneration': '停止生成',
+  'shortcuts.toggleSidebar': '切换侧栏',
+  'shortcuts.goToChat': '对话',
+  'shortcuts.goToMcp': 'MCP 服务器',
+  'shortcuts.goToSettings': '设置',
+  'shortcuts.openFolder': '打开文件夹',
+  'shortcuts.closeWindow': '关闭窗口',
+  'shortcuts.toggleTheme': '切换主题',
+  'shortcuts.copyLastResponse': '复制最后回复',
+  'shortcuts.scrollToBottom': '滚动到底部',
 };

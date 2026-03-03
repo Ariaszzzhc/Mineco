@@ -44,7 +44,7 @@ class ToolRegistry {
   getMCPTools(): Array<{ tool: ToolDefinition<unknown>; serverName: string }> {
     return Array.from(this.tools.values())
       .filter((entry) => entry.source === 'mcp')
-      .map((entry) => ({ tool: entry.tool, serverName: entry.serverName! }));
+      .map((entry) => ({ tool: entry.tool, serverName: entry.serverName ?? '' }));
   }
 
   getToolSchemas(): Array<{

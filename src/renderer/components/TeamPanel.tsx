@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Bot } from 'lucide-react';
+import { User } from 'lucide-react';
 import { useTranslation } from '../i18n';
 
 // TeamPanel component - currently disabled

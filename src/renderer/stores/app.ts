@@ -210,7 +210,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             parts[textPartIdx] = { ...tp, text: tp.text + event.delta };
           }
         } else {
-          parts.unshift({ type: 'text', text: event.delta! });
+          parts.unshift({ type: 'text', text: event.delta ?? '' });
         }
         return { pendingParts: parts };
       });
@@ -224,7 +224,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             parts[thinkingPartIdx] = { ...tp, text: tp.text + event.delta };
           }
         } else {
-          parts.unshift({ type: 'thinking', text: event.delta! });
+          parts.unshift({ type: 'thinking', text: event.delta ?? '' });
         }
         return { pendingParts: parts };
       });
@@ -234,9 +234,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           ...state.pendingParts,
           {
             type: 'tool-call',
-            toolCallId: event.toolCallId!,
-            toolName: event.toolName!,
-            args: event.args!,
+            toolCallId: event.toolCallId ?? '',
+            toolName: event.toolName ?? '',
+            args: event.args ?? {},
           },
         ],
       }));
@@ -246,8 +246,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           ...state.pendingParts,
           {
             type: 'tool-result',
-            toolCallId: event.toolCallId!,
-            toolName: event.toolName!,
+            toolCallId: event.toolCallId ?? '',
+            toolName: event.toolName ?? '',
             result: event.result,
             isError: event.isError,
           },

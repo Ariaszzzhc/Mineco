@@ -6,7 +6,6 @@ import { useTranslation, tf } from '../i18n';
 interface MCPStatusPanelProps {
   statuses: MCPServerStatus[];
   onConnect: (name: string) => void;
-  onDisconnect: (name: string) => void; // eslint-disable-line @typescript-eslint/no-unused-vars
   onOpenConfig: () => void;
 }
 
@@ -39,7 +38,6 @@ const getStatusBgColor = (status: MCPConnectionStatus): string => {
 export const MCPStatusPanel: React.FC<MCPStatusPanelProps> = ({
   statuses,
   onConnect,
-  onDisconnect,
   onOpenConfig,
 }) => {
   const connectedCount = statuses.filter((s) => s.status === 'connected').length;

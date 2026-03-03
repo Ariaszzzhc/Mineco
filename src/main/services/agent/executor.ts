@@ -1,9 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Message, TokenUsage, StreamEvent } from '../../../shared/types';
+import type { Message, TokenUsage, StreamEvent, ProviderConfig } from '../../../shared/types';
 import { DEFAULT_TOKEN_USAGE } from '../../../shared/types';
 import type { ToolContext } from '../../../shared/tool';
 import { AnthropicProvider } from '../provider/anthropic';
-import type { ProviderConfig } from '../../../shared/types';
 import { toolRegistry } from '../tools';
 import { createLogger } from '../logger';
 

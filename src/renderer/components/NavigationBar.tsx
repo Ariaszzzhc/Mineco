@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageSquare, Settings, Server } from 'lucide-react';
 import { useTranslation } from '../i18n';
+import { shortcutTitle } from '../hooks/useShortcutHint';
 
 export type ActiveView = 'chat' | 'mcp' | 'settings';
 
@@ -21,7 +22,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ activeView, onView
             ? 'text-text-primary bg-surface-elevated shadow-sm border border-border'
             : 'text-text-secondary hover:text-text-primary hover:bg-hover border border-transparent'
         }`}
-        title={t['nav.chat']}
+        title={shortcutTitle(t['nav.chat'], 'goToChat')}
       >
         <MessageSquare size={18} strokeWidth={1.5} />
       </button>
@@ -37,7 +38,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ activeView, onView
             ? 'text-text-primary bg-surface-elevated shadow-sm border border-border'
             : 'text-text-secondary hover:text-text-primary hover:bg-hover border border-transparent'
         }`}
-        title={t['nav.mcpServers']}
+        title={shortcutTitle(t['nav.mcpServers'], 'goToMcp')}
       >
         <Server size={18} strokeWidth={1.5} />
       </button>
@@ -50,7 +51,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ activeView, onView
             ? 'text-text-primary bg-surface-elevated shadow-sm border border-border'
             : 'text-text-secondary hover:text-text-primary hover:bg-hover border border-transparent'
         }`}
-        title={t['nav.settings']}
+        title={shortcutTitle(t['nav.settings'], 'goToSettings')}
       >
         <Settings size={18} strokeWidth={1.5} />
       </button>

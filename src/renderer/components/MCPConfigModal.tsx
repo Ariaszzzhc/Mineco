@@ -100,7 +100,7 @@ const useMCPConfig = (loadOnMount: boolean, currentWorkspacePath: string | null,
   };
 
   const handleDeleteServer = async (name: string, scope: 'global' | 'project') => {
-    const config = scope === 'global' ? { ...layeredConfig.global } : { ...layeredConfig.project! };
+    const config = scope === 'global' ? { ...layeredConfig.global } : { ...(layeredConfig.project ?? { mcpServers: {} }) };
     delete config.mcpServers[name];
 
     setSaving(true);

@@ -26,7 +26,8 @@ export async function compressImage(file: File): Promise<{
   const canvas = document.createElement('canvas');
   canvas.width = targetW;
   canvas.height = targetH;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to get canvas 2d context');
   ctx.drawImage(bitmap, 0, 0, targetW, targetH);
   const dataUrl = canvas.toDataURL(outputType, quality);
   const data = dataUrl.split(',')[1];
@@ -38,7 +39,8 @@ export async function compressImage(file: File): Promise<{
   const thumbCanvas = document.createElement('canvas');
   thumbCanvas.width = thumbW;
   thumbCanvas.height = thumbH;
-  const thumbCtx = thumbCanvas.getContext('2d')!;
+  const thumbCtx = thumbCanvas.getContext('2d');
+  if (!thumbCtx) throw new Error('Failed to get canvas 2d context');
   thumbCtx.drawImage(bitmap, 0, 0, thumbW, thumbH);
   const thumbDataUrl = thumbCanvas.toDataURL('image/jpeg', 0.7);
   const thumbnailData = thumbDataUrl.split(',')[1];
@@ -57,7 +59,8 @@ async function detectAlpha(bitmap: ImageBitmap): Promise<boolean> {
   const canvas = document.createElement('canvas');
   canvas.width = 1;
   canvas.height = 1;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to get canvas 2d context');
   ctx.drawImage(bitmap, 0, 0, 1, 1);
   const pixel = ctx.getImageData(0, 0, 1, 1).data;
   return pixel[3] < 255;

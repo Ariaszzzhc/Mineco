@@ -11,10 +11,22 @@ import { useAppStore } from './stores/app';
 import { themes, applyTheme } from './themes';
 import type { ThemeName } from './themes';
 import { detectLocale } from './i18n';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 export const App: React.FC = () => {
-  const { currentWorkspace, currentWorkspacePath, setWorkspace, config, setConfig, loadSkills, mcpStatuses, setMCPStatuses, setTodos, currentSessionId } = useAppStore();
+  const { currentWorkspace, currentWorkspacePath, setWorkspace, config, setConfig, loadSkills, mcpStatuses, setMCPStatuses, setTodos, currentSessionId, isStreaming, sessions } = useAppStore();
   const [activeView, setActiveView] = useState<ActiveView>('chat');
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+
+  useKeyboardShortcuts({
+    activeView,
+    setActiveView,
+    sidebarVisible,
+    setSidebarVisible,
+    isStreaming,
+    sessions,
+    currentSessionId,
+  });
 
   useEffect(() => {
     if (config?.theme) {
@@ -51,8 +63,22 @@ export const App: React.FC = () => {
 
     window.manong.mcp.getStatus().then(setMCPStatuses);
 
+    // Listen for menu-triggered actions (Ctrl+N / Ctrl+O from Electron menu)
+    const unsubMenuNewSession = window.manong.menu.onNewSession(async () => {
+      const session = await window.manong.session.create();
+      useAppStore.getState().addSession(session);
+    });
+    const unsubMenuOpenFolder = window.manong.menu.onOpenFolder(async () => {
+      const data = await window.manong.workspace.open();
+      if (data) {
+        useAppStore.getState().setWorkspace(data);
+      }
+    });
+
     return () => {
       unsubscribe();
+      unsubMenuNewSession();
+      unsubMenuOpenFolder();
     };
   }, []);
 
@@ -107,7 +133,7 @@ export const App: React.FC = () => {
       default:
         return (
           <>
-            <Sidebar />
+            {sidebarVisible && <Sidebar />}
             <ChatPanel />
           </>
         );

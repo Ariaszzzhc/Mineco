@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { compressImage } from '../utils/imageCompressor';
 import { useTranslation } from '../i18n';
 
+const isMac = window.manong.platform === 'darwin';
 const SLASH_COMMAND_PATTERN = /^\/(\w+)(?:\s+(.*))?$/;
 
 export const ChatPanel: React.FC = () => {
@@ -32,6 +33,7 @@ export const ChatPanel: React.FC = () => {
   const t = useTranslation();
   const [attachments, setAttachments] = useState<ImagePart[]>([]);
   const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
+  const [showEscHint, setShowEscHint] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +100,46 @@ export const ChatPanel: React.FC = () => {
     });
     return unsubscribe;
   }, [setPendingQuestion]);
+
+  // CustomEvent listeners for keyboard shortcuts
+  useEffect(() => {
+    const handleFocusInput = () => {
+      inputRef.current?.focus();
+    };
+
+    const handleCopyLastResponse = () => {
+      const session = useAppStore.getState().currentSession;
+      if (!session) return;
+      const lastAssistant = [...session.messages].reverse().find((m) => m.role === 'assistant');
+      if (!lastAssistant) return;
+      const text = lastAssistant.parts
+        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+        .map((p) => p.text)
+        .join('\n');
+      if (text) navigator.clipboard.writeText(text);
+    };
+
+    const handleScrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const handleShowEscHint = () => {
+      setShowEscHint(true);
+      setTimeout(() => setShowEscHint(false), 500);
+    };
+
+    window.addEventListener('manong:focus-input', handleFocusInput);
+    window.addEventListener('manong:copy-last-response', handleCopyLastResponse);
+    window.addEventListener('manong:scroll-to-bottom', handleScrollToBottom);
+    window.addEventListener('manong:show-esc-hint', handleShowEscHint);
+
+    return () => {
+      window.removeEventListener('manong:focus-input', handleFocusInput);
+      window.removeEventListener('manong:copy-last-response', handleCopyLastResponse);
+      window.removeEventListener('manong:scroll-to-bottom', handleScrollToBottom);
+      window.removeEventListener('manong:show-esc-hint', handleShowEscHint);
+    };
+  }, []);
 
   const handleQuestionSubmit = async (answers: QuestionAnswer[]) => {
     if (!pendingQuestion) return;
@@ -293,6 +335,12 @@ export const ChatPanel: React.FC = () => {
       e.preventDefault();
       handleSend();
     }
+
+    // Escape to clear input when not in slash menu
+    if (e.key === 'Escape' && input.trim()) {
+      e.preventDefault();
+      setInput('');
+    }
   };
 
   const handleStop = () => {
@@ -418,7 +466,7 @@ export const ChatPanel: React.FC = () => {
                 </div>
 
                 {/* Right buttons */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 relative">
                   {isStreaming ? (
                     <>
                       <span className="text-[10px] text-text-secondary font-mono mr-1 hidden sm:inline-flex items-center gap-1.5">
@@ -432,11 +480,16 @@ export const ChatPanel: React.FC = () => {
                       >
                         <Square size={14} fill="currentColor" strokeWidth={0} />
                       </button>
+                      {showEscHint && (
+                        <span className="absolute -top-7 right-0 text-[10px] text-text-secondary bg-surface border border-border rounded px-2 py-0.5 whitespace-nowrap shadow-sm animate-fade-in">
+                          {t['chat.escToStop']}
+                        </span>
+                      )}
                     </>
                   ) : (
                     <>
                       <span className="text-[10px] text-text-secondary font-mono mr-1 hidden sm:inline-block">
-                        {t['chat.ctrlEnter']}
+                        {isMac ? t['chat.shortcutSend.mac'] : t['chat.shortcutSend.other']}
                       </span>
                       <button
                         onClick={handleSend}

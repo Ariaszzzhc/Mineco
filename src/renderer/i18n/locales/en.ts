@@ -9,6 +9,9 @@ export const en = {
   'chat.sendMessage': 'Send message',
   'chat.uploadImage': 'Upload Image',
   'chat.ctrlEnter': 'CTRL + ENTER',
+  'chat.shortcutSend.mac': '⌘ ENTER',
+  'chat.shortcutSend.other': 'CTRL + ENTER',
+  'chat.escToStop': 'Press Esc again to stop',
 
   // Sidebar
   'sidebar.sessions': 'Sessions',
@@ -171,6 +174,22 @@ export const en = {
   // Language names
   'lang.en': 'English',
   'lang.zhCN': '简体中文',
+
+  // Shortcuts
+  'shortcuts.newSession': 'New Session',
+  'shortcuts.prevSession': 'Previous Session',
+  'shortcuts.nextSession': 'Next Session',
+  'shortcuts.focusInput': 'Focus Input',
+  'shortcuts.stopGeneration': 'Stop Generation',
+  'shortcuts.toggleSidebar': 'Toggle Sidebar',
+  'shortcuts.goToChat': 'Chat',
+  'shortcuts.goToMcp': 'MCP Servers',
+  'shortcuts.goToSettings': 'Settings',
+  'shortcuts.openFolder': 'Open Folder',
+  'shortcuts.closeWindow': 'Close Window',
+  'shortcuts.toggleTheme': 'Toggle Theme',
+  'shortcuts.copyLastResponse': 'Copy Last Response',
+  'shortcuts.scrollToBottom': 'Scroll to Bottom',
 } as const;
 
 export type Translations = typeof en;
