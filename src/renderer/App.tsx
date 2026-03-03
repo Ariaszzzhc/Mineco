@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { TitleBar } from './components/TitleBar';
 import { NavigationBar } from './components/NavigationBar';
 import type { ActiveView } from './components/NavigationBar';
@@ -8,14 +7,12 @@ import { ChatPanel } from './components/ChatPanel';
 import { WelcomePage } from './components/WelcomePage';
 import { SettingsView } from './components/SettingsModal';
 import { MCPConfigView } from './components/MCPConfigModal';
-import { CommandPalette } from './components/CommandPalette';
 import { useAppStore } from './stores/app';
 import { themes, applyTheme } from './themes';
 import type { ThemeName } from './themes';
-import type { Skill } from './shared/types';
 
 export const App: React.FC = () => {
-  const { currentWorkspace, currentWorkspacePath, setWorkspace, config, setConfig, openCommandPalette, loadSkills, mcpStatuses, setMCPStatuses, setTodos, currentSessionId } = useAppStore();
+  const { currentWorkspace, currentWorkspacePath, setWorkspace, config, setConfig, loadSkills, mcpStatuses, setMCPStatuses, setTodos, currentSessionId } = useAppStore();
   const [activeView, setActiveView] = useState<ActiveView>('chat');
 
   useEffect(() => {
@@ -61,54 +58,6 @@ export const App: React.FC = () => {
       unsubscribeTodo();
     };
   }, [currentSessionId, setTodos]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
-        e.preventDefault();
-        openCommandPalette();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [openCommandPalette]);
-
-  const handleSelectSkill = useCallback(async (skill: Skill) => {
-    const result = await window.manong.skill.execute(skill.name, '');
-    if (result.success && result.prompt) {
-      const { currentSession, config: appConfig, updateSession, startStreaming } = useAppStore.getState();
-      if (!currentSession || !currentWorkspace) return;
-
-      const userMessage = {
-        id: uuidv4(),
-        role: 'user' as const,
-        parts: [{ type: 'text' as const, text: `/${skill.name}` }],
-        createdAt: Date.now(),
-      };
-
-      const updatedSession = {
-        ...currentSession,
-        messages: [...currentSession.messages, userMessage],
-        updatedAt: Date.now(),
-      };
-      updateSession(updatedSession);
-
-      const providerConfig = appConfig?.providers.find(
-        (p) => p.name === appConfig.defaultProvider
-      );
-
-      const messageId = uuidv4();
-      startStreaming(messageId);
-
-      window.manong.agent.start(
-        currentSession.id,
-        result.prompt,
-        providerConfig,
-        currentWorkspace.path
-      );
-    }
-  }, [currentWorkspace]);
 
   const handleMCPConnect = useCallback(async (name: string) => {
     try {
@@ -171,8 +120,6 @@ export const App: React.FC = () => {
           <WelcomePage />
         )}
       </div>
-
-      <CommandPalette onSelectSkill={handleSelectSkill} />
     </div>
   );
 };

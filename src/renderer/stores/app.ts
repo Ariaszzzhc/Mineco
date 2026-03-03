@@ -33,7 +33,6 @@ interface AppState {
 
   // Skills
   skills: Skill[];
-  commandPaletteOpen: boolean;
 
   // Workspace Actions
   setWorkspace: (data: WorkspaceData | null) => void;
@@ -60,8 +59,6 @@ interface AppState {
   // Skill Actions
   setSkills: (skills: Skill[]) => void;
   loadSkills: () => Promise<void>;
-  openCommandPalette: () => void;
-  closeCommandPalette: () => void;
 
   // Question Actions
   setPendingQuestion: (question: QuestionRequest | null) => void;
@@ -93,7 +90,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   mcpLayeredConfig: null,
   config: null,
   skills: [],
-  commandPaletteOpen: false,
 
   // =====================
   // Workspace Actions
@@ -368,10 +364,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error('Failed to load skills:', error);
     }
   },
-
-  openCommandPalette: () => set({ commandPaletteOpen: true }),
-
-  closeCommandPalette: () => set({ commandPaletteOpen: false }),
 
   // =====================
   // Question Actions

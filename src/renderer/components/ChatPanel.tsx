@@ -1,9 +1,10 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { Image, ArrowUp, Square } from 'lucide-react';
 import { useAppStore } from '../stores/app';
 import { MessageItem } from './MessageItem';
 import { QuestionCard } from './QuestionCard';
-import type { Message, Part, ImagePart, QuestionAnswer } from '../../shared/types';
+import { SlashCommandMenu } from './SlashCommandMenu';
+import type { Message, Part, ImagePart, QuestionAnswer, Skill } from '../../shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import { compressImage } from '../utils/imageCompressor';
 
@@ -28,11 +29,36 @@ export const ChatPanel: React.FC = () => {
 
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ImagePart[]>([]);
+  const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const rafRef = useRef<number | undefined>(undefined);
+
+  // Slash command autocomplete: show menu when input starts with `/` and has no space yet
+  const slashFilter = useMemo(() => {
+    if (!input.startsWith('/')) return null;
+    const spaceIdx = input.indexOf(' ');
+    if (spaceIdx !== -1) return null; // user already typed a space — done picking
+    return input.slice(1); // everything after `/`
+  }, [input]);
+
+  const showSlashMenu = slashFilter !== null && skills.length > 0;
+
+  const filteredSlashSkills = useMemo(() => {
+    if (slashFilter === null) return [];
+    return skills.filter(
+      (s) =>
+        s.name.toLowerCase().includes(slashFilter.toLowerCase()) ||
+        s.description.toLowerCase().includes(slashFilter.toLowerCase())
+    );
+  }, [skills, slashFilter]);
+
+  // Reset selected index when filter changes
+  useEffect(() => {
+    setSlashSelectedIndex(0);
+  }, [slashFilter]);
 
   useEffect(() => {
     // Use requestAnimationFrame to throttle scroll calls
@@ -228,7 +254,39 @@ export const ChatPanel: React.FC = () => {
     setAttachments([]);
   };
 
+  const handleSlashSelect = (skill: Skill) => {
+    setInput(`/${skill.name} `);
+    setSlashSelectedIndex(0);
+    inputRef.current?.focus();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (showSlashMenu && filteredSlashSkills.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSlashSelectedIndex((prev) =>
+          prev < filteredSlashSkills.length - 1 ? prev + 1 : prev
+        );
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlashSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        const selected = filteredSlashSkills[slashSelectedIndex];
+        if (selected) handleSlashSelect(selected);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setInput('');
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handleSend();
@@ -289,7 +347,15 @@ export const ChatPanel: React.FC = () => {
 
       {/* Input area - Floating Pill */}
       <div className="absolute bottom-6 left-0 right-0 px-4 pointer-events-none z-10 flex justify-center">
-        <div className="w-full max-w-3xl pointer-events-auto">
+        <div className="w-full max-w-3xl pointer-events-auto relative">
+          {showSlashMenu && filteredSlashSkills.length > 0 && (
+            <SlashCommandMenu
+              skills={skills}
+              filter={slashFilter ?? ''}
+              selectedIndex={slashSelectedIndex}
+              onSelect={handleSlashSelect}
+            />
+          )}
           {pendingQuestion ? (
             <div className="shadow-2xl rounded-2xl overflow-hidden border border-border backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 80%, transparent)' }}>
               <QuestionCard
