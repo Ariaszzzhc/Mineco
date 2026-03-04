@@ -145,7 +145,6 @@ export class AnthropicProvider {
 
     for (const msg of messages) {
       if (msg.role === 'user') {
-        // User message: can contain text and tool_result
         const content: Anthropic.Messages.ContentBlockParam[] = [];
 
         for (const part of msg.parts) {
@@ -165,29 +164,72 @@ export class AnthropicProvider {
           result.push({ role: 'user', content });
         }
       } else {
-        // Assistant message: can contain text and tool-use
-        const content: Anthropic.Messages.ContentBlockParam[] = [];
+        // Assistant message may contain mixed tool-call and tool-result parts
+        // (from renderer saving all parts in one message). Split into proper
+        // alternating assistant/user messages for the API.
+        let assistantContent: Anthropic.Messages.ContentBlockParam[] = [];
+        let userContent: Anthropic.Messages.ContentBlockParam[] = [];
 
         for (const part of msg.parts) {
           if (part.type === 'text') {
-            content.push({ type: 'text', text: part.text });
+            // If we were accumulating user content, flush it first
+            if (userContent.length > 0) {
+              result.push({ role: 'user', content: userContent });
+              userContent = [];
+            }
+            assistantContent.push({ type: 'text', text: part.text });
           } else if (part.type === 'tool-call') {
-            content.push({
+            // If we were accumulating user content, flush it first
+            if (userContent.length > 0) {
+              result.push({ role: 'user', content: userContent });
+              userContent = [];
+            }
+            assistantContent.push({
               type: 'tool_use',
               id: part.toolCallId,
               name: part.toolName,
               input: part.args,
             });
+          } else if (part.type === 'tool-result') {
+            // tool-result belongs in a user message — flush assistant content first
+            if (assistantContent.length > 0) {
+              result.push({ role: 'assistant', content: assistantContent });
+              assistantContent = [];
+            }
+            userContent.push({
+              type: 'tool_result',
+              tool_use_id: part.toolCallId,
+              content: typeof part.result === 'string' ? part.result : JSON.stringify(part.result),
+              is_error: part.isError,
+            });
           }
+          // Skip 'thinking' parts — not needed for conversation history
         }
 
-        if (content.length > 0) {
-          result.push({ role: 'assistant', content });
+        // Flush remaining content
+        if (assistantContent.length > 0) {
+          result.push({ role: 'assistant', content: assistantContent });
+        }
+        if (userContent.length > 0) {
+          result.push({ role: 'user', content: userContent });
         }
       }
     }
 
-    return result;
+    // Merge consecutive same-role messages (can happen after splitting)
+    const merged: Anthropic.Messages.MessageParam[] = [];
+    for (const msg of result) {
+      const last = merged[merged.length - 1];
+      if (last && last.role === msg.role) {
+        const lastContent = Array.isArray(last.content) ? last.content : [{ type: 'text' as const, text: last.content }];
+        const msgContent = Array.isArray(msg.content) ? msg.content : [{ type: 'text' as const, text: msg.content }];
+        last.content = [...lastContent, ...msgContent];
+      } else {
+        merged.push({ ...msg, content: Array.isArray(msg.content) ? [...msg.content] : msg.content });
+      }
+    }
+
+    return merged;
   }
 }
 

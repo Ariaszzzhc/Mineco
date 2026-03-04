@@ -269,12 +269,63 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else if (event.type === 'message-complete') {
       const session = state.currentSession;
       if (session && state.pendingMessageId) {
-        const message: Message = {
-          id: state.pendingMessageId,
-          role: 'assistant',
-          parts: state.pendingParts,
-          createdAt: Date.now(),
+        const messageId = state.pendingMessageId;
+        // Split pendingParts into proper alternating assistant/user messages.
+        // tool-call and text parts belong in assistant messages,
+        // tool-result parts belong in user messages.
+        const newMessages: Message[] = [];
+        let assistantParts: Part[] = [];
+        let userParts: Part[] = [];
+
+        const flushAssistant = () => {
+          if (assistantParts.length > 0) {
+            newMessages.push({
+              id: newMessages.length === 0 ? messageId : `${messageId}-a${newMessages.length}`,
+              role: 'assistant',
+              parts: assistantParts,
+              createdAt: Date.now(),
+            });
+            assistantParts = [];
+          }
         };
+
+        const flushUser = () => {
+          if (userParts.length > 0) {
+            newMessages.push({
+              id: `${messageId}-u${newMessages.length}`,
+              role: 'user',
+              parts: userParts,
+              createdAt: Date.now(),
+            });
+            userParts = [];
+          }
+        };
+
+        for (const part of state.pendingParts) {
+          if (part.type === 'tool-result') {
+            flushAssistant();
+            userParts.push(part);
+          } else if (part.type === 'thinking') {
+            // Skip thinking parts from stored messages
+          } else {
+            flushUser();
+            assistantParts.push(part);
+          }
+        }
+
+        // Flush remaining
+        flushAssistant();
+        flushUser();
+
+        // Fallback: if no messages were created, add an empty assistant message
+        if (newMessages.length === 0) {
+          newMessages.push({
+            id: messageId,
+            role: 'assistant',
+            parts: state.pendingParts,
+            createdAt: Date.now(),
+          });
+        }
 
         let title = session.title;
         if (session.title === 'New Session' && session.messages.length > 0) {
@@ -291,7 +342,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const updatedSession = {
           ...session,
           title,
-          messages: [...session.messages, message],
+          messages: [...session.messages, ...newMessages],
           updatedAt: Date.now(),
         };
 

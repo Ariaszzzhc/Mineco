@@ -279,6 +279,26 @@ export class AgentExecutor {
         messageId: assistantMsgId,
       });
     } catch (error) {
+      // If we received tool calls but failed before processing them,
+      // push the assistant message and add error tool_results so the
+      // messages array stays in a consistent state for retries.
+      if (toolCalls.length > 0 && !messages.includes(assistantMsg)) {
+        messages.push(assistantMsg);
+        for (const tc of toolCalls) {
+          const errorResult = `Tool execution interrupted: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          this.addToolResult(messages, tc.toolCallId, tc.toolName, errorResult, true);
+          onEvent?.({
+            type: 'tool-result',
+            sessionId: this.sessionId,
+            messageId: assistantMsgId,
+            toolCallId: tc.toolCallId,
+            toolName: tc.toolName,
+            result: errorResult,
+            isError: true,
+          });
+        }
+      }
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       log.error('Executor error:', errorMessage);
       onEvent?.({
