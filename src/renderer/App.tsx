@@ -7,6 +7,7 @@ import { ChatPanel } from './components/ChatPanel';
 import { WelcomePage } from './components/WelcomePage';
 import { SettingsView } from './components/SettingsModal';
 import { MCPConfigView } from './components/MCPConfigModal';
+import { CommandPalette } from './components/CommandPalette';
 import { useAppStore } from './stores/app';
 import { themes, applyTheme } from './themes';
 import type { ThemeName } from './themes';
@@ -17,6 +18,7 @@ export const App: React.FC = () => {
   const { currentWorkspace, currentWorkspacePath, setWorkspace, config, setConfig, loadSkills, mcpStatuses, setMCPStatuses, setTodos, currentSessionId, isStreaming, sessions } = useAppStore();
   const [activeView, setActiveView] = useState<ActiveView>('chat');
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useKeyboardShortcuts({
     activeView,
@@ -27,6 +29,13 @@ export const App: React.FC = () => {
     sessions,
     currentSessionId,
   });
+
+  // Listen for command palette toggle event from the shortcut
+  useEffect(() => {
+    const handler = () => setCommandPaletteOpen((prev) => !prev);
+    window.addEventListener('manong:toggle-command-palette', handler);
+    return () => window.removeEventListener('manong:toggle-command-palette', handler);
+  }, []);
 
   useEffect(() => {
     if (config?.theme) {
@@ -143,6 +152,19 @@ export const App: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-background text-text-primary font-display antialiased">
       <TitleBar />
+      <CommandPalette
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        context={{
+          activeView,
+          setActiveView,
+          sidebarVisible,
+          setSidebarVisible,
+          isStreaming,
+          sessions,
+          currentSessionId,
+        }}
+      />
       <div className="flex flex-1 h-[calc(100vh-2.5rem)] overflow-hidden">
         {currentWorkspace ? (
           <>

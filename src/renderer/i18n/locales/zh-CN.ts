@@ -201,4 +201,6 @@ export const zhCN: Translations = {
   'shortcuts.copyLastResponse': '复制最后回复',
   'shortcuts.scrollToBottom': '滚动到底部',
   'shortcuts.cyclePermissionMode': '切换权限模式',
+  'shortcuts.commandPalette': '命令面板',
+  'commandPalette.placeholder': '输入命令...',
 };

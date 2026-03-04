@@ -199,6 +199,8 @@ export const en = {
   'shortcuts.copyLastResponse': 'Copy Last Response',
   'shortcuts.scrollToBottom': 'Scroll to Bottom',
   'shortcuts.cyclePermissionMode': 'Switch permission mode',
+  'shortcuts.commandPalette': 'Command Palette',
+  'commandPalette.placeholder': 'Type a command...',
 } as const;
 
 export type Translations = typeof en;

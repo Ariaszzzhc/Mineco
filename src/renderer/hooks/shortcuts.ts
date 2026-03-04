@@ -191,6 +191,19 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     },
   },
 
+  // --- Command Palette ---
+  {
+    id: 'commandPalette',
+    key: 'p',
+    mod: true,
+    shift: true,
+    labelKey: 'shortcuts.commandPalette',
+    allowInInput: true,
+    action: () => {
+      window.dispatchEvent(new CustomEvent('manong:toggle-command-palette'));
+    },
+  },
+
   // --- Permission ---
   {
     id: 'cyclePermissionMode',
