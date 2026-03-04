@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Settings, Server } from 'lucide-react';
+import { Terminal, Settings, Server } from 'lucide-react';
 import { useTranslation } from '../i18n';
 import { shortcutTitle } from '../hooks/useShortcutHint';
 
@@ -22,9 +22,9 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ activeView, onView
             ? 'text-text-primary bg-surface-elevated shadow-sm border border-border'
             : 'text-text-secondary hover:text-text-primary hover:bg-hover border border-transparent'
         }`}
-        title={shortcutTitle(t['nav.chat'], 'goToChat')}
+        title={shortcutTitle(t['nav.agent'], 'goToChat')}
       >
-        <MessageSquare size={18} strokeWidth={1.5} />
+        <Terminal size={18} strokeWidth={1.5} />
       </button>
 
       {/* Spacer */}

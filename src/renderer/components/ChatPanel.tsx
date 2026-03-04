@@ -228,7 +228,13 @@ export const ChatPanel: React.FC = () => {
   };
 
   const handleSend = async () => {
-    if ((!input.trim() && attachments.length === 0) || isStreaming || !currentSession || !currentWorkspace) return;
+    if ((!input.trim() && attachments.length === 0) || isStreaming || !currentWorkspace) return;
+
+    // Implicitly create session if none exists
+    let session = currentSession;
+    if (!session) {
+      session = await useAppStore.getState().ensureSession();
+    }
 
     const trimmedInput = input.trim();
     const slashMatch = trimmedInput.match(SLASH_COMMAND_PATTERN);
@@ -249,8 +255,8 @@ export const ChatPanel: React.FC = () => {
           };
 
           const updatedSession = {
-            ...currentSession,
-            messages: [...currentSession.messages, userMessage],
+            ...session,
+            messages: [...session.messages, userMessage],
             updatedAt: Date.now(),
           };
           updateSession(updatedSession);
@@ -262,7 +268,7 @@ export const ChatPanel: React.FC = () => {
           startStreaming();
 
           window.manong.agent.start(
-            currentSession.id,
+            session.id,
             result.prompt,
             providerConfig,
             currentWorkspace.path
@@ -287,8 +293,8 @@ export const ChatPanel: React.FC = () => {
     };
 
     const updatedSession = {
-      ...currentSession,
-      messages: [...currentSession.messages, userMessage],
+      ...session,
+      messages: [...session.messages, userMessage],
       updatedAt: Date.now(),
     };
     updateSession(updatedSession);
@@ -300,7 +306,7 @@ export const ChatPanel: React.FC = () => {
     startStreaming();
 
     window.manong.agent.start(
-      currentSession.id,
+      session.id,
       trimmedInput,
       providerConfig,
       currentWorkspace.path,
@@ -367,26 +373,180 @@ export const ChatPanel: React.FC = () => {
     return messagesToTimeline(allMessages, isStreaming ? streamingMessage : null);
   }, [currentSession?.messages, pendingMessages, streamingMessage, isStreaming]);
 
-  if (!currentSession) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background text-text-secondary">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-text-primary mb-4">{t['chat.noSession']}</h2>
-          <p className="mb-4 text-sm">{t['chat.noSessionDescription']}</p>
-          <button
-            onClick={async () => {
-              const session = await window.manong.session.create();
-              useAppStore.getState().addSession(session);
-            }}
-            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded transition-colors text-sm"
-          >
-            {t['chat.newSession']}
-          </button>
+  const hasMessages = currentSession && (
+    currentSession.messages.length > 0 ||
+    pendingMessages.length > 0 ||
+    isStreaming
+  );
+
+  // Shared input box JSX
+  const inputBox = (
+    <div className="w-full max-w-3xl pointer-events-auto relative">
+      {showSlashMenu && filteredSlashSkills.length > 0 && (
+        <SlashCommandMenu
+          skills={skills}
+          filter={slashFilter ?? ''}
+          selectedIndex={slashSelectedIndex}
+          onSelect={handleSlashSelect}
+        />
+      )}
+      {pendingPermission ? (
+        <div className="shadow-2xl rounded-2xl overflow-hidden border border-border backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 80%, transparent)' }}>
+          <PermissionCard
+            request={pendingPermission}
+            onRespond={(decision) => respondPermission(pendingPermission.id, decision)}
+          />
         </div>
-      </div>
+      ) : pendingQuestion ? (
+        <div className="shadow-2xl rounded-2xl overflow-hidden border border-border backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 80%, transparent)' }}>
+          <QuestionCard
+            questions={pendingQuestion.questions}
+            onSubmit={handleQuestionSubmit}
+            onSkip={handleQuestionSkip}
+          />
+        </div>
+      ) : (
+        <div className="shadow-2xl rounded-2xl overflow-hidden border border-border backdrop-blur-2xl flex flex-col transition-all focus-within:border-borderFocus" style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 85%, transparent)' }}>
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 pt-3">
+              {attachments.map((img, idx) => (
+                <div key={idx} className="relative group/thumb">
+                  <img
+                    src={`data:${img.mediaType};base64,${img.thumbnailData}`}
+                    className="w-14 h-14 object-cover rounded-lg border border-border"
+                  />
+                  <button
+                    onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-surface border border-border rounded-full text-text-secondary hover:text-error flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t['chat.placeholder']}
+            className="w-full bg-transparent text-text-primary px-4 pt-4 pb-2 resize-none focus:outline-none disabled:opacity-50 text-[14px] leading-relaxed max-h-60"
+            rows={Math.min(10, input.split('\n').length || 1)}
+            style={{ minHeight: '56px' }}
+            disabled={isStreaming}
+          />
+
+          {/* Bottom toolbar */}
+          <div className="flex items-center justify-between px-3 pb-3 pt-1">
+            {/* Left buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-hover rounded-md transition-colors flex items-center justify-center group"
+                title={t['chat.uploadImage']}
+              >
+                <Image size={16} strokeWidth={1.5} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                multiple
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              <button
+                onClick={() => {
+                  const modes = ['default', 'acceptEdits', 'bypassPermissions'] as const;
+                  const idx = modes.indexOf(permissionMode);
+                  setPermissionMode(modes[(idx + 1) % modes.length]);
+                }}
+                className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                  permissionMode === 'bypassPermissions'
+                    ? 'text-warning bg-warning/10 hover:bg-warning/20'
+                    : permissionMode === 'acceptEdits'
+                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-hover'
+                }`}
+                title={`${t['shortcuts.cyclePermissionMode']} (Shift+Tab)`}
+              >
+                {permissionMode === 'bypassPermissions' ? (
+                  <ShieldOff size={13} strokeWidth={1.5} />
+                ) : permissionMode === 'acceptEdits' ? (
+                  <ShieldCheck size={13} strokeWidth={1.5} />
+                ) : (
+                  <Shield size={13} strokeWidth={1.5} />
+                )}
+                <span>{t[`permission.mode.${permissionMode}` as TranslationKey]}</span>
+              </button>
+            </div>
+
+            {/* Right buttons */}
+            <div className="flex items-center gap-2 relative">
+              {isStreaming ? (
+                <>
+                  <span className="text-[10px] text-text-secondary font-mono mr-1 hidden sm:inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary streaming-indicator" />
+                    {t['chat.processing']}
+                  </span>
+                  <button
+                    onClick={handleStop}
+                    className="p-1.5 bg-error text-white rounded-lg hover:bg-error/90 transition-all"
+                    title={t['chat.stopGeneration']}
+                  >
+                    <Square size={14} fill="currentColor" strokeWidth={0} />
+                  </button>
+                  {showEscHint && (
+                    <span className="absolute -top-7 right-0 text-[10px] text-text-secondary bg-surface border border-border rounded px-2 py-0.5 whitespace-nowrap shadow-sm animate-fade-in">
+                      {t['chat.escToStop']}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="text-[10px] text-text-secondary font-mono mr-1 hidden sm:inline-block">
+                    {isMac ? t['chat.shortcutSend.mac'] : t['chat.shortcutSend.other']}
+                  </span>
+                  <button
+                    onClick={handleSend}
+                    disabled={!input.trim() && attachments.length === 0}
+                    className="p-1.5 bg-text-primary text-background rounded-lg hover:opacity-90 disabled:opacity-30 disabled:bg-surface-elevated disabled:text-text-secondary transition-all"
+                    title={t['chat.sendMessage']}
+                  >
+                    <ArrowUp size={16} strokeWidth={2} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Hero Prompt mode — no messages yet
+  if (!hasMessages) {
+    return (
+      <main className="flex-1 flex flex-col bg-background relative" onPaste={handlePaste} onDragOver={handleDragOver} onDrop={handleDrop}>
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="w-full max-w-3xl flex flex-col items-center gap-6">
+            {/* Workspace name + subtitle */}
+            <div className="text-center">
+              <h1 className="text-2xl font-semibold text-text-primary mb-2">
+                {currentWorkspace?.name || 'Manong'}
+              </h1>
+              <p className="text-sm text-text-secondary">
+                {t['chat.heroSubtitle']}
+              </p>
+            </div>
+            {/* Input box */}
+            {inputBox}
+          </div>
+        </div>
+      </main>
     );
   }
 
+  // Conversation mode — has messages
   return (
     <main className="flex-1 flex flex-col bg-background relative" onPaste={handlePaste} onDragOver={handleDragOver} onDrop={handleDrop}>
       {/* Messages */}
@@ -402,146 +562,7 @@ export const ChatPanel: React.FC = () => {
 
       {/* Input area - Floating Pill */}
       <div className="absolute bottom-6 left-0 right-0 px-4 pointer-events-none z-10 flex justify-center">
-        <div className="w-full max-w-3xl pointer-events-auto relative">
-          {showSlashMenu && filteredSlashSkills.length > 0 && (
-            <SlashCommandMenu
-              skills={skills}
-              filter={slashFilter ?? ''}
-              selectedIndex={slashSelectedIndex}
-              onSelect={handleSlashSelect}
-            />
-          )}
-          {pendingPermission ? (
-            <div className="shadow-2xl rounded-2xl overflow-hidden border border-border backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 80%, transparent)' }}>
-              <PermissionCard
-                request={pendingPermission}
-                onRespond={(decision) => respondPermission(pendingPermission.id, decision)}
-              />
-            </div>
-          ) : pendingQuestion ? (
-            <div className="shadow-2xl rounded-2xl overflow-hidden border border-border backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 80%, transparent)' }}>
-              <QuestionCard
-                questions={pendingQuestion.questions}
-                onSubmit={handleQuestionSubmit}
-                onSkip={handleQuestionSkip}
-              />
-            </div>
-          ) : (
-            <div className="shadow-2xl rounded-2xl overflow-hidden border border-border backdrop-blur-2xl flex flex-col transition-all focus-within:border-borderFocus" style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 85%, transparent)' }}>
-              {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 px-3 pt-3">
-                  {attachments.map((img, idx) => (
-                    <div key={idx} className="relative group/thumb">
-                      <img
-                        src={`data:${img.mediaType};base64,${img.thumbnailData}`}
-                        className="w-14 h-14 object-cover rounded-lg border border-border"
-                      />
-                      <button
-                        onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                        className="absolute -top-1 -right-1 w-4 h-4 bg-surface border border-border rounded-full text-text-secondary hover:text-error flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity"
-                      >×</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={t['chat.placeholder']}
-                className="w-full bg-transparent text-text-primary px-4 pt-4 pb-2 resize-none focus:outline-none disabled:opacity-50 text-[14px] leading-relaxed max-h-60"
-                rows={Math.min(10, input.split('\n').length || 1)}
-                style={{ minHeight: '56px' }}
-                disabled={isStreaming}
-              />
-
-              {/* Bottom toolbar */}
-              <div className="flex items-center justify-between px-3 pb-3 pt-1">
-                {/* Left buttons */}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-hover rounded-md transition-colors flex items-center justify-center group"
-                    title={t['chat.uploadImage']}
-                  >
-                    <Image size={16} strokeWidth={1.5} />
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    multiple
-                    className="hidden"
-                    onChange={handleFileSelect}
-                  />
-                  <button
-                    onClick={() => {
-                      const modes = ['default', 'acceptEdits', 'bypassPermissions'] as const;
-                      const idx = modes.indexOf(permissionMode);
-                      setPermissionMode(modes[(idx + 1) % modes.length]);
-                    }}
-                    className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
-                      permissionMode === 'bypassPermissions'
-                        ? 'text-warning bg-warning/10 hover:bg-warning/20'
-                        : permissionMode === 'acceptEdits'
-                          ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                          : 'text-text-secondary hover:text-text-primary hover:bg-hover'
-                    }`}
-                    title={`${t['shortcuts.cyclePermissionMode']} (Shift+Tab)`}
-                  >
-                    {permissionMode === 'bypassPermissions' ? (
-                      <ShieldOff size={13} strokeWidth={1.5} />
-                    ) : permissionMode === 'acceptEdits' ? (
-                      <ShieldCheck size={13} strokeWidth={1.5} />
-                    ) : (
-                      <Shield size={13} strokeWidth={1.5} />
-                    )}
-                    <span>{t[`permission.mode.${permissionMode}` as TranslationKey]}</span>
-                  </button>
-                </div>
-
-                {/* Right buttons */}
-                <div className="flex items-center gap-2 relative">
-                  {isStreaming ? (
-                    <>
-                      <span className="text-[10px] text-text-secondary font-mono mr-1 hidden sm:inline-flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary streaming-indicator" />
-                        {t['chat.processing']}
-                      </span>
-                      <button
-                        onClick={handleStop}
-                        className="p-1.5 bg-error text-white rounded-lg hover:bg-error/90 transition-all"
-                        title={t['chat.stopGeneration']}
-                      >
-                        <Square size={14} fill="currentColor" strokeWidth={0} />
-                      </button>
-                      {showEscHint && (
-                        <span className="absolute -top-7 right-0 text-[10px] text-text-secondary bg-surface border border-border rounded px-2 py-0.5 whitespace-nowrap shadow-sm animate-fade-in">
-                          {t['chat.escToStop']}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-[10px] text-text-secondary font-mono mr-1 hidden sm:inline-block">
-                        {isMac ? t['chat.shortcutSend.mac'] : t['chat.shortcutSend.other']}
-                      </span>
-                      <button
-                        onClick={handleSend}
-                        disabled={!input.trim() && attachments.length === 0}
-                        className="p-1.5 bg-text-primary text-background rounded-lg hover:opacity-90 disabled:opacity-30 disabled:bg-surface-elevated disabled:text-text-secondary transition-all"
-                        title={t['chat.sendMessage']}
-                      >
-                        <ArrowUp size={16} strokeWidth={2} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {inputBox}
       </div>
     </main>
   );

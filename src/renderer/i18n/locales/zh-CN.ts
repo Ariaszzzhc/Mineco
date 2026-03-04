@@ -2,10 +2,8 @@ import type { Translations } from './en';
 
 export const zhCN: Translations = {
   // Chat
-  'chat.noSession': '没有会话',
-  'chat.noSessionDescription': '选择一个会话或创建新会话',
-  'chat.newSession': '新会话',
-  'chat.placeholder': '输入消息...',
+  'chat.placeholder': '你想做什么?',
+  'chat.heroSubtitle': '描述任务、提问、或使用 / 调用技能',
   'chat.processing': '处理中...',
   'chat.stopGeneration': '停止生成',
   'chat.sendMessage': '发送消息',
@@ -16,12 +14,11 @@ export const zhCN: Translations = {
   'chat.escToStop': '再按一次 Esc 停止生成',
 
   // Sidebar
-  'sidebar.sessions': '会话',
-  'sidebar.newSession': '新会话',
-  'sidebar.current': '当前',
+  'sidebar.workspace': '工作区',
+  'sidebar.newTask': '新建',
   'sidebar.history': '历史',
   'sidebar.newChat': '新对话',
-  'sidebar.noConversations': '暂无对话',
+  'sidebar.noHistory': '暂无历史',
   'sidebar.tasks': '任务',
   'sidebar.contextUsage': '上下文使用',
   'sidebar.tokens': '{count} 令牌',
@@ -34,7 +31,7 @@ export const zhCN: Translations = {
   'welcome.recent': '最近',
 
   // Navigation
-  'nav.chat': '对话',
+  'nav.agent': '代理',
   'nav.mcpServers': 'MCP 服务器',
   'nav.settings': '设置',
 
@@ -189,9 +186,9 @@ export const zhCN: Translations = {
   'lang.zhCN': '简体中文',
 
   // Shortcuts
-  'shortcuts.newSession': '新会话',
-  'shortcuts.prevSession': '上一个会话',
-  'shortcuts.nextSession': '下一个会话',
+  'shortcuts.newTask': '新任务',
+  'shortcuts.prevTask': '上一个',
+  'shortcuts.nextTask': '下一个',
   'shortcuts.focusInput': '聚焦输入',
   'shortcuts.stopGeneration': '停止生成',
   'shortcuts.toggleSidebar': '切换侧栏',

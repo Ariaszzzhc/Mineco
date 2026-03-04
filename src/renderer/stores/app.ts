@@ -48,6 +48,7 @@ interface AppState {
   setSessions: (sessions: Session[]) => void;
   setCurrentSession: (session: Session | null) => void;
   addSession: (session: Session) => void;
+  ensureSession: () => Promise<Session>;
   updateSession: (session: Session) => void;
   deleteSession: (sessionId: string) => void;
 
@@ -161,6 +162,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentSession: session,
       currentSessionId: session.id,
     })),
+
+  ensureSession: async () => {
+    const state = get();
+    if (state.currentSession) return state.currentSession;
+    const session = await window.manong.session.create();
+    set((s) => ({
+      sessions: [session, ...s.sessions],
+      currentSession: session,
+      currentSessionId: session.id,
+    }));
+    return session;
+  },
 
   updateSession: (session) =>
     set((state) => ({

@@ -1,9 +1,7 @@
 export const en = {
   // Chat
-  'chat.noSession': 'No Session',
-  'chat.noSessionDescription': 'Select a session or create a new one',
-  'chat.newSession': 'New Session',
-  'chat.placeholder': 'Message Manong...',
+  'chat.placeholder': 'What would you like to do?',
+  'chat.heroSubtitle': 'Describe a task, ask a question, or use / for skills',
   'chat.processing': 'Processing...',
   'chat.stopGeneration': 'Stop generation',
   'chat.sendMessage': 'Send message',
@@ -14,12 +12,11 @@ export const en = {
   'chat.escToStop': 'Press Esc again to stop',
 
   // Sidebar
-  'sidebar.sessions': 'Sessions',
-  'sidebar.newSession': 'New Session',
-  'sidebar.current': 'Current',
+  'sidebar.workspace': 'Workspace',
+  'sidebar.newTask': 'New',
   'sidebar.history': 'History',
   'sidebar.newChat': 'New Chat',
-  'sidebar.noConversations': 'No conversations yet',
+  'sidebar.noHistory': 'No history',
   'sidebar.tasks': 'Tasks',
   'sidebar.contextUsage': 'Context Usage',
   'sidebar.tokens': '{count} tokens',
@@ -32,7 +29,7 @@ export const en = {
   'welcome.recent': 'Recent',
 
   // Navigation
-  'nav.chat': 'Chat',
+  'nav.agent': 'Agent',
   'nav.mcpServers': 'MCP Servers',
   'nav.settings': 'Settings',
 
@@ -187,9 +184,9 @@ export const en = {
   'lang.zhCN': '简体中文',
 
   // Shortcuts
-  'shortcuts.newSession': 'New Session',
-  'shortcuts.prevSession': 'Previous Session',
-  'shortcuts.nextSession': 'Next Session',
+  'shortcuts.newTask': 'New Task',
+  'shortcuts.prevTask': 'Previous',
+  'shortcuts.nextTask': 'Next',
   'shortcuts.focusInput': 'Focus Input',
   'shortcuts.stopGeneration': 'Stop Generation',
   'shortcuts.toggleSidebar': 'Toggle Sidebar',

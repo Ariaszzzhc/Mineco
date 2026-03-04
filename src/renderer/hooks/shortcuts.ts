@@ -28,7 +28,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     id: 'newSession',
     key: 'n',
     mod: true,
-    labelKey: 'shortcuts.newSession',
+    labelKey: 'shortcuts.newTask',
     action: async () => {
       const session = await window.manong.session.create();
       // Import dynamically avoided — dispatch event for App to handle
@@ -40,7 +40,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     id: 'prevSession',
     key: '[',
     mod: true,
-    labelKey: 'shortcuts.prevSession',
+    labelKey: 'shortcuts.prevTask',
     action: (ctx) => {
       const { sessions, currentSessionId } = ctx;
       if (sessions.length < 2) return;
@@ -58,7 +58,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     id: 'nextSession',
     key: ']',
     mod: true,
-    labelKey: 'shortcuts.nextSession',
+    labelKey: 'shortcuts.nextTask',
     action: (ctx) => {
       const { sessions, currentSessionId } = ctx;
       if (sessions.length < 2) return;
