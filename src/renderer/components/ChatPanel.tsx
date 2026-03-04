@@ -1,13 +1,14 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { Image, ArrowUp, Square, Shield, ShieldCheck, ShieldOff } from 'lucide-react';
 import { useAppStore } from '../stores/app';
-import { MessageItem } from './MessageItem';
+import { TimelineBlockView } from './TimelineBlockView';
 import { QuestionCard } from './QuestionCard';
 import { PermissionCard } from './PermissionCard';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import type { Message, Part, ImagePart, QuestionAnswer, Skill } from '../../shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import { compressImage } from '../utils/imageCompressor';
+import { messagesToTimeline } from '../utils/messageGrouping';
 import { useTranslation } from '../i18n';
 import type { TranslationKey } from '../i18n';
 
@@ -19,8 +20,8 @@ export const ChatPanel: React.FC = () => {
     currentSession,
     currentWorkspace,
     isStreaming,
-    pendingMessageId,
-    pendingParts,
+    pendingMessages,
+    streamingMessage,
     pendingQuestion,
     pendingPermission,
     permissionMode,
@@ -88,7 +89,7 @@ export const ChatPanel: React.FC = () => {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [currentSession?.messages, pendingParts, pendingPermission, pendingQuestion]);
+  }, [currentSession?.messages, pendingMessages, streamingMessage, pendingPermission, pendingQuestion]);
 
   useEffect(() => {
     const unsubscribe = window.manong.agent.onStream((event) => {
@@ -258,8 +259,7 @@ export const ChatPanel: React.FC = () => {
             (p) => p.name === config.defaultProvider
           );
 
-          const messageId = uuidv4();
-          startStreaming(messageId);
+          startStreaming();
 
           window.manong.agent.start(
             currentSession.id,
@@ -297,8 +297,7 @@ export const ChatPanel: React.FC = () => {
       (p) => p.name === config.defaultProvider
     );
 
-    const messageId = uuidv4();
-    startStreaming(messageId);
+    startStreaming();
 
     window.manong.agent.start(
       currentSession.id,
@@ -362,6 +361,12 @@ export const ChatPanel: React.FC = () => {
     useAppStore.getState().stopStreaming();
   };
 
+  const timelineBlocks = useMemo(() => {
+    if (!currentSession) return [];
+    const allMessages = [...currentSession.messages, ...pendingMessages];
+    return messagesToTimeline(allMessages, isStreaming ? streamingMessage : null);
+  }, [currentSession?.messages, pendingMessages, streamingMessage, isStreaming]);
+
   if (!currentSession) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background text-text-secondary">
@@ -387,23 +392,9 @@ export const ChatPanel: React.FC = () => {
       {/* Messages */}
       <div className={`flex-1 overflow-y-auto px-4 ${pendingPermission || pendingQuestion ? 'pb-56' : 'pb-32'}`}>
         <div className="max-w-4xl mx-auto pt-8">
-          {currentSession.messages.map((message) => (
-            <MessageItem key={message.id} message={message} />
+          {timelineBlocks.map((block) => (
+            <TimelineBlockView key={block.id} block={block} />
           ))}
-
-          {/* Streaming message */}
-          {isStreaming && pendingMessageId && (
-            <MessageItem
-              message={{
-                id: pendingMessageId,
-                role: 'assistant',
-                parts: pendingParts,
-                createdAt: Date.now(),
-              }}
-              isStreaming
-              pendingParts={pendingParts}
-            />
-          )}
 
           <div ref={messagesEndRef} className="h-4" />
         </div>

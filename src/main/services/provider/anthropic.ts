@@ -164,66 +164,99 @@ export class AnthropicProvider {
           result.push({ role: 'user', content });
         }
       } else {
-        // Assistant message may contain mixed tool-call and tool-result parts
-        // (from renderer saving all parts in one message). Split into proper
-        // alternating assistant/user messages for the API.
-        let assistantContent: Anthropic.Messages.ContentBlockParam[] = [];
-        let userContent: Anthropic.Messages.ContentBlockParam[] = [];
+        // Assistant message — check if it contains tool-result parts (legacy data)
+        const hasToolResults = msg.parts.some((p) => p.type === 'tool-result');
 
-        for (const part of msg.parts) {
-          if (part.type === 'text') {
-            // If we were accumulating user content, flush it first
-            if (userContent.length > 0) {
-              result.push({ role: 'user', content: userContent });
-              userContent = [];
+        if (!hasToolResults) {
+          // Fast path: new data format with proper alternating messages
+          const content: Anthropic.Messages.ContentBlockParam[] = [];
+          for (const part of msg.parts) {
+            if (part.type === 'text') {
+              content.push({ type: 'text', text: part.text });
+            } else if (part.type === 'tool-call') {
+              content.push({
+                type: 'tool_use',
+                id: part.toolCallId,
+                name: part.toolName,
+                input: part.args,
+              });
             }
-            assistantContent.push({ type: 'text', text: part.text });
-          } else if (part.type === 'tool-call') {
-            // If we were accumulating user content, flush it first
-            if (userContent.length > 0) {
-              result.push({ role: 'user', content: userContent });
-              userContent = [];
-            }
-            assistantContent.push({
-              type: 'tool_use',
-              id: part.toolCallId,
-              name: part.toolName,
-              input: part.args,
-            });
-          } else if (part.type === 'tool-result') {
-            // tool-result belongs in a user message — flush assistant content first
-            if (assistantContent.length > 0) {
-              result.push({ role: 'assistant', content: assistantContent });
-              assistantContent = [];
-            }
-            userContent.push({
-              type: 'tool_result',
-              tool_use_id: part.toolCallId,
-              content: typeof part.result === 'string' ? part.result : JSON.stringify(part.result),
-              is_error: part.isError,
-            });
+            // Skip 'thinking' parts — not needed for conversation history
           }
-          // Skip 'thinking' parts — not needed for conversation history
-        }
+          if (content.length > 0) {
+            result.push({ role: 'assistant', content });
+          }
+        } else {
+          // Legacy path: assistant message may contain mixed tool-call and tool-result parts.
+          // Split into proper alternating assistant/user messages for the API.
+          let assistantContent: Anthropic.Messages.ContentBlockParam[] = [];
+          let userContent: Anthropic.Messages.ContentBlockParam[] = [];
 
-        // Flush remaining content
-        if (assistantContent.length > 0) {
-          result.push({ role: 'assistant', content: assistantContent });
-        }
-        if (userContent.length > 0) {
-          result.push({ role: 'user', content: userContent });
+          for (const part of msg.parts) {
+            if (part.type === 'text') {
+              if (userContent.length > 0) {
+                result.push({ role: 'user', content: userContent });
+                userContent = [];
+              }
+              assistantContent.push({ type: 'text', text: part.text });
+            } else if (part.type === 'tool-call') {
+              if (userContent.length > 0) {
+                result.push({ role: 'user', content: userContent });
+                userContent = [];
+              }
+              assistantContent.push({
+                type: 'tool_use',
+                id: part.toolCallId,
+                name: part.toolName,
+                input: part.args,
+              });
+            } else if (part.type === 'tool-result') {
+              if (assistantContent.length > 0) {
+                result.push({ role: 'assistant', content: assistantContent });
+                assistantContent = [];
+              }
+              userContent.push({
+                type: 'tool_result',
+                tool_use_id: part.toolCallId,
+                content: typeof part.result === 'string' ? part.result : JSON.stringify(part.result),
+                is_error: part.isError,
+              });
+            }
+          }
+
+          if (assistantContent.length > 0) {
+            result.push({ role: 'assistant', content: assistantContent });
+          }
+          if (userContent.length > 0) {
+            result.push({ role: 'user', content: userContent });
+          }
         }
       }
     }
 
     // Merge consecutive same-role messages (can happen after splitting)
+    // But avoid merging across turn boundaries: when the previous user message
+    // contains only tool_results and the next user message has text, they
+    // represent different conversation turns. Merging them buries the new user
+    // instruction after tool results, causing the model to ignore it.
     const merged: Anthropic.Messages.MessageParam[] = [];
     for (const msg of result) {
       const last = merged[merged.length - 1];
       if (last && last.role === msg.role) {
         const lastContent = Array.isArray(last.content) ? last.content : [{ type: 'text' as const, text: last.content }];
         const msgContent = Array.isArray(msg.content) ? msg.content : [{ type: 'text' as const, text: msg.content }];
-        last.content = [...lastContent, ...msgContent];
+
+        const crossesTurnBoundary = last.role === 'user'
+          && lastContent.every(b => b.type === 'tool_result')
+          && msgContent.some(b => b.type === 'text');
+
+        if (crossesTurnBoundary) {
+          // Insert a brief assistant message to preserve the turn boundary
+          merged.push({ role: 'assistant', content: [{ type: 'text', text: 'Understood.' }] });
+          merged.push({ ...msg, content: [...msgContent] });
+        } else {
+          last.content = [...lastContent, ...msgContent];
+        }
       } else {
         merged.push({ ...msg, content: Array.isArray(msg.content) ? [...msg.content] : msg.content });
       }

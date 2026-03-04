@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Session, Message, Part, AppConfig, StreamEvent, Workspace, WorkspaceData, Skill, QuestionRequest, Todo } from '../../shared/types';
+import { v4 as uuidv4 } from 'uuid';
+import type { Session, Message, AppConfig, StreamEvent, Workspace, WorkspaceData, Skill, QuestionRequest, Todo } from '../../shared/types';
 import type { MCPServerStatus, MCPConfig, LayeredMCPConfig } from '../../shared/mcp-types';
 import type { PermissionMode, PermissionRequest, PermissionDecision } from '../../shared/permission-types';
 
@@ -15,8 +16,8 @@ interface AppState {
 
   // Streaming state
   isStreaming: boolean;
-  pendingMessageId: string | null;
-  pendingParts: Part[];
+  pendingMessages: Message[];
+  streamingMessage: Message | null;
 
   // Question state
   pendingQuestion: QuestionRequest | null;
@@ -54,7 +55,7 @@ interface AppState {
   setConfig: (config: AppConfig) => void;
 
   // Streaming Actions
-  startStreaming: (messageId: string) => void;
+  startStreaming: () => void;
   handleStreamEvent: (event: StreamEvent) => void;
   stopStreaming: () => void;
 
@@ -91,8 +92,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentSessionId: null,
   currentSession: null,
   isStreaming: false,
-  pendingMessageId: null,
-  pendingParts: [],
+  pendingMessages: [],
+  streamingMessage: null,
   pendingQuestion: null,
   permissionMode: 'default',
   pendingPermission: null,
@@ -191,11 +192,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Streaming Actions
   // =====================
 
-  startStreaming: (messageId) =>
+  startStreaming: () =>
     set({
       isStreaming: true,
-      pendingMessageId: messageId,
-      pendingParts: [],
+      pendingMessages: [],
+      streamingMessage: null,
     }),
 
   handleStreamEvent: (event) => {
@@ -204,127 +205,110 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (event.type === 'message-start') {
       set({
         isStreaming: true,
-        pendingMessageId: event.messageId,
-        pendingParts: [],
+        pendingMessages: [],
+        streamingMessage: {
+          id: event.messageId,
+          role: 'assistant',
+          parts: [],
+          createdAt: Date.now(),
+        },
       });
     } else if (event.type === 'message-continue') {
+      // Flush current streamingMessage, start a new assistant message
+      const pending = [...state.pendingMessages];
+      if (state.streamingMessage && state.streamingMessage.parts.length > 0) {
+        pending.push(state.streamingMessage);
+      }
       set({
         isStreaming: true,
-        pendingMessageId: event.messageId,
+        pendingMessages: pending,
+        streamingMessage: {
+          id: event.messageId,
+          role: 'assistant',
+          parts: [],
+          createdAt: Date.now(),
+        },
       });
     } else if (event.type === 'text-delta') {
-      set((state) => {
-        const parts = [...state.pendingParts];
-        const textPartIdx = parts.findIndex((p) => p.type === 'text');
-        if (textPartIdx >= 0) {
-          const tp = parts[textPartIdx];
-          if (tp.type === 'text') {
-            parts[textPartIdx] = { ...tp, text: tp.text + event.delta };
-          }
+      set((s) => {
+        if (!s.streamingMessage) return s;
+        const parts = [...s.streamingMessage.parts];
+        const lastPart = parts[parts.length - 1];
+        if (lastPart && lastPart.type === 'text') {
+          parts[parts.length - 1] = { ...lastPart, text: lastPart.text + event.delta };
         } else {
-          parts.unshift({ type: 'text', text: event.delta ?? '' });
+          parts.push({ type: 'text', text: event.delta ?? '' });
         }
-        return { pendingParts: parts };
+        return { streamingMessage: { ...s.streamingMessage, parts } };
       });
     } else if (event.type === 'thinking-delta') {
-      set((state) => {
-        const parts = [...state.pendingParts];
-        const thinkingPartIdx = parts.findIndex((p) => p.type === 'thinking');
-        if (thinkingPartIdx >= 0) {
-          const tp = parts[thinkingPartIdx];
+      set((s) => {
+        if (!s.streamingMessage) return s;
+        const parts = [...s.streamingMessage.parts];
+        const thinkingIdx = parts.findIndex((p) => p.type === 'thinking');
+        if (thinkingIdx >= 0) {
+          const tp = parts[thinkingIdx];
           if (tp.type === 'thinking') {
-            parts[thinkingPartIdx] = { ...tp, text: tp.text + event.delta };
+            parts[thinkingIdx] = { ...tp, text: tp.text + event.delta };
           }
         } else {
+          // Insert thinking at the beginning
           parts.unshift({ type: 'thinking', text: event.delta ?? '' });
         }
-        return { pendingParts: parts };
+        return { streamingMessage: { ...s.streamingMessage, parts } };
       });
     } else if (event.type === 'tool-call') {
-      set((state) => ({
-        pendingParts: [
-          ...state.pendingParts,
-          {
-            type: 'tool-call',
-            toolCallId: event.toolCallId ?? '',
-            toolName: event.toolName ?? '',
-            args: event.args ?? {},
+      set((s) => {
+        if (!s.streamingMessage) return s;
+        return {
+          streamingMessage: {
+            ...s.streamingMessage,
+            parts: [
+              ...s.streamingMessage.parts,
+              {
+                type: 'tool-call',
+                toolCallId: event.toolCallId ?? '',
+                toolName: event.toolName ?? '',
+                args: event.args ?? {},
+              },
+            ],
           },
-        ],
-      }));
+        };
+      });
     } else if (event.type === 'tool-result') {
-      set((state) => ({
-        pendingParts: [
-          ...state.pendingParts,
-          {
-            type: 'tool-result',
-            toolCallId: event.toolCallId ?? '',
-            toolName: event.toolName ?? '',
-            result: event.result,
-            isError: event.isError,
-            diff: event.diff,
-          },
-        ],
-      }));
+      set((s) => {
+        // Flush streamingMessage to pendingMessages, then add user message with tool-result
+        const pending = [...s.pendingMessages];
+        if (s.streamingMessage && s.streamingMessage.parts.length > 0) {
+          pending.push(s.streamingMessage);
+        }
+        pending.push({
+          id: uuidv4(),
+          role: 'user',
+          parts: [
+            {
+              type: 'tool-result',
+              toolCallId: event.toolCallId ?? '',
+              toolName: event.toolName ?? '',
+              result: event.result,
+              isError: event.isError,
+              diff: event.diff,
+            },
+          ],
+          createdAt: Date.now(),
+        });
+        return {
+          pendingMessages: pending,
+          streamingMessage: null,
+        };
+      });
     } else if (event.type === 'message-complete') {
       const session = state.currentSession;
-      if (session && state.pendingMessageId) {
-        const messageId = state.pendingMessageId;
-        // Split pendingParts into proper alternating assistant/user messages.
-        // tool-call and text parts belong in assistant messages,
-        // tool-result parts belong in user messages.
-        const newMessages: Message[] = [];
-        let assistantParts: Part[] = [];
-        let userParts: Part[] = [];
-
-        const flushAssistant = () => {
-          if (assistantParts.length > 0) {
-            newMessages.push({
-              id: newMessages.length === 0 ? messageId : `${messageId}-a${newMessages.length}`,
-              role: 'assistant',
-              parts: assistantParts,
-              createdAt: Date.now(),
-            });
-            assistantParts = [];
-          }
-        };
-
-        const flushUser = () => {
-          if (userParts.length > 0) {
-            newMessages.push({
-              id: `${messageId}-u${newMessages.length}`,
-              role: 'user',
-              parts: userParts,
-              createdAt: Date.now(),
-            });
-            userParts = [];
-          }
-        };
-
-        for (const part of state.pendingParts) {
-          if (part.type === 'tool-result') {
-            flushAssistant();
-            userParts.push(part);
-          } else if (part.type === 'thinking') {
-            // Skip thinking parts from stored messages
-          } else {
-            flushUser();
-            assistantParts.push(part);
-          }
-        }
-
-        // Flush remaining
-        flushAssistant();
-        flushUser();
-
-        // Fallback: if no messages were created, add an empty assistant message
-        if (newMessages.length === 0) {
-          newMessages.push({
-            id: messageId,
-            role: 'assistant',
-            parts: state.pendingParts,
-            createdAt: Date.now(),
-          });
+      if (session) {
+        // Flush streamingMessage
+        const pending = [...state.pendingMessages];
+        if (state.streamingMessage && state.streamingMessage.parts.length > 0) {
+          pending.push(state.streamingMessage);
         }
 
         let title = session.title;
@@ -342,7 +326,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const updatedSession = {
           ...session,
           title,
-          messages: [...session.messages, ...newMessages],
+          messages: [...session.messages, ...pending],
           updatedAt: Date.now(),
         };
 
@@ -350,8 +334,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         set({
           isStreaming: false,
-          pendingMessageId: null,
-          pendingParts: [],
+          pendingMessages: [],
+          streamingMessage: null,
           currentSession: updatedSession,
           sessions: state.sessions.map((s) =>
             s.id === updatedSession.id ? updatedSession : s
@@ -361,8 +345,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else if (event.type === 'error') {
       set({
         isStreaming: false,
-        pendingMessageId: null,
-        pendingParts: [],
+        pendingMessages: [],
+        streamingMessage: null,
       });
     } else if (event.type === 'usage') {
       const session = state.currentSession;
@@ -386,8 +370,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   stopStreaming: () =>
     set({
       isStreaming: false,
-      pendingMessageId: null,
-      pendingParts: [],
+      pendingMessages: [],
+      streamingMessage: null,
     }),
 
   // =====================

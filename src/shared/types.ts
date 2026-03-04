@@ -58,6 +58,13 @@ export interface ImagePart {
 
 export type Part = TextPart | ToolCallPart | ToolResultPart | ThinkingPart | ImagePart;
 
+// Timeline display types
+export type TimelineBlock =
+  | { type: 'user-input'; id: string; text: string; images: ImagePart[]; createdAt: number }
+  | { type: 'assistant-text'; id: string; text: string; createdAt: number; isStreaming?: boolean }
+  | { type: 'thinking'; id: string; text: string; createdAt: number; isStreaming?: boolean }
+  | { type: 'tool-pair'; id: string; call: ToolCallPart; result?: ToolResultPart; createdAt: number };
+
 export interface UserMessage {
   id: string;
   role: 'user';

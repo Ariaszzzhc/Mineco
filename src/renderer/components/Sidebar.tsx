@@ -15,7 +15,7 @@ const formatTokens = (count: number): string => {
 };
 
 export const Sidebar: React.FC = () => {
-  const { sessions, currentSessionId, setCurrentSession, deleteSession, todos, pendingParts } =
+  const { sessions, currentSessionId, setCurrentSession, deleteSession, todos, pendingMessages } =
     useAppStore();
   const t = useTranslation();
 
@@ -59,15 +59,17 @@ export const Sidebar: React.FC = () => {
       }
     }
 
-    // From streaming pending parts
-    for (const part of pendingParts) {
-      if (part.type === 'tool-result' && part.diff) {
-        changesMap.set(part.diff.filePath, part.diff);
+    // From streaming pending messages
+    for (const msg of pendingMessages) {
+      for (const part of msg.parts) {
+        if (part.type === 'tool-result' && part.diff) {
+          changesMap.set(part.diff.filePath, part.diff);
+        }
       }
     }
 
     return Array.from(changesMap.values());
-  }, [currentSession, pendingParts]);
+  }, [currentSession, pendingMessages]);
 
   const totalAdded = fileChanges.reduce((sum, c) => sum + c.linesAdded, 0);
   const totalRemoved = fileChanges.reduce((sum, c) => sum + c.linesRemoved, 0);
