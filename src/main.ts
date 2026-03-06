@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import { setupIPC } from './main/ipc';
+import { setupIPC, shutdownAgents } from './main/ipc';
 import { mcpManager } from './main/services/mcp';
 import { lspManager } from './main/services/lsp';
 import { storageService } from './main/services/storage';
@@ -137,6 +137,11 @@ const createWindow = async () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', createWindow);
+
+// Graceful agent shutdown before quitting
+app.on('before-quit', () => {
+  shutdownAgents();
+});
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

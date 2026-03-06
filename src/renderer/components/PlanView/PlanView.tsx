@@ -306,8 +306,6 @@ const PlanActions: React.FC<{
   onRevise: (feedback: string) => void;
 }> = ({ annotationCount, onApprove, onRevise }) => {
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showReviseInput, setShowReviseInput] = useState(false);
-  const [feedback, setFeedback] = useState('');
   const t = useTranslation();
 
   const hasAnnotations = annotationCount > 0;
@@ -369,102 +367,46 @@ const PlanActions: React.FC<{
     );
   }
 
-  // Without annotations: primary = "Approve", secondary = "Request Revision" (with feedback input)
+  // Without annotations: primary = "Approve" only
   return (
-    <div className="flex items-center justify-between gap-3 p-3 border-t border-border bg-surface">
-      <div />
-
-      <div className="flex items-center gap-2">
-        {showReviseInput ? (
-          <div className="flex items-center gap-2">
-            <input
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              placeholder={t['plan.revise.placeholder']}
-              className="text-[12px] bg-surface-elevated border border-border rounded-lg px-3 py-1.5 text-text-primary focus:outline-none focus:border-borderFocus w-64"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  onRevise(feedback);
-                  setShowReviseInput(false);
-                  setFeedback('');
-                }
-                if (e.key === 'Escape') {
-                  setShowReviseInput(false);
-                  setFeedback('');
-                }
-              }}
-            />
+    <div className="flex items-center justify-end gap-3 p-3 border-t border-border bg-surface">
+      <div className="relative">
+        <div className="flex items-stretch">
+          <button
+            onClick={() => onApprove('current')}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] bg-primary text-on-primary rounded-l-lg hover:bg-primary-hover transition-colors"
+          >
+            <Play size={13} />
+            {t['plan.approve.button']}
+          </button>
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="px-1.5 py-1.5 bg-primary text-on-primary rounded-r-lg hover:bg-primary-hover transition-colors border-l border-on-primary/20"
+          >
+            <ChevronDown size={13} />
+          </button>
+        </div>
+        {showDropdown && (
+          <div className="absolute right-0 bottom-full mb-1 bg-surface-elevated border border-border rounded-lg shadow-xl overflow-hidden min-w-[180px] z-50">
             <button
               onClick={() => {
-                onRevise(feedback);
-                setShowReviseInput(false);
-                setFeedback('');
+                onApprove('current');
+                setShowDropdown(false);
               }}
-              className="px-3 py-1.5 text-[12px] bg-warning/20 text-warning rounded-lg hover:bg-warning/30 transition-colors"
+              className="w-full text-left px-3 py-2 text-[12px] hover:bg-hover transition-colors text-text-primary"
             >
-              {t['plan.revise.send']}
+              {t['plan.approve.currentSession']}
             </button>
             <button
               onClick={() => {
-                setShowReviseInput(false);
-                setFeedback('');
+                onApprove('new-session');
+                setShowDropdown(false);
               }}
-              className="p-1.5 text-text-secondary hover:text-text-primary rounded"
+              className="w-full text-left px-3 py-2 text-[12px] hover:bg-hover transition-colors text-text-primary border-t border-border"
             >
-              <X size={14} />
+              {t['plan.approve.newSession']}
             </button>
           </div>
-        ) : (
-          <>
-            <button
-              onClick={() => setShowReviseInput(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] border border-border rounded-lg text-text-secondary hover:text-text-primary hover:bg-hover transition-colors"
-            >
-              <RotateCcw size={13} />
-              {t['plan.revise.button']}
-            </button>
-
-            <div className="relative">
-              <div className="flex items-stretch">
-                <button
-                  onClick={() => onApprove('current')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] bg-primary text-on-primary rounded-l-lg hover:bg-primary-hover transition-colors"
-                >
-                  <Play size={13} />
-                  {t['plan.approve.button']}
-                </button>
-                <button
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className="px-1.5 py-1.5 bg-primary text-on-primary rounded-r-lg hover:bg-primary-hover transition-colors border-l border-on-primary/20"
-                >
-                  <ChevronDown size={13} />
-                </button>
-              </div>
-              {showDropdown && (
-                <div className="absolute right-0 bottom-full mb-1 bg-surface-elevated border border-border rounded-lg shadow-xl overflow-hidden min-w-[180px] z-50">
-                  <button
-                    onClick={() => {
-                      onApprove('current');
-                      setShowDropdown(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-[12px] hover:bg-hover transition-colors text-text-primary"
-                  >
-                    {t['plan.approve.currentSession']}
-                  </button>
-                  <button
-                    onClick={() => {
-                      onApprove('new-session');
-                      setShowDropdown(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-[12px] hover:bg-hover transition-colors text-text-primary border-t border-border"
-                  >
-                    {t['plan.approve.newSession']}
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
         )}
       </div>
     </div>

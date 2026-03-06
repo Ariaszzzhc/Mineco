@@ -99,6 +99,7 @@ export interface Session {
   planMode?: boolean;
   planHistory?: Plan[];
   activePlanId?: string;
+  interrupted?: boolean;
 }
 
 // Workspace - represents a working directory context

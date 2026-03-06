@@ -30,6 +30,12 @@ import '../services/tools';
 
 const agentLoops = new Map<string, AgentLoop>();
 
+export function shutdownAgents(): void {
+  for (const [, loop] of agentLoops) {
+    loop.stop();
+  }
+}
+
 export function setupIPC(mainWindow: BrowserWindow): void {
   const agentLoop = new AgentLoop(mainWindow);
   agentLoops.set('default', agentLoop);
@@ -156,13 +162,20 @@ export function setupIPC(mainWindow: BrowserWindow): void {
       throw new Error('No workspace selected');
     }
 
-    // Preserve subagentHistory from storage if not present in the incoming session,
-    // since the renderer's in-memory session may not have it
-    if (!session.subagentHistory) {
-      const stored = storageService.getSession(workspacePath, session.id);
-      if (stored?.subagentHistory) {
-        session.subagentHistory = stored.subagentHistory;
-      }
+    // Preserve subagentHistory and plan fields from storage if not present in the incoming session,
+    // since the renderer's in-memory session may not have them
+    const stored = storageService.getSession(workspacePath, session.id);
+    if (!session.subagentHistory && stored?.subagentHistory) {
+      session.subagentHistory = stored.subagentHistory;
+    }
+    if (!session.planHistory && stored?.planHistory) {
+      session.planHistory = stored.planHistory;
+    }
+    if (!session.activePlanId && stored?.activePlanId) {
+      session.activePlanId = stored.activePlanId;
+    }
+    if (session.planMode === undefined && stored?.planMode !== undefined) {
+      session.planMode = stored.planMode;
     }
 
     storageService.saveSession(workspacePath, session);

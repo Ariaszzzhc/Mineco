@@ -12,6 +12,7 @@ export const zhCN: Translations = {
   'chat.shortcutSend.mac': '⌘ ENTER',
   'chat.shortcutSend.other': 'CTRL + ENTER',
   'chat.escToStop': '再按一次 Esc 停止生成',
+  'chat.sessionInterrupted': '会话被中断。发送消息以继续。',
 
   // Sidebar
   'sidebar.workspace': '工作区',

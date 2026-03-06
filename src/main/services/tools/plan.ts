@@ -5,6 +5,7 @@ import { IPC_CHANNELS } from '../../../shared/ipc';
 import type { Plan, PlanBlock, PlanDecision } from '../../../shared/types';
 import type { BrowserWindow } from 'electron';
 import { createLogger } from '../logger';
+import { storageService } from '../storage';
 
 const log = createLogger('plan_tool');
 
@@ -164,6 +165,15 @@ export const exitPlanModeTool = defineTool({
     };
 
     try {
+      // Persist plan to session before awaiting user decision
+      const storedSession = storageService.getSession(context.workingDir, context.sessionId || '');
+      if (storedSession) {
+        if (!storedSession.planHistory) storedSession.planHistory = [];
+        storedSession.planHistory.push(plan);
+        storedSession.activePlanId = plan.id;
+        storageService.saveSession(context.workingDir, storedSession);
+      }
+
       const decision = await new Promise<PlanDecision>((resolve, reject) => {
         pendingPlans.set(planId, { resolve, reject });
 
@@ -173,6 +183,13 @@ export const exitPlanModeTool = defineTool({
 
         log.debug('Plan submitted to renderer:', planId);
       });
+
+      // Clear activePlanId after user decision
+      const afterSession = storageService.getSession(context.workingDir, context.sessionId || '');
+      if (afterSession) {
+        afterSession.activePlanId = undefined;
+        storageService.saveSession(context.workingDir, afterSession);
+      }
 
       if (decision.type === 'approve') {
         const annotationSummary = decision.annotations.length > 0
@@ -195,6 +212,8 @@ export const exitPlanModeTool = defineTool({
       }
     } catch (error) {
       if (error instanceof PlanCancelledError) {
+        // Don't clear activePlanId here — the plan was already submitted to the user.
+        // Keeping it allows the plan to be restored on app restart.
         return {
           success: false,
           output: 'The plan was cancelled (agent stopped or session changed).',

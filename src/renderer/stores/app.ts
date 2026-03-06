@@ -59,6 +59,7 @@ interface AppState {
   activePlan: Plan | null;
   planAnnotations: PlanAnnotation[];
   planVersions: Plan[];
+  isRestoredPlan: boolean;
 
   // Workspace Actions
   setWorkspace: (data: WorkspaceData | null) => void;
@@ -179,6 +180,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activePlan: null,
   planAnnotations: [],
   planVersions: [],
+  isRestoredPlan: false,
 
   // =====================
   // Workspace Actions
@@ -218,6 +220,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       subagentPendingMessages: [],
       subagentStreamingMessage: null,
       subagentRuntimeBySession: {},
+      activePlan: null,
+      planMode: firstParentSession?.planMode ?? false,
+      planVersions: [],
+      isRestoredPlan: false,
+      planAnnotations: [],
     });
   },
 
@@ -274,6 +281,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       subagentPendingMessages: [],
       subagentStreamingMessage: null,
       subagentRuntimeBySession: {},
+      activePlan: null,
+      planMode: resolved.planMode ?? false,
+      planVersions: [],
+      isRestoredPlan: false,
+      planAnnotations: [],
     });
   },
 
@@ -916,6 +928,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       activePlan: versionedPlan,
       planAnnotations: [],
       planVersions: [...state.planVersions, versionedPlan],
+      isRestoredPlan: false,
     }));
   },
 
@@ -943,6 +956,63 @@ export const useAppStore = create<AppState>((set, get) => ({
     const state = get();
     if (!state.activePlan) return;
 
+    if (state.isRestoredPlan) {
+      // Restored plan: no pending Promise in main process.
+      // Inject a tool-result message into the session.
+      const session = state.currentSession;
+      if (!session) return;
+
+      // Find the exit_plan_mode tool-call in the last assistant message
+      const lastAssistant = [...session.messages]
+        .reverse()
+        .find(m => m.role === 'assistant');
+      const toolCallPart = lastAssistant?.parts.find(
+        p => p.type === 'tool-call' && p.toolName === 'exit_plan_mode'
+      );
+
+      if (toolCallPart && toolCallPart.type === 'tool-call') {
+        const resultText = decision.type === 'approve'
+          ? `Plan approved by user. Execution mode: ${decision.executionMode}.\n\nProceed with implementing the plan.`
+          : `User requested revisions to the plan.\n\nFeedback: ${decision.feedback || 'Please revise the plan.'}\n\nPlease revise the plan based on the feedback above, then call exit_plan_mode again with the updated plan.`;
+
+        const toolResultMsg: Message = {
+          id: uuidv4(),
+          role: 'user',
+          parts: [{
+            type: 'tool-result',
+            toolCallId: toolCallPart.toolCallId,
+            toolName: 'exit_plan_mode',
+            result: resultText,
+            isError: false,
+          }],
+          createdAt: Date.now(),
+        };
+
+        const updatedSession: Session = {
+          ...session,
+          messages: [...session.messages, toolResultMsg],
+          activePlanId: undefined,
+          planMode: decision.type === 'revise',
+          updatedAt: Date.now(),
+        };
+
+        window.manong.session.update(updatedSession);
+
+        set({
+          activePlan: null,
+          planAnnotations: [],
+          planMode: decision.type === 'revise',
+          isRestoredPlan: false,
+          currentSession: updatedSession,
+          sessions: state.sessions.map(s =>
+            s.id === updatedSession.id ? updatedSession : s
+          ),
+        });
+      }
+      return;
+    }
+
+    // Live plan: resolve the pending Promise in the main process
     window.manong.plan.sendDecision(state.activePlan.id, decision);
 
     if (decision.type === 'approve') {
@@ -950,11 +1020,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         activePlan: null,
         planAnnotations: [],
         planMode: false,
+        isRestoredPlan: false,
       });
     } else if (decision.type === 'revise') {
       set({
         activePlan: null,
         planAnnotations: [],
+        isRestoredPlan: false,
       });
     }
   },
@@ -965,6 +1037,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       planAnnotations: [],
       planVersions: [],
       planMode: false,
+      isRestoredPlan: false,
     });
   },
 }));

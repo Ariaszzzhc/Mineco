@@ -10,6 +10,7 @@ export const en = {
   'chat.shortcutSend.mac': '⌘ ENTER',
   'chat.shortcutSend.other': 'CTRL + ENTER',
   'chat.escToStop': 'Press Esc again to stop',
+  'chat.sessionInterrupted': 'This session was interrupted. Send a message to continue.',
 
   // Sidebar
   'sidebar.workspace': 'Workspace',

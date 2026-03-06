@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { Image, ArrowUp, Square, Shield, ShieldCheck, ShieldOff, ArrowLeft, ClipboardList } from 'lucide-react';
+import { Image, ArrowUp, Square, Shield, ShieldCheck, ShieldOff, ArrowLeft, ClipboardList, Info } from 'lucide-react';
 import { useAppStore } from '../stores/app';
 import { TimelineBlockView } from './TimelineBlockView';
 import { QuestionCard } from './QuestionCard';
@@ -735,6 +735,13 @@ export const ChatPanel: React.FC = () => {
           {timelineBlocks.map((block) => (
             <TimelineBlockView key={block.id} block={block} />
           ))}
+
+          {currentSession?.interrupted && !isStreaming && (
+            <div className="flex items-center gap-2 px-4 py-2 text-[12px] text-text-secondary bg-surface-elevated rounded-lg mx-auto max-w-2xl mt-2">
+              <Info size={14} className="flex-shrink-0" />
+              <span>{t['chat.sessionInterrupted']}</span>
+            </div>
+          )}
 
           <div ref={messagesEndRef} className="h-4" />
         </div>

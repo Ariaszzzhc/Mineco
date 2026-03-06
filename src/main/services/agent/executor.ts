@@ -19,6 +19,7 @@ export interface ExecutorConfig {
   agentId?: string;
   maxSteps?: number;
   permissionService?: PermissionService;
+  onCheckpoint?: (messages: Message[]) => void;
 }
 
 export interface ExecutorResult {
@@ -43,6 +44,9 @@ export class AgentExecutor {
   private pauseResolver: (() => void) | null = null;
   private permissionService: PermissionService | null;
   private providerConfig: ProviderConfig;
+  private onCheckpoint: ((messages: Message[]) => void) | null;
+  private currentMessages: Message[] | null = null;
+  private currentAssistantMsg: Message | null = null;
 
   constructor(config: ExecutorConfig) {
     this.provider = new AnthropicProvider(config.provider);
@@ -54,6 +58,7 @@ export class AgentExecutor {
     this.agentId = config.agentId || uuidv4();
     this.maxSteps = config.maxSteps ?? 50;
     this.permissionService = config.permissionService ?? null;
+    this.onCheckpoint = config.onCheckpoint ?? null;
   }
 
   async execute(
@@ -67,11 +72,14 @@ export class AgentExecutor {
 
     const tokenUsage: TokenUsage = { ...DEFAULT_TOKEN_USAGE };
     const allMessages = [...messages];
+    this.currentMessages = allMessages;
 
     try {
       await this.processResponse(allMessages, tokenUsage, onEvent);
     } finally {
       this.abortController = null;
+      this.currentMessages = null;
+      this.currentAssistantMsg = null;
     }
 
     const lastAssistantMsg = [...allMessages].reverse().find(m => m.role === 'assistant');
@@ -103,6 +111,7 @@ export class AgentExecutor {
       parts: [],
       createdAt: Date.now(),
     };
+    this.currentAssistantMsg = assistantMsg;
 
     if (onEvent) {
       const eventType = isContinuation ? 'message-continue' : 'message-start';
@@ -231,9 +240,10 @@ export class AgentExecutor {
 
       const aborted = this.abortRequested || this.abortController?.signal.aborted;
       if (aborted) {
-        if (assistantMsg.parts.length > 0) {
+        if (assistantMsg.parts.length > 0 && !messages.includes(assistantMsg)) {
           messages.push(assistantMsg);
         }
+        this.onCheckpoint?.(messages);
 
         onEvent?.({
           type: 'message-complete',
@@ -314,6 +324,7 @@ export class AgentExecutor {
             });
 
             this.addToolResult(messages, tc.toolCallId, tc.toolName, result.output, !result.success);
+            this.onCheckpoint?.(messages);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             log.error('Tool error:', tc.toolName, errorMessage);
@@ -327,6 +338,7 @@ export class AgentExecutor {
               isError: true,
             });
             this.addToolResult(messages, tc.toolCallId, tc.toolName, errorMessage, true);
+            this.onCheckpoint?.(messages);
           }
         }
 
@@ -373,6 +385,7 @@ export class AgentExecutor {
       }
 
       messages.push(assistantMsg);
+      this.onCheckpoint?.(messages);
 
       onEvent?.({
         type: 'message-complete',
@@ -468,6 +481,17 @@ export class AgentExecutor {
     this.abortRequested = true;
     if (this.abortController) {
       this.abortController.abort();
+    }
+    // Synchronously trigger checkpoint with in-flight messages
+    if (this.currentMessages && this.onCheckpoint) {
+      // Include the current assistant message if it has content and isn't already in the array
+      if (this.currentAssistantMsg && this.currentAssistantMsg.parts.length > 0 && !this.currentMessages.includes(this.currentAssistantMsg)) {
+        this.currentMessages.push(this.currentAssistantMsg);
+      }
+      this.onCheckpoint(this.currentMessages);
+      // Disable further checkpoint calls so async continuation (e.g., cancelled tool-results)
+      // doesn't overwrite this synchronous save
+      this.onCheckpoint = null;
     }
   }
 

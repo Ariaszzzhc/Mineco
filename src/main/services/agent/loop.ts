@@ -157,7 +157,8 @@ IMPORTANT:
 - Consider edge cases and dependencies
 - Use clear headings (##) to organize sections
 - Use numbered lists for sequential steps
-- Use code blocks for code examples`;
+- Use code blocks for code examples
+- If you previously submitted a plan that was cancelled or interrupted (e.g., the tool result says "plan was cancelled"), you MUST resubmit the plan using exit_plan_mode. Do NOT proceed with implementation without user approval.`;
 
 const PLAN_MODE_TOOLS = ['read_file', 'glob', 'grep', 'list_dir', 'lsp', 'exit_plan_mode', 'skill'];
 
@@ -205,6 +206,7 @@ export class AgentLoop {
         createdAt: Date.now(),
       };
       session.messages.push(userMsg);
+      session.interrupted = false;
       storageService.saveSession(workingDir, session);
     }
 
@@ -216,6 +218,13 @@ export class AgentLoop {
 
     if (isPlanMode) {
       systemPrompt += PLAN_MODE_SUFFIX;
+
+      if (session.activePlanId && session.planHistory) {
+        const activePlan = session.planHistory.find(p => p.id === session.activePlanId);
+        if (activePlan) {
+          systemPrompt += `\n\nIMPORTANT: There is an existing plan that was previously submitted but not yet decided (the session was interrupted). You MUST resubmit this exact plan using exit_plan_mode immediately. Do NOT regenerate or modify it.\n\nExisting plan markdown:\n${activePlan.markdown}\n\nExisting plan summary: ${activePlan.summary}`;
+        }
+      }
     }
 
     const executor = new AgentExecutor({
@@ -225,6 +234,25 @@ export class AgentLoop {
       workingDir: this.workingDir,
       sessionId: session.id,
       permissionService,
+      onCheckpoint: (msgs: Message[]) => {
+        session.messages = msgs;
+        session.interrupted = true;
+        session.updatedAt = Date.now();
+        const stored = storageService.getSession(workingDir, session.id);
+        if (stored?.subagentHistory) {
+          session.subagentHistory = stored.subagentHistory;
+        }
+        if (stored?.planHistory) {
+          session.planHistory = stored.planHistory;
+        }
+        if (stored?.activePlanId) {
+          session.activePlanId = stored.activePlanId;
+        }
+        if (stored?.planMode !== undefined) {
+          session.planMode = stored.planMode;
+        }
+        storageService.saveSession(workingDir, session);
+      },
     });
     this.executor = executor;
 
@@ -234,12 +262,22 @@ export class AgentLoop {
       session.messages = result.messages;
       session.tokenUsage = result.tokenUsage;
       session.lastUsage = result.tokenUsage;
+      session.interrupted = false;
       session.updatedAt = Date.now();
 
-      if (!session.subagentHistory) {
+      {
         const stored = storageService.getSession(workingDir, session.id);
-        if (stored?.subagentHistory) {
+        if (!session.subagentHistory && stored?.subagentHistory) {
           session.subagentHistory = stored.subagentHistory;
+        }
+        if (stored?.planHistory) {
+          session.planHistory = stored.planHistory;
+        }
+        if (stored?.activePlanId) {
+          session.activePlanId = stored.activePlanId;
+        }
+        if (stored?.planMode !== undefined) {
+          session.planMode = stored.planMode;
         }
       }
 
@@ -247,6 +285,25 @@ export class AgentLoop {
 
       this.generateTitle(session, workingDir, onEvent);
     } catch (error) {
+      session.interrupted = true;
+      session.updatedAt = Date.now();
+      {
+        const stored = storageService.getSession(workingDir, session.id);
+        if (stored?.subagentHistory) {
+          session.subagentHistory = stored.subagentHistory;
+        }
+        if (stored?.planHistory) {
+          session.planHistory = stored.planHistory;
+        }
+        if (stored?.activePlanId) {
+          session.activePlanId = stored.activePlanId;
+        }
+        if (stored?.planMode !== undefined) {
+          session.planMode = stored.planMode;
+        }
+      }
+      storageService.saveSession(workingDir, session);
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       log.error('AgentLoop error:', errorMessage);
       onEvent({
