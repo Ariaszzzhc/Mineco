@@ -134,8 +134,7 @@ class SubagentManager {
         this.sendStreamEvent(streamEvent);
       });
 
-      session.messages.length = 0;
-      session.messages.push(...result.messages);
+      session.messages = result.messages;
       session.tokenUsage = result.tokenUsage;
       session.updatedAt = Date.now();
 
@@ -170,19 +169,7 @@ class SubagentManager {
   }
 
   private saveSubagentToParentSession(workspacePath: string, parentSessionId: string, info: SubagentInfo): void {
-    const parentSession = storageService.getSession(workspacePath, parentSessionId);
-    if (parentSession) {
-      if (!parentSession.subagentHistory) {
-        parentSession.subagentHistory = [];
-      }
-      const existingIdx = parentSession.subagentHistory.findIndex(s => s.id === info.id);
-      if (existingIdx >= 0) {
-        parentSession.subagentHistory[existingIdx] = info;
-      } else {
-        parentSession.subagentHistory.push(info);
-      }
-      storageService.saveSession(workspacePath, parentSession);
-    }
+    storageService.updateSessionSubagentHistory(workspacePath, parentSessionId, info);
   }
 
   private createSubagentSession(config: SubagentConfig): Session {

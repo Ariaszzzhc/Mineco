@@ -467,11 +467,36 @@ export const useAppStore = create<AppState>((set, get) => ({
         }));
       }
     } else if (event.type === 'error') {
-      set({
-        isStreaming: false,
-        pendingMessages: [],
-        streamingMessage: null,
-      });
+      const session = state.currentSession;
+      const pending = [...state.pendingMessages];
+      if (state.streamingMessage && state.streamingMessage.parts.length > 0) {
+        pending.push(state.streamingMessage);
+      }
+
+      if (session && pending.length > 0) {
+        const updatedSession = {
+          ...session,
+          messages: [...session.messages, ...pending],
+          updatedAt: Date.now(),
+        };
+        window.manong.session.update(updatedSession);
+
+        set({
+          isStreaming: false,
+          pendingMessages: [],
+          streamingMessage: null,
+          currentSession: updatedSession,
+          sessions: state.sessions.map((s) =>
+            s.id === updatedSession.id ? updatedSession : s
+          ),
+        });
+      } else {
+        set({
+          isStreaming: false,
+          pendingMessages: [],
+          streamingMessage: null,
+        });
+      }
     } else if (event.type === 'usage') {
       const session = state.currentSession;
       if (session && event.usage) {

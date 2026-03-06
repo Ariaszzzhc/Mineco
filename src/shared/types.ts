@@ -41,6 +41,7 @@ export interface ToolResultPart {
   result: unknown;
   isError?: boolean;
   diff?: FileDiffInfo;
+  compactedAt?: number;
 }
 
 export interface ThinkingPart {
@@ -156,6 +157,7 @@ export interface ProviderConfig {
   baseURL: string;
   model: string;
   enableThinking?: boolean;
+  contextWindow?: number;
 }
 
 // App configuration

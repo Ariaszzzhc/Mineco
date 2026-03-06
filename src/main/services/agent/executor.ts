@@ -4,7 +4,7 @@ import { DEFAULT_TOKEN_USAGE } from '../../../shared/types';
 import type { ToolContext } from '../../../shared/tool';
 import { AnthropicProvider } from '../provider/anthropic';
 import { toolRegistry } from '../tools';
-import { microCompact, estimateTokens, fullCompact, TOKEN_THRESHOLD } from './compact';
+import { microCompact, estimateTokens, fullCompact, TOKEN_THRESHOLD, shouldCompact, pruneToolResults } from './compact';
 import type { PermissionService } from '../permission/service';
 import { createLogger } from '../logger';
 
@@ -36,6 +36,7 @@ export class AgentExecutor {
   private agentId: string;
   private maxSteps: number;
   private stepCount = 0;
+  private lastInputTokens = 0;
   private abortController: AbortController | null = null;
   private abortRequested = false;
   private isPaused = false;
@@ -62,6 +63,7 @@ export class AgentExecutor {
     this.abortController = new AbortController();
     this.abortRequested = false;
     this.stepCount = 0;
+    this.lastInputTokens = 0;
 
     const tokenUsage: TokenUsage = { ...DEFAULT_TOKEN_USAGE };
     const allMessages = [...messages];
@@ -135,15 +137,26 @@ export class AgentExecutor {
         onEvent?.({ type: 'compact', sessionId: this.sessionId, messageId: '', compactType: 'micro', compactInfo: `Replaced ${replacedCount} old tool results` });
       }
 
-      // Layer 2: Auto-compact (when tokens exceed threshold, replace messages in-place)
+      // Layer 2: First-round fallback — no actual inputTokens yet, use heuristic
       let messagesForApi = apiMessages;
-      if (estimateTokens(messagesForApi) > TOKEN_THRESHOLD) {
-        log.info('Auto-compact triggered: token estimate exceeds threshold');
-        const result = await fullCompact(messages, this.workingDir, this.providerConfig);
-        messages.length = 0;
-        messages.push(...result.messages);
-        messagesForApi = [...result.messages];
-        onEvent?.({ type: 'compact', sessionId: this.sessionId, messageId: '', compactType: 'auto', compactInfo: `Transcript saved to ${result.transcriptPath}`, messages: result.messages });
+      if (this.lastInputTokens === 0 && estimateTokens(messagesForApi) > TOKEN_THRESHOLD) {
+        log.info('First-round fallback: token estimate exceeds threshold, attempting prune');
+        const pruneResult = pruneToolResults(messages);
+        if (pruneResult.pruned) {
+          // Re-run microCompact after prune to pick up new compactedAt markers
+          const recompacted = microCompact(messages);
+          messagesForApi = recompacted.messages;
+          log.info(`Prune succeeded: ${pruneResult.prunedCount} results pruned, re-compacted ${recompacted.replacedCount}`);
+          onEvent?.({ type: 'compact', sessionId: this.sessionId, messageId: '', compactType: 'auto', compactInfo: `Pruned ${pruneResult.prunedCount} old tool results`, messages: [...messages] });
+        } else {
+          // Prune insufficient, fall back to fullCompact
+          log.info('Prune insufficient, falling back to fullCompact');
+          const result = await fullCompact(messages, this.workingDir, this.providerConfig);
+          messages.length = 0;
+          messages.push(...result.messages);
+          messagesForApi = [...result.messages];
+          onEvent?.({ type: 'compact', sessionId: this.sessionId, messageId: '', compactType: 'auto', compactInfo: `Transcript saved to ${result.transcriptPath}`, messages: result.messages });
+        }
       }
 
       const stream = this.provider.stream(messagesForApi, effectiveTools, systemPrompt);
@@ -204,6 +217,7 @@ export class AgentExecutor {
           tokenUsage.outputTokens += event.usage.outputTokens;
           tokenUsage.cacheCreationInputTokens += event.usage.cacheCreationInputTokens;
           tokenUsage.cacheReadInputTokens += event.usage.cacheReadInputTokens;
+          this.lastInputTokens = event.usage.inputTokens;
 
           onEvent?.({
             type: 'usage',
@@ -325,6 +339,35 @@ export class AgentExecutor {
           return;
         }
 
+        // Post-tool compact check: use actual inputTokens from the last API call
+        const contextWindow = this.getContextWindow();
+        if (shouldCompact(this.lastInputTokens, contextWindow)) {
+          log.info(`Post-tool compact triggered: inputTokens=${this.lastInputTokens}, contextWindow=${contextWindow}`);
+          const pruneResult = pruneToolResults(messages);
+          if (pruneResult.pruned) {
+            log.info(`Prune succeeded: ${pruneResult.prunedCount} results pruned`);
+            onEvent?.({ type: 'compact', sessionId: this.sessionId, messageId: '', compactType: 'auto', compactInfo: `Pruned ${pruneResult.prunedCount} old tool results`, messages: [...messages] });
+          } else {
+            // Prune insufficient, fall back to fullCompact
+            log.info('Prune insufficient, falling back to fullCompact');
+            const compactResult = await fullCompact(messages, this.workingDir, this.providerConfig);
+            messages.length = 0;
+            messages.push(...compactResult.messages);
+            onEvent?.({ type: 'compact', sessionId: this.sessionId, messageId: '', compactType: 'auto', compactInfo: `Transcript saved to ${compactResult.transcriptPath}`, messages: compactResult.messages });
+          }
+
+          // Add synthetic continue message
+          const continueMsg: Message = {
+            id: uuidv4(),
+            role: 'user',
+            parts: [{ type: 'text', text: 'Continue if you have next steps, or stop and ask for clarification.' }],
+            createdAt: Date.now(),
+            hidden: true,
+          };
+          messages.push(continueMsg);
+          this.lastInputTokens = 0;
+        }
+
         await this.processResponse(messages, tokenUsage, onEvent, true);
         return;
       }
@@ -375,6 +418,10 @@ export class AgentExecutor {
       return allTools;
     }
     return allTools.filter(t => this.allowedTools.includes(t.name));
+  }
+
+  private getContextWindow(): number {
+    return this.providerConfig.contextWindow || 200_000;
   }
 
   private updateTextPart(msg: Message, text: string) {

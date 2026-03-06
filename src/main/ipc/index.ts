@@ -15,7 +15,7 @@ import { storageService } from '../services/storage';
 import { skillService } from '../services/skill';
 import { mcpManager } from '../services/mcp';
 import { lspManager } from '../services/lsp';
-import { fullCompact } from '../services/agent/compact';
+import { fullCompact, pruneToolResults } from '../services/agent/compact';
 import {
   setQuestionWindow,
   resolveQuestion,
@@ -398,6 +398,21 @@ export function setupIPC(mainWindow: BrowserWindow): void {
         return { success: false, error: 'No provider configured' };
       }
 
+      // Try prune-first strategy (unless user specified a focus for full summary)
+      if (!focus) {
+        const pruneResult = pruneToolResults(session.messages);
+        if (pruneResult.pruned) {
+          session.updatedAt = Date.now();
+          storageService.saveSession(workspacePath, session);
+          return {
+            success: true,
+            messages: session.messages,
+            compactInfo: `Pruned ${pruneResult.prunedCount} old tool results`,
+          };
+        }
+      }
+
+      // Fall back to full compact
       const result = await fullCompact(session.messages, workspacePath, providerConfig, focus);
       session.messages = result.messages;
       session.updatedAt = Date.now();

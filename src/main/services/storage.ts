@@ -1,6 +1,6 @@
 import Store from 'electron-store';
 import { v4 as uuidv4 } from 'uuid';
-import type { Workspace, WorkspaceData, Session, AppConfig } from '../../shared/types';
+import type { Workspace, WorkspaceData, Session, AppConfig, SubagentInfo } from '../../shared/types';
 import { DEFAULT_CONFIG, DEFAULT_TOKEN_USAGE } from '../../shared/types';
 
 // Storage schema
@@ -155,6 +155,27 @@ class StorageService {
     }
 
     data.sessions = data.sessions.filter((s) => s.id !== sessionId);
+    this.saveWorkspace(data);
+  }
+
+  updateSessionSubagentHistory(workspacePath: string, sessionId: string, info: SubagentInfo): void {
+    const data = this.getWorkspace(workspacePath);
+    if (!data) return;
+
+    const session = data.sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+
+    if (!session.subagentHistory) {
+      session.subagentHistory = [];
+    }
+    const existingIdx = session.subagentHistory.findIndex(s => s.id === info.id);
+    if (existingIdx >= 0) {
+      session.subagentHistory[existingIdx] = info;
+    } else {
+      session.subagentHistory.push(info);
+    }
+    session.updatedAt = Date.now();
+
     this.saveWorkspace(data);
   }
 

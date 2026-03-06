@@ -9,6 +9,7 @@ import type {
 import { AgentExecutor } from './executor';
 import { cancelPendingQuestions } from '../tools/ask';
 import { permissionService } from '../permission';
+import { storageService } from '../storage';
 import type { BrowserWindow } from 'electron';
 import { createLogger } from '../logger';
 
@@ -177,6 +178,7 @@ export class AgentLoop {
         createdAt: Date.now(),
       };
       session.messages.push(userMsg);
+      storageService.saveSession(workingDir, session);
     }
 
     const systemPrompt = SYSTEM_PROMPT
@@ -197,11 +199,19 @@ export class AgentLoop {
     try {
       const result = await executor.execute(session.messages, onEvent);
 
-      session.messages.length = 0;
-      session.messages.push(...result.messages);
-
+      session.messages = result.messages;
       session.tokenUsage = result.tokenUsage;
       session.lastUsage = result.tokenUsage;
+      session.updatedAt = Date.now();
+
+      if (!session.subagentHistory) {
+        const stored = storageService.getSession(workingDir, session.id);
+        if (stored?.subagentHistory) {
+          session.subagentHistory = stored.subagentHistory;
+        }
+      }
+
+      storageService.saveSession(workingDir, session);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       log.error('AgentLoop error:', errorMessage);

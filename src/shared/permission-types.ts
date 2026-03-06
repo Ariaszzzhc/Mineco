@@ -12,7 +12,9 @@ export const BUILTIN_TOOL_RISK: Record<string, ToolRiskLevel> = {
   bash: 'execute',
   skill: 'read',
   ask: 'read',
-  todo: 'read',
+  todoread: 'read',
+  todowrite: 'read',
+  task: 'read',
   lsp: 'read',
 };
 
