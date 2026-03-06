@@ -96,6 +96,9 @@ export interface Session {
   parentSessionId?: string;
   agentType?: string;
   subagentHistory?: SubagentInfo[];
+  planMode?: boolean;
+  planHistory?: Plan[];
+  activePlanId?: string;
 }
 
 // Workspace - represents a working directory context
@@ -123,7 +126,9 @@ export type StreamEventType =
   | 'usage'
   | 'error'
   | 'compact'
-  | 'title-update';
+  | 'title-update'
+  | 'plan-submit'
+  | 'plan-revision';
 
 export interface StreamEvent {
   type: StreamEventType;
@@ -150,6 +155,9 @@ export interface StreamEvent {
   messages?: Message[];
   // For title-update
   title?: string;
+  // For plan-submit and plan-revision
+  plan?: Plan;
+  previousVersion?: number;
 }
 
 // Provider configuration
@@ -247,6 +255,45 @@ export interface TaskToolParams {
 export interface TaskToolResult {
   taskId: string;
   summary: string;
+}
+
+// Plan Mode types
+export type PlanAnnotationType = 'delete' | 'insert' | 'replace' | 'comment';
+
+export type PlanDecision =
+  | { type: 'approve'; executionMode: 'current' | 'new-session'; annotations: PlanAnnotation[] }
+  | { type: 'revise'; feedback: string; annotations: PlanAnnotation[] };
+
+export interface PlanBlock {
+  id: string;
+  type: 'heading' | 'paragraph' | 'list-item' | 'code' | 'blockquote';
+  content: string;
+  order: number;
+  lineStart: number;
+  lineEnd: number;
+  level?: number;
+}
+
+export interface PlanAnnotation {
+  id: string;
+  blockId: string;
+  type: PlanAnnotationType;
+  startOffset: number;
+  endOffset: number;
+  originalText: string;
+  newText?: string;
+  comment?: string;
+  createdAt: number;
+}
+
+export interface Plan {
+  id: string;
+  sessionId: string;
+  markdown: string;
+  summary: string;
+  blocks: PlanBlock[];
+  version: number;
+  createdAt: number;
 }
 
 export type SubagentStatus = 'pending' | 'running' | 'completed' | 'error';

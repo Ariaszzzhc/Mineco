@@ -6,6 +6,7 @@ import type {
   AppConfig,
   QuestionAnswer,
   ImagePart,
+  PlanDecision,
 } from '../../shared/types';
 import type { MCPConfig, MCPServerStatus, LayeredMCPConfig } from '../../shared/mcp-types';
 import type { LSPServerStatus } from '../../shared/lsp-types';
@@ -21,6 +22,7 @@ import {
   resolveQuestion,
   skipQuestion,
 } from '../services/tools/ask';
+import { setPlanWindow, resolvePlanDecision } from '../services/tools/plan';
 import { setTodoWindow } from '../services/tools/todo';
 import { permissionService } from '../services/permission';
 import { subagentManager } from '../services/agent/subagent';
@@ -34,6 +36,9 @@ export function setupIPC(mainWindow: BrowserWindow): void {
 
   // Set the window reference for question tool
   setQuestionWindow(mainWindow);
+
+  // Set the window reference for plan tool
+  setPlanWindow(mainWindow);
 
   // Set the window reference for todo tool
   setTodoWindow(mainWindow);
@@ -198,6 +203,32 @@ export function setupIPC(mainWindow: BrowserWindow): void {
   ipcMain.on(IPC_CHANNELS.AGENT_STOP, () => {
     agentLoop.stop();
   });
+
+  // =====================
+  // Plan Mode
+  // =====================
+
+  ipcMain.handle(
+    IPC_CHANNELS.PLAN_MODE_TOGGLE,
+    (_event, sessionId: string, enabled: boolean) => {
+      const workspacePath = storageService.getCurrentWorkspacePath();
+      if (!workspacePath) return;
+
+      const session = storageService.getSession(workspacePath, sessionId);
+      if (!session) return;
+
+      session.planMode = enabled;
+      session.updatedAt = Date.now();
+      storageService.saveSession(workspacePath, session);
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.PLAN_DECISION,
+    (_event, planId: string, decision: PlanDecision) => {
+      resolvePlanDecision(planId, decision);
+    }
+  );
 
   // =====================
   // Config Management

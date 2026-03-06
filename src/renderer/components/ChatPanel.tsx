@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { Image, ArrowUp, Square, Shield, ShieldCheck, ShieldOff, ArrowLeft } from 'lucide-react';
+import { Image, ArrowUp, Square, Shield, ShieldCheck, ShieldOff, ArrowLeft, ClipboardList } from 'lucide-react';
 import { useAppStore } from '../stores/app';
 import { TimelineBlockView } from './TimelineBlockView';
 import { QuestionCard } from './QuestionCard';
 import { PermissionCard } from './PermissionCard';
 import { SlashCommandMenu } from './SlashCommandMenu';
+import { PlanView } from './PlanView';
 import type { Message, Part, ImagePart, QuestionAnswer, Skill } from '../../shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import { compressImage } from '../utils/imageCompressor';
@@ -51,6 +52,9 @@ export const ChatPanel: React.FC = () => {
     subagentStreamingMessage,
     setViewingSubagent,
     handleSubagentStreamEvent,
+    planMode,
+    activePlan,
+    togglePlanMode,
   } = useAppStore();
 
   const [input, setInput] = useState('');
@@ -142,6 +146,13 @@ export const ChatPanel: React.FC = () => {
     });
     return unsubscribe;
   }, [setPendingPermission]);
+
+  useEffect(() => {
+    const unsubscribe = window.manong.plan.onSubmit((plan) => {
+      useAppStore.getState().handlePlanSubmit(plan);
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     const unsubscribe = window.manong.subagent.onStream((event) => {
@@ -545,27 +556,40 @@ export const ChatPanel: React.FC = () => {
               />
               <button
                 onClick={() => {
-                  const modes = ['default', 'acceptEdits', 'bypassPermissions'] as const;
-                  const idx = modes.indexOf(permissionMode);
-                  setPermissionMode(modes[(idx + 1) % modes.length]);
+                  if (planMode) {
+                    togglePlanMode();
+                    setPermissionMode('default');
+                  } else {
+                    const modes = ['default', 'acceptEdits', 'bypassPermissions'] as const;
+                    const idx = modes.indexOf(permissionMode);
+                    if (idx === modes.length - 1) {
+                      togglePlanMode();
+                    } else {
+                      setPermissionMode(modes[idx + 1]);
+                    }
+                  }
                 }}
                 className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
-                  permissionMode === 'bypassPermissions'
-                    ? 'text-warning bg-warning/10 hover:bg-warning/20'
-                    : permissionMode === 'acceptEdits'
-                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-hover'
+                  planMode
+                    ? 'text-green-600 dark:text-green-400 hover:bg-hover'
+                    : permissionMode === 'bypassPermissions'
+                      ? 'text-warning bg-warning/10 hover:bg-warning/20'
+                      : permissionMode === 'acceptEdits'
+                        ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-hover'
                 }`}
                 title={`${t['shortcuts.cyclePermissionMode']} (Shift+Tab)`}
               >
-                {permissionMode === 'bypassPermissions' ? (
+                {planMode ? (
+                  <ClipboardList size={13} strokeWidth={1.5} />
+                ) : permissionMode === 'bypassPermissions' ? (
                   <ShieldOff size={13} strokeWidth={1.5} />
                 ) : permissionMode === 'acceptEdits' ? (
                   <ShieldCheck size={13} strokeWidth={1.5} />
                 ) : (
                   <Shield size={13} strokeWidth={1.5} />
                 )}
-                <span>{t[`permission.mode.${permissionMode}` as TranslationKey]}</span>
+                <span>{planMode ? t['plan.toggle'] : t[`permission.mode.${permissionMode}` as TranslationKey]}</span>
               </button>
             </div>
 
@@ -689,6 +713,15 @@ export const ChatPanel: React.FC = () => {
             <div ref={messagesEndRef} className="h-4" />
           </div>
         </div>
+      </main>
+    );
+  }
+
+  // Plan mode: show PlanView when a plan is active
+  if (activePlan && !isViewingSubagent) {
+    return (
+      <main className="flex-1 flex flex-col bg-background relative">
+        <PlanView />
       </main>
     );
   }

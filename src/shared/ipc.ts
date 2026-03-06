@@ -79,4 +79,9 @@ export const IPC_CHANNELS = {
   SUBAGENT_STATUS_UPDATE: 'subagent:status-update',
   SUBAGENT_STREAM: 'subagent:stream',
   SUBAGENT_GET_SESSION: 'subagent:get-session',
+
+  // Plan Mode
+  PLAN_MODE_TOGGLE: 'plan:mode-toggle',
+  PLAN_DECISION: 'plan:decision',
+  PLAN_SUBMIT: 'plan:submit',
 } as const;

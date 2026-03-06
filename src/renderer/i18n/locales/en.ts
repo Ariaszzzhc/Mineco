@@ -206,6 +206,29 @@ export const en = {
   'shortcuts.cyclePermissionMode': 'Switch permission mode',
   'shortcuts.commandPalette': 'Command Palette',
   'commandPalette.placeholder': 'Type a command...',
+
+  // Plan Mode
+  'plan.title': 'Implementation Plan',
+  'plan.toggle': 'Plan Mode',
+  'plan.toggleTitle': 'Toggle Plan Mode',
+  'plan.showDiff': 'Show Diff',
+  'plan.approve.button': 'Approve & Execute',
+  'plan.approve.currentSession': 'Execute in Current Session',
+  'plan.approve.newSession': 'Execute in New Session',
+  'plan.revise.button': 'Request Revision',
+  'plan.revise.placeholder': 'Describe what to change...',
+  'plan.revise.send': 'Send',
+  'plan.annotate.delete': 'Delete',
+  'plan.annotate.insert': 'Insert',
+  'plan.annotate.replace': 'Replace',
+  'plan.annotate.comment': 'Comment',
+  'plan.annotate.add': 'Add',
+  'plan.annotate.annotations': 'Annotations',
+  'plan.annotate.noAnnotations': 'Select text in the plan to add annotations',
+  'plan.annotate.deleteConfirm': 'Mark for deletion',
+  'plan.annotate.commentPlaceholder': 'Add your comment...',
+  'plan.annotate.insertPlaceholder': 'Enter text to insert...',
+  'plan.annotate.replacePlaceholder': 'Enter replacement text...',
 } as const;
 
 export type Translations = typeof en;

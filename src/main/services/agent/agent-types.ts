@@ -76,7 +76,7 @@ const BUILTIN_AGENTS: Record<string, AgentType> = {
     description: 'Planning agent for designing implementation strategies. Analyzes codebase and produces numbered plans. Read-only access.',
     mode: 'subagent',
     prompt: PLAN_PROMPT,
-    allowedTools: ['read_file', 'glob', 'grep', 'list_dir', 'bash', 'lsp'],
+    allowedTools: ['read_file', 'glob', 'grep', 'list_dir', 'bash', 'lsp', 'exit_plan_mode'],
     deniedTools: ['write_file', 'edit_file', 'task'],
     color: '#2196F3',
   },

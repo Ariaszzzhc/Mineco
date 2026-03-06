@@ -214,10 +214,18 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     action: async () => {
       const { useAppStore } = await import('../stores/app');
       const state = useAppStore.getState();
-      const modes = ['default', 'acceptEdits', 'bypassPermissions'] as const;
-      const currentIdx = modes.indexOf(state.permissionMode);
-      const nextMode = modes[(currentIdx + 1) % modes.length];
-      state.setPermissionMode(nextMode);
+      if (state.planMode) {
+        state.togglePlanMode();
+        state.setPermissionMode('default');
+      } else {
+        const modes = ['default', 'acceptEdits', 'bypassPermissions'] as const;
+        const currentIdx = modes.indexOf(state.permissionMode);
+        if (currentIdx === modes.length - 1) {
+          state.togglePlanMode();
+        } else {
+          state.setPermissionMode(modes[currentIdx + 1]);
+        }
+      }
     },
   },
 ];

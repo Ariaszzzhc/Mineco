@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from './shared/ipc';
-import type { Session, StreamEvent, AppConfig, Workspace, WorkspaceData, Skill, SkillExecuteResult, QuestionRequest, QuestionAnswer, Todo, ImagePart, Message, SubagentInfo } from './shared/types';
+import type { Session, StreamEvent, AppConfig, Workspace, WorkspaceData, Skill, SkillExecuteResult, QuestionRequest, QuestionAnswer, Todo, ImagePart, Message, SubagentInfo, Plan, PlanDecision } from './shared/types';
 import type { MCPConfig, MCPServerStatus, LayeredMCPConfig } from './shared/mcp-types';
 import type { LSPServerStatus } from './shared/lsp-types';
 import type { PermissionMode, PermissionRequest, PermissionDecision, PermissionConfig, LayeredPermissionConfig } from './shared/permission-types';
@@ -255,6 +255,22 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.SUBAGENT_STREAM, handler);
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.SUBAGENT_STREAM, handler);
+      };
+    },
+  },
+
+  plan: {
+    toggleMode: (sessionId: string, enabled: boolean): Promise<void> => {
+      return ipcRenderer.invoke(IPC_CHANNELS.PLAN_MODE_TOGGLE, sessionId, enabled);
+    },
+    sendDecision: (planId: string, decision: PlanDecision): Promise<void> => {
+      return ipcRenderer.invoke(IPC_CHANNELS.PLAN_DECISION, planId, decision);
+    },
+    onSubmit: (callback: (plan: Plan) => void) => {
+      const handler = (_event: unknown, plan: Plan) => callback(plan);
+      ipcRenderer.on(IPC_CHANNELS.PLAN_SUBMIT, handler);
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.PLAN_SUBMIT, handler);
       };
     },
   },

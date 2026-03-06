@@ -9,6 +9,7 @@ import type {
 } from '../../../shared/types';
 import { AgentExecutor } from './executor';
 import { cancelPendingQuestions } from '../tools/ask';
+import { cancelPendingPlans } from '../tools/plan';
 import { permissionService } from '../permission';
 import { storageService } from '../storage';
 import type { BrowserWindow } from 'electron';
@@ -136,6 +137,30 @@ NEVER commit changes unless the user explicitly asks you to.
   Model: {{MODEL}}
 </env>`;
 
+const PLAN_MODE_SUFFIX = `
+
+# Plan Mode
+
+You are currently in PLAN MODE. Your job is to:
+1. Analyze the codebase thoroughly using read-only tools (read_file, glob, grep, list_dir, lsp)
+2. Understand the current architecture, patterns, and conventions
+3. Create a detailed, actionable implementation plan
+
+When your analysis is complete, call the \`exit_plan_mode\` tool with:
+- A structured Markdown plan including headings, steps, file paths, and code patterns
+- A brief summary of the plan
+
+IMPORTANT:
+- You must NOT modify any files. Only analyze and plan.
+- Your plan should be specific about which files need changes
+- Follow existing code patterns and conventions
+- Consider edge cases and dependencies
+- Use clear headings (##) to organize sections
+- Use numbered lists for sequential steps
+- Use code blocks for code examples`;
+
+const PLAN_MODE_TOOLS = ['read_file', 'glob', 'grep', 'list_dir', 'lsp', 'exit_plan_mode', 'skill'];
+
 export class AgentLoop {
   private provider: ProviderConfig | null = null;
   private executor: AgentExecutor | null = null;
@@ -167,6 +192,7 @@ export class AgentLoop {
     }
 
     this.workingDir = workingDir;
+    const isPlanMode = session.planMode === true;
 
     if (userMessage.trim() || images.length > 0) {
       const userMsg: Message = {
@@ -182,15 +208,20 @@ export class AgentLoop {
       storageService.saveSession(workingDir, session);
     }
 
-    const systemPrompt = SYSTEM_PROMPT
+    let systemPrompt = SYSTEM_PROMPT
       .replace('{{WORKING_DIR}}', this.workingDir || 'not set')
       .replace('{{PLATFORM}}', process.platform)
       .replace('{{DATE}}', new Date().toDateString())
       .replace('{{MODEL}}', this.modelName);
 
+    if (isPlanMode) {
+      systemPrompt += PLAN_MODE_SUFFIX;
+    }
+
     const executor = new AgentExecutor({
       provider: this.provider,
       systemPrompt,
+      ...(isPlanMode ? { allowedTools: PLAN_MODE_TOOLS } : {}),
       workingDir: this.workingDir,
       sessionId: session.id,
       permissionService,
@@ -236,6 +267,7 @@ export class AgentLoop {
       this.executor.abort();
     }
     cancelPendingQuestions();
+    cancelPendingPlans();
     permissionService.cancelPendingPermissions();
   }
 

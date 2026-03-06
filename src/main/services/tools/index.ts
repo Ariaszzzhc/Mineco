@@ -12,5 +12,6 @@ import './ask';
 import './todo';
 import './lsp';
 import './task';
+import './plan';
 
 export { toolRegistry } from './registry';

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { Session, Message, AppConfig, StreamEvent, Workspace, WorkspaceData, Skill, QuestionRequest, Todo, SubagentInfo } from '../../shared/types';
+import type { Session, Message, AppConfig, StreamEvent, Workspace, WorkspaceData, Skill, QuestionRequest, Todo, SubagentInfo, Plan, PlanAnnotation, PlanDecision } from '../../shared/types';
 import type { MCPServerStatus, MCPConfig, LayeredMCPConfig } from '../../shared/mcp-types';
 import type { PermissionMode, PermissionRequest, PermissionDecision } from '../../shared/permission-types';
 
@@ -54,6 +54,12 @@ interface AppState {
   subagentStreamingMessage: Message | null;
   subagentRuntimeBySession: Record<string, SubagentRuntimeState>;
 
+  // Plan mode state
+  planMode: boolean;
+  activePlan: Plan | null;
+  planAnnotations: PlanAnnotation[];
+  planVersions: Plan[];
+
   // Workspace Actions
   setWorkspace: (data: WorkspaceData | null) => void;
   clearWorkspace: () => void;
@@ -104,6 +110,15 @@ interface AppState {
   setViewingSubagent: (sessionId: string | null) => void;
   loadViewingSubagentSession: (sessionId: string) => Promise<void>;
   handleSubagentStreamEvent: (event: StreamEvent) => void;
+
+  // Plan Mode Actions
+  togglePlanMode: () => void;
+  handlePlanSubmit: (plan: Plan) => void;
+  addPlanAnnotation: (annotation: PlanAnnotation) => void;
+  removePlanAnnotation: (id: string) => void;
+  updatePlanAnnotation: (id: string, updates: Partial<PlanAnnotation>) => void;
+  submitPlanDecision: (decision: PlanDecision) => void;
+  clearPlanState: () => void;
 }
 
 const EMPTY_SUBAGENT_RUNTIME: SubagentRuntimeState = {
@@ -160,6 +175,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   subagentPendingMessages: [],
   subagentStreamingMessage: null,
   subagentRuntimeBySession: {},
+  planMode: false,
+  activePlan: null,
+  planAnnotations: [],
+  planVersions: [],
 
   // =====================
   // Workspace Actions
@@ -517,6 +536,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           ),
         });
       }
+    } else if (event.type === 'plan-submit' && event.plan) {
+      get().handlePlanSubmit(event.plan);
     }
   },
 
@@ -872,5 +893,78 @@ export const useAppStore = create<AppState>((set, get) => ({
         return withSubagentRuntimeUpdate(state, event.sessionId, updatedRuntime);
       });
     }
+  },
+
+  // =====================
+  // Plan Mode Actions
+  // =====================
+
+  togglePlanMode: () => {
+    const state = get();
+    const newMode = !state.planMode;
+    set({ planMode: newMode });
+
+    if (state.currentSession) {
+      window.manong.plan.toggleMode(state.currentSession.id, newMode);
+    }
+  },
+
+  handlePlanSubmit: (plan) => {
+    const newVersion = get().planVersions.length + 1;
+    const versionedPlan = { ...plan, version: newVersion };
+    set((state) => ({
+      activePlan: versionedPlan,
+      planAnnotations: [],
+      planVersions: [...state.planVersions, versionedPlan],
+    }));
+  },
+
+  addPlanAnnotation: (annotation) => {
+    set((state) => ({
+      planAnnotations: [...state.planAnnotations, annotation],
+    }));
+  },
+
+  removePlanAnnotation: (id) => {
+    set((state) => ({
+      planAnnotations: state.planAnnotations.filter((a) => a.id !== id),
+    }));
+  },
+
+  updatePlanAnnotation: (id, updates) => {
+    set((state) => ({
+      planAnnotations: state.planAnnotations.map((a) =>
+        a.id === id ? { ...a, ...updates } : a
+      ),
+    }));
+  },
+
+  submitPlanDecision: (decision) => {
+    const state = get();
+    if (!state.activePlan) return;
+
+    window.manong.plan.sendDecision(state.activePlan.id, decision);
+
+    if (decision.type === 'approve') {
+      set({
+        activePlan: null,
+        planAnnotations: [],
+        planMode: false,
+      });
+    } else if (decision.type === 'revise') {
+      set({
+        activePlan: null,
+        planAnnotations: [],
+      });
+    }
+  },
+
+  clearPlanState: () => {
+    set({
+      activePlan: null,
+      planAnnotations: [],
+      planVersions: [],
+      planMode: false,
+    });
   },
 }));
