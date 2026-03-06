@@ -106,7 +106,17 @@ export const ChatPanel: React.FC = () => {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [currentSession?.messages, pendingMessages, streamingMessage, pendingPermission, pendingQuestion]);
+  }, [
+    currentSession?.messages,
+    pendingMessages,
+    streamingMessage,
+    pendingPermission,
+    pendingQuestion,
+    viewingSubagentId,
+    viewingSubagentSession?.messages,
+    subagentPendingMessages,
+    subagentStreamingMessage,
+  ]);
 
   useEffect(() => {
     const unsubscribe = window.manong.agent.onStream((event) => {

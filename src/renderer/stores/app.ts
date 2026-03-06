@@ -4,6 +4,12 @@ import type { Session, Message, AppConfig, StreamEvent, Workspace, WorkspaceData
 import type { MCPServerStatus, MCPConfig, LayeredMCPConfig } from '../../shared/mcp-types';
 import type { PermissionMode, PermissionRequest, PermissionDecision } from '../../shared/permission-types';
 
+interface SubagentRuntimeState {
+  session: Session | null;
+  pendingMessages: Message[];
+  streamingMessage: Message | null;
+}
+
 interface AppState {
   // Workspace
   currentWorkspace: Workspace | null;
@@ -46,6 +52,7 @@ interface AppState {
   viewingSubagentSession: Session | null;
   subagentPendingMessages: Message[];
   subagentStreamingMessage: Message | null;
+  subagentRuntimeBySession: Record<string, SubagentRuntimeState>;
 
   // Workspace Actions
   setWorkspace: (data: WorkspaceData | null) => void;
@@ -99,6 +106,36 @@ interface AppState {
   handleSubagentStreamEvent: (event: StreamEvent) => void;
 }
 
+const EMPTY_SUBAGENT_RUNTIME: SubagentRuntimeState = {
+  session: null,
+  pendingMessages: [],
+  streamingMessage: null,
+};
+
+const getSubagentRuntime = (state: AppState, sessionId: string): SubagentRuntimeState =>
+  state.subagentRuntimeBySession[sessionId] ?? EMPTY_SUBAGENT_RUNTIME;
+
+const withSubagentRuntimeUpdate = (
+  state: AppState,
+  sessionId: string,
+  runtime: SubagentRuntimeState,
+): Partial<AppState> => {
+  const updates: Partial<AppState> = {
+    subagentRuntimeBySession: {
+      ...state.subagentRuntimeBySession,
+      [sessionId]: runtime,
+    },
+  };
+
+  if (state.viewingSubagentId === sessionId) {
+    updates.viewingSubagentSession = runtime.session;
+    updates.subagentPendingMessages = runtime.pendingMessages;
+    updates.subagentStreamingMessage = runtime.streamingMessage;
+  }
+
+  return updates;
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   currentWorkspace: null,
   currentWorkspacePath: null,
@@ -122,6 +159,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   viewingSubagentSession: null,
   subagentPendingMessages: [],
   subagentStreamingMessage: null,
+  subagentRuntimeBySession: {},
 
   // =====================
   // Workspace Actions
@@ -136,6 +174,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentSession: null,
         currentSessionId: null,
         todos: [],
+        subagentInfos: [],
+        viewingSubagentId: null,
+        viewingSubagentSession: null,
+        subagentPendingMessages: [],
+        subagentStreamingMessage: null,
+        subagentRuntimeBySession: {},
       });
       return;
     }
@@ -147,6 +191,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentSession: data.sessions[0] || null,
       currentSessionId: data.sessions[0]?.id || null,
       todos: data.sessions[0]?.todos || [],
+      subagentInfos: [],
+      viewingSubagentId: null,
+      viewingSubagentSession: null,
+      subagentPendingMessages: [],
+      subagentStreamingMessage: null,
+      subagentRuntimeBySession: {},
     });
   },
 
@@ -158,6 +208,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentSession: null,
       currentSessionId: null,
       todos: [],
+      subagentInfos: [],
+      viewingSubagentId: null,
+      viewingSubagentSession: null,
+      subagentPendingMessages: [],
+      subagentStreamingMessage: null,
+      subagentRuntimeBySession: {},
     });
   },
 
@@ -564,64 +620,96 @@ export const useAppStore = create<AppState>((set, get) => ({
         subagentPendingMessages: [],
         subagentStreamingMessage: null,
       });
-    } else {
-      set({ viewingSubagentId: sessionId });
+      return;
     }
+
+    set((state) => {
+      const runtime = getSubagentRuntime(state, sessionId);
+      return {
+        viewingSubagentId: sessionId,
+        viewingSubagentSession: runtime.session,
+        subagentPendingMessages: runtime.pendingMessages,
+        subagentStreamingMessage: runtime.streamingMessage,
+      };
+    });
   },
 
   loadViewingSubagentSession: async (sessionId) => {
     try {
       const session = await window.manong.subagent.getSession(sessionId);
-      set({ viewingSubagentSession: session ?? null });
+      set((state) => {
+        const runtime = getSubagentRuntime(state, sessionId);
+        const updatedRuntime: SubagentRuntimeState = {
+          ...runtime,
+          session: session ?? null,
+        };
+        return withSubagentRuntimeUpdate(state, sessionId, updatedRuntime);
+      });
     } catch (error) {
       console.error('Failed to load subagent session:', error);
     }
   },
 
   handleSubagentStreamEvent: (event) => {
-    const state = get();
-    if (state.viewingSubagentId !== event.sessionId) return;
-
     if (event.type === 'message-start') {
-      set({
-        subagentPendingMessages: [],
-        subagentStreamingMessage: {
-          id: event.messageId,
-          role: 'assistant',
-          parts: [],
-          createdAt: Date.now(),
-        },
+      set((state) => {
+        const runtime = getSubagentRuntime(state, event.sessionId);
+        const updatedRuntime: SubagentRuntimeState = {
+          ...runtime,
+          pendingMessages: [],
+          streamingMessage: {
+            id: event.messageId,
+            role: 'assistant',
+            parts: [],
+            createdAt: Date.now(),
+          },
+        };
+        return withSubagentRuntimeUpdate(state, event.sessionId, updatedRuntime);
       });
     } else if (event.type === 'message-continue') {
-      const pending = [...state.subagentPendingMessages];
-      if (state.subagentStreamingMessage && state.subagentStreamingMessage.parts.length > 0) {
-        pending.push(state.subagentStreamingMessage);
-      }
-      set({
-        subagentPendingMessages: pending,
-        subagentStreamingMessage: {
-          id: event.messageId,
-          role: 'assistant',
-          parts: [],
-          createdAt: Date.now(),
-        },
+      set((state) => {
+        const runtime = getSubagentRuntime(state, event.sessionId);
+        const pending = [...runtime.pendingMessages];
+        if (runtime.streamingMessage && runtime.streamingMessage.parts.length > 0) {
+          pending.push(runtime.streamingMessage);
+        }
+        const updatedRuntime: SubagentRuntimeState = {
+          ...runtime,
+          pendingMessages: pending,
+          streamingMessage: {
+            id: event.messageId,
+            role: 'assistant',
+            parts: [],
+            createdAt: Date.now(),
+          },
+        };
+        return withSubagentRuntimeUpdate(state, event.sessionId, updatedRuntime);
       });
     } else if (event.type === 'text-delta') {
-      set((s) => {
-        if (!s.subagentStreamingMessage) return s;
-        const parts = [...s.subagentStreamingMessage.parts];
+      set((state) => {
+        const runtime = getSubagentRuntime(state, event.sessionId);
+        if (!runtime.streamingMessage) return {};
+
+        const parts = [...runtime.streamingMessage.parts];
         const lastPart = parts[parts.length - 1];
         if (lastPart && lastPart.type === 'text') {
           parts[parts.length - 1] = { ...lastPart, text: lastPart.text + event.delta };
         } else {
           parts.push({ type: 'text', text: event.delta ?? '' });
         }
-        return { subagentStreamingMessage: { ...s.subagentStreamingMessage, parts } };
+
+        const updatedRuntime: SubagentRuntimeState = {
+          ...runtime,
+          streamingMessage: { ...runtime.streamingMessage, parts },
+        };
+        return withSubagentRuntimeUpdate(state, event.sessionId, updatedRuntime);
       });
     } else if (event.type === 'thinking-delta') {
-      set((s) => {
-        if (!s.subagentStreamingMessage) return s;
-        const parts = [...s.subagentStreamingMessage.parts];
+      set((state) => {
+        const runtime = getSubagentRuntime(state, event.sessionId);
+        if (!runtime.streamingMessage) return {};
+
+        const parts = [...runtime.streamingMessage.parts];
         const thinkingIdx = parts.findIndex((p) => p.type === 'thinking');
         if (thinkingIdx >= 0) {
           const tp = parts[thinkingIdx];
@@ -631,16 +719,24 @@ export const useAppStore = create<AppState>((set, get) => ({
         } else {
           parts.unshift({ type: 'thinking', text: event.delta ?? '' });
         }
-        return { subagentStreamingMessage: { ...s.subagentStreamingMessage, parts } };
+
+        const updatedRuntime: SubagentRuntimeState = {
+          ...runtime,
+          streamingMessage: { ...runtime.streamingMessage, parts },
+        };
+        return withSubagentRuntimeUpdate(state, event.sessionId, updatedRuntime);
       });
     } else if (event.type === 'tool-call') {
-      set((s) => {
-        if (!s.subagentStreamingMessage) return s;
-        return {
-          subagentStreamingMessage: {
-            ...s.subagentStreamingMessage,
+      set((state) => {
+        const runtime = getSubagentRuntime(state, event.sessionId);
+        if (!runtime.streamingMessage) return {};
+
+        const updatedRuntime: SubagentRuntimeState = {
+          ...runtime,
+          streamingMessage: {
+            ...runtime.streamingMessage,
             parts: [
-              ...s.subagentStreamingMessage.parts,
+              ...runtime.streamingMessage.parts,
               {
                 type: 'tool-call',
                 toolCallId: event.toolCallId ?? '',
@@ -650,12 +746,15 @@ export const useAppStore = create<AppState>((set, get) => ({
             ],
           },
         };
+        return withSubagentRuntimeUpdate(state, event.sessionId, updatedRuntime);
       });
     } else if (event.type === 'tool-result') {
-      set((s) => {
-        const pending = [...s.subagentPendingMessages];
-        if (s.subagentStreamingMessage && s.subagentStreamingMessage.parts.length > 0) {
-          pending.push(s.subagentStreamingMessage);
+      set((state) => {
+        const runtime = getSubagentRuntime(state, event.sessionId);
+
+        const pending = [...runtime.pendingMessages];
+        if (runtime.streamingMessage && runtime.streamingMessage.parts.length > 0) {
+          pending.push(runtime.streamingMessage);
         }
         pending.push({
           id: uuidv4(),
@@ -672,33 +771,50 @@ export const useAppStore = create<AppState>((set, get) => ({
           ],
           createdAt: Date.now(),
         });
-        return {
-          subagentPendingMessages: pending,
-          subagentStreamingMessage: null,
+
+        const updatedRuntime: SubagentRuntimeState = {
+          ...runtime,
+          pendingMessages: pending,
+          streamingMessage: null,
         };
+        return withSubagentRuntimeUpdate(state, event.sessionId, updatedRuntime);
       });
     } else if (event.type === 'message-complete') {
-      const session = state.viewingSubagentSession;
-      if (session) {
-        const pending = [...state.subagentPendingMessages];
-        if (state.subagentStreamingMessage && state.subagentStreamingMessage.parts.length > 0) {
-          pending.push(state.subagentStreamingMessage);
+      set((state) => {
+        const runtime = getSubagentRuntime(state, event.sessionId);
+
+        const pending = [...runtime.pendingMessages];
+        if (runtime.streamingMessage && runtime.streamingMessage.parts.length > 0) {
+          pending.push(runtime.streamingMessage);
         }
-        const updatedSession = {
-          ...session,
-          messages: [...session.messages, ...pending],
-          updatedAt: Date.now(),
-        };
-        set({
-          viewingSubagentSession: updatedSession,
-          subagentPendingMessages: [],
-          subagentStreamingMessage: null,
-        });
-      }
+
+        const updatedRuntime: SubagentRuntimeState = runtime.session
+          ? {
+              session: {
+                ...runtime.session,
+                messages: [...runtime.session.messages, ...pending],
+                updatedAt: Date.now(),
+              },
+              pendingMessages: [],
+              streamingMessage: null,
+            }
+          : {
+              ...runtime,
+              pendingMessages: [],
+              streamingMessage: null,
+            };
+
+        return withSubagentRuntimeUpdate(state, event.sessionId, updatedRuntime);
+      });
     } else if (event.type === 'error') {
-      set({
-        subagentPendingMessages: [],
-        subagentStreamingMessage: null,
+      set((state) => {
+        const runtime = getSubagentRuntime(state, event.sessionId);
+        const updatedRuntime: SubagentRuntimeState = {
+          ...runtime,
+          pendingMessages: [],
+          streamingMessage: null,
+        };
+        return withSubagentRuntimeUpdate(state, event.sessionId, updatedRuntime);
       });
     }
   },
