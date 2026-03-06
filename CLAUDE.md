@@ -42,6 +42,7 @@ src/
 │   ├── mcp-types.ts      # MCP config, connection status, server status types
 │   ├── agent-types.ts    # Agent status & state types
 │   ├── permission-types.ts # PermissionMode, ToolRiskLevel, PermissionRequest
+│   ├── lsp-types.ts      # LSP request/response types
 │   ├── tool.ts           # ToolDefinition interface, defineTool()
 │   └── ipc.ts            # IPC_CHANNELS constants
 │
@@ -50,11 +51,14 @@ src/
 │   └── services/
 │       ├── agent/
 │       │   ├── loop.ts       # AgentLoop — orchestrates agent with system prompt & streaming
-│       │   └── executor.ts   # AgentExecutor — streaming + tool execution (max 50 steps)
+│       │   ├── executor.ts   # AgentExecutor — streaming + tool execution (max 50 steps)
+│       │   ├── subagent.ts   # SubagentManager — spawns child agent sessions
+│       │   └── compact.ts    # Context compaction (micro/prune/full)
 │       ├── provider/
 │       │   └── anthropic.ts  # AnthropicProvider — streaming API integration
 │       ├── tools/            # Tool registry + builtin tools
 │       ├── mcp/              # MCP integration (manager, connection, tool adapter, config)
+│       ├── lsp/              # LSP integration (manager, client, server lifecycle)
 │       ├── skill/            # Skill system (loader, parser, builtins)
 │       ├── permission/       # Tool permission enforcement with risk levels
 │       ├── persistence/      # Additional storage layer
@@ -76,9 +80,29 @@ src/
 `AgentLoop` (`src/main/services/agent/loop.ts`) manages a single agent execution per window:
 - Contains the system prompt (~110 lines) with instructions for tool use and output formatting
 - Delegates streaming execution to `AgentExecutor` which handles the Anthropic API call loop
-- Max 50 tool execution steps per run
+- Max 50 tool execution steps per run (30 for subagents)
 - Supports extended thinking (streaming `thinking_delta` events) and image attachments
-- Streams events to renderer: `text_delta`, `thinking_delta`, `tool_call`, `tool_result`, `usage`, `end`, `error`
+- Streams events to renderer: `text_delta`, `thinking_delta`, `tool_call`, `tool_result`, `usage`, `compact`, `title-update`, `end`, `error`
+- Auto-generates session titles via `generateTitle()` — uses the provider to create a short title (max 6 words) from the first user message when the session title is still "New Session"
+
+### Subagent System
+
+`SubagentManager` (`src/main/services/agent/subagent.ts`) enables spawning child agent sessions:
+- Subagents are full `Session` objects persisted to storage with a `parentSessionId` linking them to the parent
+- Parent sessions track subagents via `subagentHistory` array
+- Agent types (`agentTypeRegistry`) control which tools are allowed/denied per subagent type
+- Subagents run with `AgentExecutor` (maxSteps 30) and support abort via `AbortController`
+- IPC channels: `SUBAGENT_STATUS_UPDATE` and `SUBAGENT_STREAM` push real-time updates to the renderer
+- UI: `SubagentPanel` in the sidebar shows subagent status/tokens/duration; `ChatPanel` supports a subagent viewing mode
+
+### Compaction System
+
+`src/main/services/agent/compact.ts` implements layered context compaction:
+- **microCompact** — clones messages, replacing large/old tool-result parts with placeholders (always applied before API calls)
+- **pruneToolResults** — marks old tool-result parts with `compactedAt` in-place, protecting recent user turns and results
+- **fullCompact** — saves full transcript to `.manong/transcripts/transcript_<ts>.jsonl`, then streams a summarization prompt to produce replacement messages
+- Triggered automatically by `AgentExecutor` based on token usage (TOKEN_THRESHOLD ~160k) or manually via `/compact` slash command
+- Emits `compact` StreamEvent with `compactType: 'micro' | 'auto' | 'manual'`
 
 ### Tool System
 
@@ -121,6 +145,13 @@ toolRegistry.register(myTool);
 - **MCPManager** — server lifecycle, tool registration, workspace-aware config switching
 - **MCPConnection** — stdio and HTTP transports with auto-reconnect
 - **Tool adapter** — converts MCP tool schemas to the internal `ToolDefinition` format
+
+### LSP Integration
+
+`src/main/services/lsp/` provides Language Server Protocol support:
+- **LSPManager** — manages LSP server lifecycle per workspace
+- **LSPClient** — communicates with language servers for completions, diagnostics, hover info
+- Shared types in `src/shared/lsp-types.ts`
 
 ### Skill System
 

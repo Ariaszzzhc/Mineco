@@ -24,9 +24,13 @@ No browser tabs. No copy-paste. Open a folder and start building.
 - **Direct file operations** — The agent reads, writes, searches, and edits files in your workspace. Not suggestions — actual changes.
 - **Shell execution** — Run commands, see output, diagnose errors, fix them in the same conversation.
 - **Extended thinking** — Watch the agent reason step-by-step before making changes.
+- **Subagents** — Spawn child agents to handle subtasks in parallel. Each subagent runs independently with its own tool set and step limit.
+- **Context compaction** — Automatic context management for long conversations. Prunes old tool results, summarizes history, and saves full transcripts to `.manong/transcripts/`.
+- **Auto session titles** — AI-generated session titles based on the first message.
 - **Tool permissions** — Control what the agent can do. Review file edits with inline diff previews before approving. Choose between default, accept-edits, or full-bypass modes.
 - **Image support** — Attach images to your messages for visual context.
 - **MCP support** — Plug in any [Model Context Protocol](https://modelcontextprotocol.io) server for extra capabilities. Global + per-project config.
+- **LSP support** — Built-in Language Server Protocol integration for code intelligence.
 - **Custom skills** — Reusable markdown prompt templates. Drop into `.manong/skills/` or `~/.config/manong/skills/`, trigger with slash commands in the chat input.
 - **Rich rendering** — Syntax highlighting, LaTeX math, Mermaid diagrams, inline diffs.
 - **Task tracking** — Built-in todo lists for multi-step work.
