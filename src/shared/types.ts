@@ -84,6 +84,12 @@ export interface AssistantMessage {
 
 export type Message = UserMessage | AssistantMessage;
 
+export interface CompactSnapshot {
+  transcriptPath: string;
+  compactedAt: number;
+  messageCount: number;
+}
+
 export interface Session {
   id: string;
   title: string;
@@ -100,6 +106,7 @@ export interface Session {
   planHistory?: Plan[];
   activePlanId?: string;
   interrupted?: boolean;
+  compactHistory?: CompactSnapshot[];
 }
 
 // Workspace - represents a working directory context

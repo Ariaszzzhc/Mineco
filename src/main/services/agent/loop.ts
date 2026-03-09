@@ -251,6 +251,9 @@ export class AgentLoop {
         if (stored?.planMode !== undefined) {
           session.planMode = stored.planMode;
         }
+        if (stored?.compactHistory) {
+          session.compactHistory = stored.compactHistory;
+        }
         storageService.saveSession(workingDir, session);
       },
     });
@@ -265,6 +268,11 @@ export class AgentLoop {
       session.interrupted = false;
       session.updatedAt = Date.now();
 
+      if (result.compactSnapshots?.length) {
+        if (!session.compactHistory) session.compactHistory = [];
+        session.compactHistory.push(...result.compactSnapshots);
+      }
+
       {
         const stored = storageService.getSession(workingDir, session.id);
         if (!session.subagentHistory && stored?.subagentHistory) {
@@ -278,6 +286,9 @@ export class AgentLoop {
         }
         if (stored?.planMode !== undefined) {
           session.planMode = stored.planMode;
+        }
+        if (!session.compactHistory && stored?.compactHistory) {
+          session.compactHistory = stored.compactHistory;
         }
       }
 
@@ -300,6 +311,9 @@ export class AgentLoop {
         }
         if (stored?.planMode !== undefined) {
           session.planMode = stored.planMode;
+        }
+        if (stored?.compactHistory) {
+          session.compactHistory = stored.compactHistory;
         }
       }
       storageService.saveSession(workingDir, session);

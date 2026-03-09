@@ -1,10 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Message, TokenUsage, StreamEvent, ProviderConfig } from '../../../shared/types';
+import type { Message, TokenUsage, StreamEvent, ProviderConfig, CompactSnapshot } from '../../../shared/types';
 import { DEFAULT_TOKEN_USAGE } from '../../../shared/types';
 import type { ToolContext } from '../../../shared/tool';
 import { AnthropicProvider } from '../provider/anthropic';
 import { toolRegistry } from '../tools';
-import { microCompact, estimateTokens, fullCompact, TOKEN_THRESHOLD, shouldCompact, pruneToolResults } from './compact';
+import { estimateTokens, fullCompact, TOKEN_THRESHOLD, shouldCompact, pruneToolResults } from './compact';
+import { truncateToolOutput } from './truncation';
 import type { PermissionService } from '../permission/service';
 import { createLogger } from '../logger';
 
@@ -26,6 +27,7 @@ export interface ExecutorResult {
   messages: Message[];
   finalText: string;
   tokenUsage: TokenUsage;
+  compactSnapshots?: CompactSnapshot[];
 }
 
 export class AgentExecutor {
@@ -47,6 +49,7 @@ export class AgentExecutor {
   private onCheckpoint: ((messages: Message[]) => void) | null;
   private currentMessages: Message[] | null = null;
   private currentAssistantMsg: Message | null = null;
+  private compactSnapshots: CompactSnapshot[] = [];
 
   constructor(config: ExecutorConfig) {
     this.provider = new AnthropicProvider(config.provider);
@@ -92,6 +95,7 @@ export class AgentExecutor {
       messages: allMessages,
       finalText,
       tokenUsage,
+      compactSnapshots: this.compactSnapshots.length > 0 ? this.compactSnapshots : undefined,
     };
   }
 
@@ -139,28 +143,22 @@ export class AgentExecutor {
     }
 
     try {
-      // Layer 1: Micro-compact (clone messages for API, originals unchanged)
-      const { messages: apiMessages, replacedCount } = microCompact(messages);
-      if (replacedCount > 0) {
-        log.info(`Micro-compact: replaced ${replacedCount} old tool results`);
-        onEvent?.({ type: 'compact', sessionId: this.sessionId, messageId: '', compactType: 'micro', compactInfo: `Replaced ${replacedCount} old tool results` });
-      }
-
-      // Layer 2: First-round fallback — no actual inputTokens yet, use heuristic
-      let messagesForApi = apiMessages;
-      if (this.lastInputTokens === 0 && estimateTokens(messagesForApi) > TOKEN_THRESHOLD) {
+      // First-round fallback — no actual inputTokens yet, use heuristic
+      let messagesForApi = messages;
+      if (this.lastInputTokens === 0 && estimateTokens(messages) > TOKEN_THRESHOLD) {
         log.info('First-round fallback: token estimate exceeds threshold, attempting prune');
         const pruneResult = pruneToolResults(messages);
         if (pruneResult.pruned) {
-          // Re-run microCompact after prune to pick up new compactedAt markers
-          const recompacted = microCompact(messages);
-          messagesForApi = recompacted.messages;
-          log.info(`Prune succeeded: ${pruneResult.prunedCount} results pruned, re-compacted ${recompacted.replacedCount}`);
+          log.info(`Prune succeeded: ${pruneResult.prunedCount} results pruned`);
           onEvent?.({ type: 'compact', sessionId: this.sessionId, messageId: '', compactType: 'auto', compactInfo: `Pruned ${pruneResult.prunedCount} old tool results`, messages: [...messages] });
         } else {
-          // Prune insufficient, fall back to fullCompact
           log.info('Prune insufficient, falling back to fullCompact');
           const result = await fullCompact(messages, this.workingDir, this.providerConfig);
+          this.compactSnapshots.push({
+            transcriptPath: result.transcriptPath,
+            compactedAt: Date.now(),
+            messageCount: result.messageCount,
+          });
           messages.length = 0;
           messages.push(...result.messages);
           messagesForApi = [...result.messages];
@@ -323,7 +321,7 @@ export class AgentExecutor {
               diff: result.diff,
             });
 
-            this.addToolResult(messages, tc.toolCallId, tc.toolName, result.output, !result.success);
+            await this.addToolResult(messages, tc.toolCallId, tc.toolName, result.output, !result.success);
             this.onCheckpoint?.(messages);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -363,6 +361,11 @@ export class AgentExecutor {
             // Prune insufficient, fall back to fullCompact
             log.info('Prune insufficient, falling back to fullCompact');
             const compactResult = await fullCompact(messages, this.workingDir, this.providerConfig);
+            this.compactSnapshots.push({
+              transcriptPath: compactResult.transcriptPath,
+              compactedAt: Date.now(),
+              messageCount: compactResult.messageCount,
+            });
             messages.length = 0;
             messages.push(...compactResult.messages);
             onEvent?.({ type: 'compact', sessionId: this.sessionId, messageId: '', compactType: 'auto', compactInfo: `Transcript saved to ${compactResult.transcriptPath}`, messages: compactResult.messages });
@@ -455,13 +458,20 @@ export class AgentExecutor {
     }
   }
 
-  private addToolResult(
+  private async addToolResult(
     messages: Message[],
     toolCallId: string,
     toolName: string,
     result: unknown,
     isError: boolean
   ) {
+    let finalResult = result;
+    if (!isError) {
+      const truncated = await truncateToolOutput(result, this.workingDir);
+      if (truncated.truncated) {
+        finalResult = truncated.content;
+      }
+    }
     const toolResultMsg: Message = {
       id: uuidv4(),
       role: 'user',
@@ -469,7 +479,7 @@ export class AgentExecutor {
         type: 'tool-result',
         toolCallId,
         toolName,
-        result,
+        result: finalResult,
         isError,
       }],
       createdAt: Date.now(),

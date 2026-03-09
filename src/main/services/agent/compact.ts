@@ -19,8 +19,6 @@ const PRUNE_PROTECT_TOKENS = 40_000;
 // Prune: only execute if pruneable content exceeds this minimum
 const PRUNE_MINIMUM = 20_000;
 
-const KEEP_RECENT = 3;
-
 export function estimateTokens(messages: Message[]): number {
   return JSON.stringify(messages).length / 4;
 }
@@ -106,64 +104,6 @@ export function pruneToolResults(messages: Message[]): { pruned: boolean; pruned
   return { pruned: true, prunedCount: toMark.length };
 }
 
-/**
- * Micro-compact: clone messages for API call, replacing large/compacted tool results
- * with placeholders. Original messages are not modified.
- */
-export function microCompact(messages: Message[]): { messages: Message[]; replacedCount: number } {
-  const toolResultPositions: Array<{ msgIdx: number; partIdx: number; toolName: string; size: number; compacted: boolean }> = [];
-
-  for (let msgIdx = 0; msgIdx < messages.length; msgIdx++) {
-    const msg = messages[msgIdx];
-    for (let partIdx = 0; partIdx < msg.parts.length; partIdx++) {
-      const part = msg.parts[partIdx];
-      if (part.type === 'tool-result') {
-        const resultStr = typeof part.result === 'string' ? part.result : JSON.stringify(part.result);
-        toolResultPositions.push({
-          msgIdx,
-          partIdx,
-          toolName: part.toolName,
-          size: resultStr.length,
-          compacted: !!part.compactedAt,
-        });
-      }
-    }
-  }
-
-  // Eligible for replacement: compactedAt-marked parts OR old large results (position-based)
-  const positionBased = toolResultPositions.slice(0, -KEEP_RECENT).filter(p => p.size > 100);
-  const compactedBased = toolResultPositions.filter(p => p.compacted && p.size > 100);
-
-  // Merge: use a Set of `${msgIdx}-${partIdx}` to deduplicate
-  const eligibleKeys = new Set<string>();
-  for (const p of positionBased) {
-    eligibleKeys.add(`${p.msgIdx}-${p.partIdx}`);
-  }
-  for (const p of compactedBased) {
-    eligibleKeys.add(`${p.msgIdx}-${p.partIdx}`);
-  }
-
-  const eligible = toolResultPositions.filter(p => eligibleKeys.has(`${p.msgIdx}-${p.partIdx}`));
-
-  if (eligible.length === 0) {
-    return { messages, replacedCount: 0 };
-  }
-
-  const cloned: Message[] = JSON.parse(JSON.stringify(messages));
-
-  for (const pos of eligible) {
-    const part = cloned[pos.msgIdx].parts[pos.partIdx];
-    if (part.type === 'tool-result') {
-      part.result = `[Previous: used ${pos.toolName}]`;
-      if (part.diff) {
-        delete (part as unknown as Record<string, unknown>).diff;
-      }
-    }
-  }
-
-  return { messages: cloned, replacedCount: eligible.length };
-}
-
 const SUMMARY_PROMPT = `You are a conversation summarizer. Summarize the conversation so far in a way that preserves:
 1. Key decisions and architectural choices made
 2. Important file paths and code patterns discovered
@@ -186,12 +126,10 @@ export async function fullCompact(
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const transcriptPath = path.join(transcriptsDir, `transcript_${timestamp}.jsonl`);
 
+  const messageCount = messages.length;
   const lines = messages.map(m => JSON.stringify(m)).join('\n');
   fs.writeFileSync(transcriptPath, lines, 'utf-8');
   log.info('Transcript saved to:', transcriptPath);
-
-  // Micro-compact the messages sent for summarization to avoid context overflow
-  const { messages: compactedForSummary } = microCompact(messages);
 
   const provider = new AnthropicProvider(providerConfig);
 
@@ -200,7 +138,7 @@ export async function fullCompact(
     : '';
 
   const summaryMessages: Message[] = [
-    ...compactedForSummary,
+    ...messages,
     {
       id: uuidv4(),
       role: 'user',
@@ -240,5 +178,5 @@ export async function fullCompact(
     },
   ];
 
-  return { messages: replacementMessages, transcriptPath };
+  return { messages: replacementMessages, transcriptPath, messageCount };
 }

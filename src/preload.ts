@@ -73,6 +73,9 @@ const api = {
     compact: (sessionId: string, workspacePath: string, focus?: string): Promise<{ success: boolean; messages?: Message[]; transcriptPath?: string; error?: string }> => {
       return ipcRenderer.invoke(IPC_CHANNELS.SESSION_COMPACT, sessionId, workspacePath, focus);
     },
+    compactRevert: (sessionId: string, snapshotIndex?: number): Promise<{ success: boolean; messages?: Message[]; error?: string }> => {
+      return ipcRenderer.invoke(IPC_CHANNELS.SESSION_COMPACT_REVERT, sessionId, snapshotIndex);
+    },
   },
 
   fs: {

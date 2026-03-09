@@ -151,10 +151,13 @@ export class AnthropicProvider {
           if (part.type === 'text') {
             content.push({ type: 'text', text: part.text });
           } else if (part.type === 'tool-result') {
+            const resultContent = part.compactedAt
+              ? `[Previous: used ${part.toolName}]`
+              : typeof part.result === 'string' ? part.result : JSON.stringify(part.result);
             content.push({
               type: 'tool_result',
               tool_use_id: part.toolCallId,
-              content: typeof part.result === 'string' ? part.result : JSON.stringify(part.result),
+              content: resultContent,
               is_error: part.isError,
             });
           }
@@ -215,10 +218,13 @@ export class AnthropicProvider {
                 result.push({ role: 'assistant', content: assistantContent });
                 assistantContent = [];
               }
+              const resultContent = part.compactedAt
+                ? `[Previous: used ${part.toolName}]`
+                : typeof part.result === 'string' ? part.result : JSON.stringify(part.result);
               userContent.push({
                 type: 'tool_result',
                 tool_use_id: part.toolCallId,
-                content: typeof part.result === 'string' ? part.result : JSON.stringify(part.result),
+                content: resultContent,
                 is_error: part.isError,
               });
             }

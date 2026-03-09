@@ -17,6 +17,7 @@ import { skillService } from '../services/skill';
 import { mcpManager } from '../services/mcp';
 import { lspManager } from '../services/lsp';
 import { fullCompact, pruneToolResults } from '../services/agent/compact';
+import { cleanupToolOutputs } from '../services/agent/truncation';
 import {
   setQuestionWindow,
   resolveQuestion,
@@ -86,6 +87,9 @@ export function setupIPC(mainWindow: BrowserWindow): void {
     // Load permission config for workspace
     await permissionService.load(path);
 
+    // Cleanup old tool outputs (fire-and-forget)
+    cleanupToolOutputs(path).catch(() => { /* fire-and-forget */ });
+
     return data;
   });
 
@@ -108,6 +112,9 @@ export function setupIPC(mainWindow: BrowserWindow): void {
 
     // Load permission config for workspace
     await permissionService.load(path);
+
+    // Cleanup old tool outputs (fire-and-forget)
+    cleanupToolOutputs(path).catch(() => { /* fire-and-forget */ });
 
     return data;
   });
@@ -176,6 +183,9 @@ export function setupIPC(mainWindow: BrowserWindow): void {
     }
     if (session.planMode === undefined && stored?.planMode !== undefined) {
       session.planMode = stored.planMode;
+    }
+    if (!session.compactHistory && stored?.compactHistory) {
+      session.compactHistory = stored.compactHistory;
     }
 
     storageService.saveSession(workspacePath, session);
@@ -458,8 +468,15 @@ export function setupIPC(mainWindow: BrowserWindow): void {
 
       // Fall back to full compact
       const result = await fullCompact(session.messages, workspacePath, providerConfig, focus);
+      const messageCount = session.messages.length;
       session.messages = result.messages;
       session.updatedAt = Date.now();
+      if (!session.compactHistory) session.compactHistory = [];
+      session.compactHistory.push({
+        transcriptPath: result.transcriptPath,
+        compactedAt: Date.now(),
+        messageCount,
+      });
       storageService.saveSession(workspacePath, session);
 
       return {
@@ -467,6 +484,41 @@ export function setupIPC(mainWindow: BrowserWindow): void {
         messages: result.messages,
         transcriptPath: result.transcriptPath,
       };
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SESSION_COMPACT_REVERT,
+    async (_event, sessionId: string, snapshotIndex: number) => {
+      const workspacePath = storageService.getCurrentWorkspacePath();
+      if (!workspacePath) {
+        return { success: false, error: 'No workspace selected' };
+      }
+
+      const session = storageService.getSession(workspacePath, sessionId);
+      if (!session || !session.compactHistory || session.compactHistory.length === 0) {
+        return { success: false, error: 'No compact history available' };
+      }
+
+      const idx = snapshotIndex ?? session.compactHistory.length - 1;
+      const snapshot = session.compactHistory[idx];
+      if (!snapshot) {
+        return { success: false, error: 'Snapshot not found' };
+      }
+
+      const fs = await import('fs');
+      if (!fs.existsSync(snapshot.transcriptPath)) {
+        return { success: false, error: 'Transcript file not found' };
+      }
+
+      const content = fs.readFileSync(snapshot.transcriptPath, 'utf-8');
+      const restoredMessages = content.split('\n').filter(Boolean).map(line => JSON.parse(line));
+      session.messages = restoredMessages;
+      session.compactHistory.splice(idx, 1);
+      session.updatedAt = Date.now();
+      storageService.saveSession(workspacePath, session);
+
+      return { success: true, messages: restoredMessages };
     }
   );
 

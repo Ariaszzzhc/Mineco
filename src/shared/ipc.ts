@@ -69,6 +69,7 @@ export const IPC_CHANNELS = {
 
   // Compact
   SESSION_COMPACT: 'session:compact',
+  SESSION_COMPACT_REVERT: 'session:compact-revert',
 
   // LSP (Language Server Protocol)
   LSP_GET_STATUS: 'lsp:get-status',
