@@ -16,7 +16,11 @@ const config: ForgeConfig = {
     new MakerSquirrel({}),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerDeb({
+      options: {
+        bin: 'Mineco',
+      },
+    }),
   ],
   plugins: [
     new VitePlugin({
