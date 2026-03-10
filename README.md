@@ -1,4 +1,4 @@
-<p align="center"><strong>码农 Manong</strong></p>
+<p align="center"><strong>Mineco</strong></p>
 <p align="center">An AI coding agent that lives in your project.</p>
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a> ·
@@ -11,11 +11,11 @@
 > **Warning:** This project is under rapid development. APIs, tool names, and internal structures may change without notice. **Not recommended for production use.**
 
 <!-- TODO: replace with actual screenshot -->
-<!-- ![Manong screenshot](docs/screenshot.png) -->
+<!-- ![Mineco screenshot](docs/screenshot.png) -->
 
-## What is Manong?
+## What is Mineco?
 
-Manong is a native desktop app that gives you an AI coding agent with full access to your project. It reads your files, edits your code, runs your commands, and tracks tasks — all from a single window.
+Mineco is a native desktop app that gives you an AI coding agent with full access to your project. It reads your files, edits your code, runs your commands, and tracks tasks — all from a single window.
 
 No browser tabs. No copy-paste. Open a folder and start building.
 
@@ -26,13 +26,13 @@ No browser tabs. No copy-paste. Open a folder and start building.
 - **Extended thinking** — Watch the agent reason step-by-step before making changes.
 - **Plan mode** — Read-only analysis mode where the agent explores your codebase and produces actionable plans without making changes. Toggle in the UI or let the agent enter it when planning is needed.
 - **Subagents** — Spawn child agents to handle subtasks in parallel. Each subagent runs independently with its own tool set and step limit.
-- **Context compaction** — Automatic context management for long conversations. Prunes old tool results, summarizes history, and saves full transcripts to `.manong/transcripts/`.
+- **Context compaction** — Automatic context management for long conversations. Prunes old tool results, summarizes history, and saves full transcripts to `.mineco/transcripts/`.
 - **Auto session titles** — AI-generated session titles based on the first message.
 - **Tool permissions** — Control what the agent can do. Review file edits with inline diff previews before approving. Choose between default, accept-edits, or full-bypass modes.
 - **Image support** — Attach images to your messages for visual context.
 - **MCP support** — Plug in any [Model Context Protocol](https://modelcontextprotocol.io) server for extra capabilities. Global + per-project config.
 - **LSP support** — Built-in Language Server Protocol integration for code intelligence.
-- **Custom skills** — Reusable markdown prompt templates. Drop into `.manong/skills/` or `~/.config/manong/skills/`, trigger with slash commands in the chat input.
+- **Custom skills** — Reusable markdown prompt templates. Drop into `.mineco/skills/` or `~/.config/mineco/skills/`, trigger with slash commands in the chat input.
 - **Rich rendering** — Syntax highlighting, LaTeX math, Mermaid diagrams, inline diffs.
 - **Task tracking** — Built-in todo lists for multi-step work.
 - **Keyboard shortcuts** — Navigate views, toggle sidebar, manage sessions without touching the mouse.
@@ -41,14 +41,14 @@ No browser tabs. No copy-paste. Open a folder and start building.
 
 ## How is this different?
 
-| | Manong | Browser-based tools | Terminal agents |
+| | Mineco | Browser-based tools | Terminal agents |
 |---|---|---|---|
 | Runs on | Native desktop app | Browser tab | Terminal |
 | File access | Direct, in your workspace | Copy-paste | Direct |
 | UI | Full GUI with rich rendering | Web UI | TUI |
 | Extensibility | MCP + Skills | Varies | Varies |
 
-Manong combines the power of a terminal agent with the usability of a desktop app.
+Mineco combines the power of a terminal agent with the usability of a desktop app.
 
 ## Getting Started
 

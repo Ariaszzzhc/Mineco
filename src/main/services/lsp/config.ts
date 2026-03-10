@@ -18,7 +18,7 @@ export class LSPConfigService {
   private mergedConfig: LSPConfig;
 
   constructor() {
-    const configDir = path.join(os.homedir(), '.config', 'manong');
+    const configDir = path.join(os.homedir(), '.config', 'mineco');
     this.globalConfigPath = path.join(configDir, 'lsp.json');
     this.globalConfig = { ...DEFAULT_LSP_CONFIG };
     this.mergedConfig = { ...DEFAULT_LSP_CONFIG };
@@ -56,7 +56,7 @@ export class LSPConfigService {
   }
 
   private async loadProject(workspacePath: string): Promise<LSPConfig | null> {
-    const configPath = path.join(workspacePath, '.manong', 'lsp.json');
+    const configPath = path.join(workspacePath, '.mineco', 'lsp.json');
 
     try {
       const content = await fs.readFile(configPath, 'utf-8');

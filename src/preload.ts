@@ -276,7 +276,7 @@ const api = {
   },
 };
 
-contextBridge.exposeInMainWorld('manong', api);
+contextBridge.exposeInMainWorld('mineco', api);
 
 // Type declaration for renderer
-export type ManongAPI = typeof api;
+export type MinecoAPI = typeof api;

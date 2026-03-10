@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Manong is a desktop AI coding assistant built with Electron Forge, Vite, React, and TypeScript. It uses the Anthropic API for AI capabilities and supports extending tools via Model Context Protocol (MCP).
+Mineco is a desktop AI coding assistant built with Electron Forge, Vite, React, and TypeScript. It uses the Anthropic API for AI capabilities and supports extending tools via Model Context Protocol (MCP).
 
 ## Commands
 
@@ -22,7 +22,7 @@ No test framework is configured.
 ### Electron Multi-Process
 
 - **Main Process** (`src/main.ts`) — Node.js environment; window creation, IPC, agent loop, tool execution, MCP management
-- **Preload Script** (`src/preload.ts`) — contextBridge API exposing `window.manong`
+- **Preload Script** (`src/preload.ts`) — contextBridge API exposing `window.mineco`
 - **Renderer Process** (`src/renderer/`) — React UI with Zustand state management and Tailwind CSS
 
 ### Workspace-Centric Data Model
@@ -64,7 +64,7 @@ src/
 │       ├── persistence/      # Additional storage layer
 │       └── storage.ts        # StorageService — electron-store persistence
 │
-├── preload.ts            # Exposes window.manong API
+├── preload.ts            # Exposes window.mineco API
 │
 └── renderer/
     ├── App.tsx           # Root component with navigation-view layout
@@ -91,7 +91,7 @@ When `session.planMode === true`, the agent operates in a read-only analysis mod
 - `AgentLoop` appends `PLAN_MODE_SUFFIX` to the system prompt, instructing the model to analyze and produce plans rather than make changes
 - Restricts tools to `PLAN_MODE_TOOLS`: `read_file`, `glob`, `grep`, `list_dir`, `lsp`, `exit_plan_mode`, `skill`
 - Plan tool implementation in `src/main/services/tools/plan.ts` handles the lifecycle (enter, exit, submit decisions)
-- Renderer toggles via `togglePlanMode` in the Zustand store, which calls `window.manong.plan.toggleMode()`
+- Renderer toggles via `togglePlanMode` in the Zustand store, which calls `window.mineco.plan.toggleMode()`
 - IPC channels: `PLAN_MODE_TOGGLE`, `PLAN_DECISION`
 - UI: `PlanView` component renders plan output and supports annotation/revision flows
 
@@ -110,7 +110,7 @@ When `session.planMode === true`, the agent operates in a read-only analysis mod
 `src/main/services/agent/compact.ts` implements layered context compaction:
 - **microCompact** — clones messages, replacing large/old tool-result parts with placeholders (always applied before API calls)
 - **pruneToolResults** — marks old tool-result parts with `compactedAt` in-place, protecting recent user turns and results
-- **fullCompact** — saves full transcript to `.manong/transcripts/transcript_<ts>.jsonl`, then streams a summarization prompt to produce replacement messages
+- **fullCompact** — saves full transcript to `.mineco/transcripts/transcript_<ts>.jsonl`, then streams a summarization prompt to produce replacement messages
 - Triggered automatically by `AgentExecutor` based on token usage (TOKEN_THRESHOLD ~160k) or manually via `/compact` slash command
 - Emits `compact` StreamEvent with `compactType: 'micro' | 'auto' | 'manual'`
 
@@ -151,7 +151,7 @@ toolRegistry.register(myTool);
 
 `src/main/services/mcp/` provides Model Context Protocol support:
 
-- **Layered configuration:** global (`~/.config/manong/`) + project (`.manong/`) configs merged together
+- **Layered configuration:** global (`~/.config/mineco/`) + project (`.mineco/`) configs merged together
 - **MCPManager** — server lifecycle, tool registration, workspace-aware config switching
 - **MCPConnection** — stdio and HTTP transports with auto-reconnect
 - **Tool adapter** — converts MCP tool schemas to the internal `ToolDefinition` format
@@ -165,7 +165,7 @@ toolRegistry.register(myTool);
 
 ### Skill System
 
-`src/main/services/skill/` loads markdown-based skill definitions from three sources: builtin, global (`~/.config/manong/skills/`), and project (`.manong/skills/`). Supports two patterns: top-level `.md` files, or subdirectories with `SKILL.md`. Skills are triggerable via the `skill` tool or slash commands in the chat input (`SlashCommandMenu` component).
+`src/main/services/skill/` loads markdown-based skill definitions from three sources: builtin, global (`~/.config/mineco/skills/`), and project (`.mineco/skills/`). Supports two patterns: top-level `.md` files, or subdirectories with `SKILL.md`. Skills are triggerable via the `skill` tool or slash commands in the chat input (`SlashCommandMenu` component).
 
 ### IPC Handler Organization
 
@@ -189,42 +189,42 @@ The renderer uses a navigation-view pattern (not a router):
 - `ChatPanel` — main content area with message stream, permission cards, question cards, and todo display
 - `WelcomePage` — shown when no workspace is open
 
-### IPC API (window.manong)
+### IPC API (window.mineco)
 
 ```typescript
 // Agent
-window.manong.agent.start(sessionId, message, providerConfig, workspacePath, images?)
-window.manong.agent.stop()
-window.manong.agent.onStream(callback)
+window.mineco.agent.start(sessionId, message, providerConfig, workspacePath, images?)
+window.mineco.agent.stop()
+window.mineco.agent.onStream(callback)
 
 // Workspace
-window.manong.workspace.open()           // Opens folder picker
-window.manong.workspace.openPath(path)   // Opens specific path
-window.manong.workspace.getCurrent()
-window.manong.workspace.getRecent()
-window.manong.workspace.removeRecent(path)
+window.mineco.workspace.open()           // Opens folder picker
+window.mineco.workspace.openPath(path)   // Opens specific path
+window.mineco.workspace.getCurrent()
+window.mineco.workspace.getRecent()
+window.mineco.workspace.removeRecent(path)
 
 // Session
-window.manong.session.create()
-window.manong.session.list()
-window.manong.session.get(sessionId)
-window.manong.session.delete(sessionId)
-window.manong.session.update(session)
+window.mineco.session.create()
+window.mineco.session.list()
+window.mineco.session.get(sessionId)
+window.mineco.session.delete(sessionId)
+window.mineco.session.update(session)
 
 // MCP
-window.manong.mcp.getStatus() / .connect(name) / .disconnect(name)
-window.manong.mcp.getConfig() / .saveConfig(config)
-window.manong.mcp.getLayeredConfig() / .saveGlobalConfig(config) / .saveProjectConfig(config, path)
-window.manong.mcp.setWorkspace(path) / .onStatusChanged(callback)
+window.mineco.mcp.getStatus() / .connect(name) / .disconnect(name)
+window.mineco.mcp.getConfig() / .saveConfig(config)
+window.mineco.mcp.getLayeredConfig() / .saveGlobalConfig(config) / .saveProjectConfig(config, path)
+window.mineco.mcp.setWorkspace(path) / .onStatusChanged(callback)
 
 // Permission
-window.manong.permission.respond(requestId, decision)
-window.manong.permission.onAsk(callback)
-window.manong.permission.setMode(mode)
-window.manong.permission.getConfig() / .saveConfig(scope, config)
+window.mineco.permission.respond(requestId, decision)
+window.mineco.permission.onAsk(callback)
+window.mineco.permission.setMode(mode)
+window.mineco.permission.getConfig() / .saveConfig(scope, config)
 
 // Todo
-window.manong.todo.onUpdate(callback)  // { sessionId, todos }
+window.mineco.todo.onUpdate(callback)  // { sessionId, todos }
 
 // Config, File System, Window, Skills, Questions, Menu — see src/preload.ts
 ```
@@ -237,11 +237,11 @@ Three separate Vite configs (`vite.main.config.ts`, `vite.preload.config.ts`, `v
 
 API credentials (Anthropic API key, base URL, model) are configured through the Settings UI and persisted via `electron-store` (not environment variables or `.env` files). `AgentLoop` requires `providerConfig` to be set or it returns an error. MCP server configs can include `envVars` for server-specific environment.
 
-## Project-Level `.manong/` Directory
+## Project-Level `.mineco/` Directory
 
-Workspaces can have a `.manong/` directory containing:
+Workspaces can have a `.mineco/` directory containing:
 - `skills/` — project-specific skill definitions (`.md` files or subdirectories with `SKILL.md`)
-- MCP project config — merged with global config from `~/.config/manong/`
+- MCP project config — merged with global config from `~/.config/mineco/`
 - `transcripts/` — full conversation transcripts saved during `fullCompact` (`transcript_<timestamp>.jsonl`)
 
 ## Tech Stack

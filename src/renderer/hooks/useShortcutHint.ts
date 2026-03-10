@@ -1,7 +1,7 @@
 import { SHORTCUTS } from './shortcuts';
 import type { ShortcutDefinition } from './shortcuts';
 
-const isMac = window.manong.platform === 'darwin';
+const isMac = window.mineco.platform === 'darwin';
 
 /**
  * Format a shortcut definition into a platform-specific display string.

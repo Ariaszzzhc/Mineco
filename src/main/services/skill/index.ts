@@ -38,7 +38,7 @@ class SkillService {
 
     if (workspacePath) {
       this.lastWorkspacePath = workspacePath
-      const projectSkillsPath = path.join(workspacePath, '.manong', 'skills')
+      const projectSkillsPath = path.join(workspacePath, '.mineco', 'skills')
       const projectSkills = await this.loadSkillsFromDir(projectSkillsPath, 'project')
       for (const skill of projectSkills) {
         skills.set(skill.name, skill)

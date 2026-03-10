@@ -178,7 +178,7 @@ export async function fullCompact(
   providerConfig: ProviderConfig,
   focus?: string,
 ): Promise<{ messages: Message[]; transcriptPath: string }> {
-  const transcriptsDir = path.join(workingDir, '.manong', 'transcripts');
+  const transcriptsDir = path.join(workingDir, '.mineco', 'transcripts');
   if (!fs.existsSync(transcriptsDir)) {
     fs.mkdirSync(transcriptsDir, { recursive: true });
   }

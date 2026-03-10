@@ -57,7 +57,7 @@ const useMCPConfig = (loadOnMount: boolean, currentWorkspacePath: string | null,
 
   useEffect(() => {
     if (loadOnMount) {
-      window.manong.mcp.getLayeredConfig().then(setLayeredConfig);
+      window.mineco.mcp.getLayeredConfig().then(setLayeredConfig);
     }
   }, [loadOnMount]);
 
@@ -106,11 +106,11 @@ const useMCPConfig = (loadOnMount: boolean, currentWorkspacePath: string | null,
     setSaving(true);
     try {
       if (scope === 'global') {
-        await window.manong.mcp.saveGlobalConfig(config);
+        await window.mineco.mcp.saveGlobalConfig(config);
       } else if (currentWorkspacePath) {
-        await window.manong.mcp.saveProjectConfig(config, currentWorkspacePath);
+        await window.mineco.mcp.saveProjectConfig(config, currentWorkspacePath);
       }
-      const newLayeredConfig = await window.manong.mcp.getLayeredConfig();
+      const newLayeredConfig = await window.mineco.mcp.getLayeredConfig();
       setLayeredConfig(newLayeredConfig);
       onRefresh();
     } catch (error) {
@@ -139,8 +139,8 @@ const useMCPConfig = (loadOnMount: boolean, currentWorkspacePath: string | null,
 
     setSaving(true);
     try {
-      await window.manong.mcp.saveProjectConfig(newProjectConfig, currentWorkspacePath);
-      const newLayeredConfig = await window.manong.mcp.getLayeredConfig();
+      await window.mineco.mcp.saveProjectConfig(newProjectConfig, currentWorkspacePath);
+      const newLayeredConfig = await window.mineco.mcp.getLayeredConfig();
       setLayeredConfig(newLayeredConfig);
       onRefresh();
     } catch (error) {
@@ -189,7 +189,7 @@ const useMCPConfig = (loadOnMount: boolean, currentWorkspacePath: string | null,
         if (editingServer && editingServer !== formData.name) {
           delete newConfig.mcpServers[editingServer];
         }
-        await window.manong.mcp.saveGlobalConfig(newConfig);
+        await window.mineco.mcp.saveGlobalConfig(newConfig);
       } else if (currentWorkspacePath) {
         const projectConfig = layeredConfig.project || { mcpServers: {} };
         const newConfig: MCPConfig = {
@@ -202,10 +202,10 @@ const useMCPConfig = (loadOnMount: boolean, currentWorkspacePath: string | null,
         if (editingServer && editingServer !== formData.name) {
           delete newConfig.mcpServers[editingServer];
         }
-        await window.manong.mcp.saveProjectConfig(newConfig, currentWorkspacePath);
+        await window.mineco.mcp.saveProjectConfig(newConfig, currentWorkspacePath);
       }
 
-      const newLayeredConfig = await window.manong.mcp.getLayeredConfig();
+      const newLayeredConfig = await window.mineco.mcp.getLayeredConfig();
       setLayeredConfig(newLayeredConfig);
       resetForm();
       onRefresh();

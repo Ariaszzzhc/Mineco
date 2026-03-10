@@ -3,7 +3,7 @@ import { SHORTCUTS } from './shortcuts';
 import type { ShortcutContext } from './shortcuts';
 import type { ActiveView } from '../components/NavigationBar';
 
-const isMac = window.manong.platform === 'darwin';
+const isMac = window.mineco.platform === 'darwin';
 
 interface UseKeyboardShortcutsOptions {
   activeView: ActiveView;
@@ -46,7 +46,7 @@ export function useKeyboardShortcuts(opts: UseKeyboardShortcutsOptions) {
       if (now - lastEscapeRef.current < 500) {
         // Double-press — stop generation
         e.preventDefault();
-        window.manong.agent.stop();
+        window.mineco.agent.stop();
         import('../stores/app').then(({ useAppStore }) => {
           useAppStore.getState().stopStreaming();
         });
@@ -55,7 +55,7 @@ export function useKeyboardShortcuts(opts: UseKeyboardShortcutsOptions) {
       }
       // First press — show hint
       lastEscapeRef.current = now;
-      window.dispatchEvent(new CustomEvent('manong:show-esc-hint'));
+      window.dispatchEvent(new CustomEvent('mineco:show-esc-hint'));
       return;
     }
 

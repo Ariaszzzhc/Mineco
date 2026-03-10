@@ -1,8 +1,8 @@
-import type { ManongAPI } from '../preload';
+import type { MinecoAPI } from '../preload';
 
 declare global {
   interface Window {
-    manong: ManongAPI;
+    mineco: MinecoAPI;
   }
 }
 

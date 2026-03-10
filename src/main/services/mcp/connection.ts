@@ -26,7 +26,7 @@ export class MCPConnection {
 
     try {
       this.client = new Client(
-        { name: 'manong', version: '1.0.0' },
+        { name: 'mineco', version: '1.0.0' },
         { capabilities: {} }
       );
 

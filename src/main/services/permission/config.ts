@@ -21,7 +21,7 @@ export class PermissionConfigService {
   private mergedConfig: PermissionConfig;
 
   constructor() {
-    const configDir = path.join(os.homedir(), '.manong');
+    const configDir = path.join(os.homedir(), '.mineco');
     this.globalConfigPath = path.join(configDir, 'permissions.json');
     this.globalConfig = { ...DEFAULT_PERMISSION_CONFIG, rules: [] };
     this.mergedConfig = { ...DEFAULT_PERMISSION_CONFIG, rules: [] };
@@ -62,7 +62,7 @@ export class PermissionConfigService {
   }
 
   private async loadProject(workspacePath: string): Promise<void> {
-    const configDir = path.join(workspacePath, '.manong');
+    const configDir = path.join(workspacePath, '.mineco');
     this.projectConfigPath = path.join(configDir, 'permissions.json');
 
     try {
@@ -81,7 +81,7 @@ export class PermissionConfigService {
   }
 
   private async loadLocal(workspacePath: string): Promise<void> {
-    const configDir = path.join(workspacePath, '.manong');
+    const configDir = path.join(workspacePath, '.mineco');
     this.localConfigPath = path.join(configDir, 'permissions.local.json');
 
     try {
@@ -117,7 +117,7 @@ export class PermissionConfigService {
   }
 
   async addLocalRule(rule: PermissionRule, workspacePath: string): Promise<void> {
-    const configDir = path.join(workspacePath, '.manong');
+    const configDir = path.join(workspacePath, '.mineco');
     const configPath = path.join(configDir, 'permissions.local.json');
 
     const config: PermissionConfig = this.localConfig
@@ -151,7 +151,7 @@ export class PermissionConfigService {
   }
 
   async saveProject(config: PermissionConfig, workspacePath: string): Promise<void> {
-    const configDir = path.join(workspacePath, '.manong');
+    const configDir = path.join(workspacePath, '.mineco');
     const configPath = path.join(configDir, 'permissions.json');
 
     try {
@@ -168,7 +168,7 @@ export class PermissionConfigService {
   }
 
   async saveLocal(config: PermissionConfig, workspacePath: string): Promise<void> {
-    const configDir = path.join(workspacePath, '.manong');
+    const configDir = path.join(workspacePath, '.mineco');
     const configPath = path.join(configDir, 'permissions.local.json');
 
     try {

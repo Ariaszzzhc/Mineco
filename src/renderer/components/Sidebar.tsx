@@ -48,7 +48,7 @@ export const Sidebar: React.FC = () => {
   const [subagentsExpanded, setSubagentsExpanded] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = window.manong.subagent.onStatusUpdate((info) => {
+    const unsubscribe = window.mineco.subagent.onStatusUpdate((info) => {
       updateSubagentInfo(info);
     });
     return unsubscribe;
@@ -60,7 +60,7 @@ export const Sidebar: React.FC = () => {
   };
 
   const handleNewSession = async () => {
-    const session = await window.manong.session.create();
+    const session = await window.mineco.session.create();
     useAppStore.getState().addSession(session);
   };
 
@@ -259,7 +259,7 @@ export const Sidebar: React.FC = () => {
                   onClick={(e) => {
                     e.stopPropagation();
                     deleteSession(session.id);
-                    window.manong.session.delete(session.id);
+                    window.mineco.session.delete(session.id);
                   }}
                   className="opacity-0 group-hover:opacity-100 p-1 hover:bg-active rounded transition-opacity"
                 >

@@ -1,4 +1,4 @@
-// Theme Token definitions for Manong
+// Theme Token definitions for Mineco
 
 export interface ThemeTokens {
   // Backgrounds

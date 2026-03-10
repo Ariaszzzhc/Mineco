@@ -13,7 +13,7 @@ import { messagesToTimeline } from '../utils/messageGrouping';
 import { useTranslation } from '../i18n';
 import type { TranslationKey } from '../i18n';
 
-const isMac = window.manong.platform === 'darwin';
+const isMac = window.mineco.platform === 'darwin';
 const SLASH_COMMAND_PATTERN = /^\/(\w+)(?:\s+(.*))?$/;
 
 const formatTokens = (count: number): string => {
@@ -123,7 +123,7 @@ export const ChatPanel: React.FC = () => {
   ]);
 
   useEffect(() => {
-    const unsubscribe = window.manong.agent.onStream((event) => {
+    const unsubscribe = window.mineco.agent.onStream((event) => {
       handleStreamEvent(event);
     });
     return unsubscribe;
@@ -134,28 +134,28 @@ export const ChatPanel: React.FC = () => {
   }, [loadSkills, currentWorkspace]);
 
   useEffect(() => {
-    const unsubscribe = window.manong.question.onAsk((request) => {
+    const unsubscribe = window.mineco.question.onAsk((request) => {
       setPendingQuestion(request);
     });
     return unsubscribe;
   }, [setPendingQuestion]);
 
   useEffect(() => {
-    const unsubscribe = window.manong.permission.onAsk((request) => {
+    const unsubscribe = window.mineco.permission.onAsk((request) => {
       setPendingPermission(request);
     });
     return unsubscribe;
   }, [setPendingPermission]);
 
   useEffect(() => {
-    const unsubscribe = window.manong.plan.onSubmit((plan) => {
+    const unsubscribe = window.mineco.plan.onSubmit((plan) => {
       useAppStore.getState().handlePlanSubmit(plan);
     });
     return unsubscribe;
   }, []);
 
   useEffect(() => {
-    const unsubscribe = window.manong.subagent.onStream((event) => {
+    const unsubscribe = window.mineco.subagent.onStream((event) => {
       handleSubagentStreamEvent(event);
     });
     return unsubscribe;
@@ -188,23 +188,23 @@ export const ChatPanel: React.FC = () => {
       setTimeout(() => setShowEscHint(false), 500);
     };
 
-    window.addEventListener('manong:focus-input', handleFocusInput);
-    window.addEventListener('manong:copy-last-response', handleCopyLastResponse);
-    window.addEventListener('manong:scroll-to-bottom', handleScrollToBottom);
-    window.addEventListener('manong:show-esc-hint', handleShowEscHint);
+    window.addEventListener('mineco:focus-input', handleFocusInput);
+    window.addEventListener('mineco:copy-last-response', handleCopyLastResponse);
+    window.addEventListener('mineco:scroll-to-bottom', handleScrollToBottom);
+    window.addEventListener('mineco:show-esc-hint', handleShowEscHint);
 
     return () => {
-      window.removeEventListener('manong:focus-input', handleFocusInput);
-      window.removeEventListener('manong:copy-last-response', handleCopyLastResponse);
-      window.removeEventListener('manong:scroll-to-bottom', handleScrollToBottom);
-      window.removeEventListener('manong:show-esc-hint', handleShowEscHint);
+      window.removeEventListener('mineco:focus-input', handleFocusInput);
+      window.removeEventListener('mineco:copy-last-response', handleCopyLastResponse);
+      window.removeEventListener('mineco:scroll-to-bottom', handleScrollToBottom);
+      window.removeEventListener('mineco:show-esc-hint', handleShowEscHint);
     };
   }, []);
 
   const handleQuestionSubmit = async (answers: QuestionAnswer[]) => {
     if (!pendingQuestion) return;
 
-    await window.manong.question.answer(pendingQuestion.id, answers);
+    await window.mineco.question.answer(pendingQuestion.id, answers);
 
     // Add user's answer as a message
     if (currentSession) {
@@ -233,7 +233,7 @@ export const ChatPanel: React.FC = () => {
   const handleQuestionSkip = async () => {
     if (!pendingQuestion) return;
 
-    await window.manong.question.skip(pendingQuestion.id);
+    await window.mineco.question.skip(pendingQuestion.id);
     setPendingQuestion(null);
   };
 
@@ -290,7 +290,7 @@ export const ChatPanel: React.FC = () => {
       setInput('');
       compactAbortRef.current = false;
       startStreaming();
-      const result = await window.manong.session.compact(session.id, currentWorkspace.path, focus || undefined);
+      const result = await window.mineco.session.compact(session.id, currentWorkspace.path, focus || undefined);
       if (compactAbortRef.current) return;
       if (result.success && result.messages) {
         const updatedSession = {
@@ -304,7 +304,7 @@ export const ChatPanel: React.FC = () => {
           (p) => p.name === config.defaultProvider
         );
 
-        window.manong.agent.start(
+        window.mineco.agent.start(
           session.id,
           'Continue where you left off.',
           providerConfig,
@@ -323,7 +323,7 @@ export const ChatPanel: React.FC = () => {
       const skill = skills.find(s => s.name === skillName);
 
       if (skill) {
-        const result = await window.manong.skill.execute(skillName, args);
+        const result = await window.mineco.skill.execute(skillName, args);
 
         if (result.success && result.prompt) {
           const userMessage: Message = {
@@ -346,7 +346,7 @@ export const ChatPanel: React.FC = () => {
 
           startStreaming();
 
-          window.manong.agent.start(
+          window.mineco.agent.start(
             session.id,
             result.prompt,
             providerConfig,
@@ -384,7 +384,7 @@ export const ChatPanel: React.FC = () => {
 
     startStreaming();
 
-    window.manong.agent.start(
+    window.mineco.agent.start(
       session.id,
       trimmedInput,
       providerConfig,
@@ -443,7 +443,7 @@ export const ChatPanel: React.FC = () => {
 
   const handleStop = () => {
     compactAbortRef.current = true;
-    window.manong.agent.stop();
+    window.mineco.agent.stop();
     useAppStore.getState().stopStreaming();
   };
 
@@ -645,7 +645,7 @@ export const ChatPanel: React.FC = () => {
             {/* Workspace name + subtitle */}
             <div className="text-center">
               <h1 className="text-2xl font-semibold text-text-primary mb-2">
-                {currentWorkspace?.name || 'Manong'}
+                {currentWorkspace?.name || 'Mineco'}
               </h1>
               <p className="text-sm text-text-secondary">
                 {t['chat.heroSubtitle']}

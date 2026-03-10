@@ -30,7 +30,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     mod: true,
     labelKey: 'shortcuts.newTask',
     action: async () => {
-      const session = await window.manong.session.create();
+      const session = await window.mineco.session.create();
       // Import dynamically avoided — dispatch event for App to handle
       const { useAppStore } = await import('../stores/app');
       useAppStore.getState().addSession(session);
@@ -81,7 +81,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     labelKey: 'shortcuts.focusInput',
     action: (ctx) => {
       if (ctx.activeView !== 'chat') ctx.setActiveView('chat');
-      window.dispatchEvent(new CustomEvent('manong:focus-input'));
+      window.dispatchEvent(new CustomEvent('mineco:focus-input'));
     },
   },
   {
@@ -135,7 +135,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     mod: true,
     labelKey: 'shortcuts.openFolder',
     action: async () => {
-      const data = await window.manong.workspace.open();
+      const data = await window.mineco.workspace.open();
       if (data) {
         const { useAppStore } = await import('../stores/app');
         useAppStore.getState().setWorkspace(data);
@@ -148,7 +148,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     mod: true,
     labelKey: 'shortcuts.closeWindow',
     action: () => {
-      window.manong.window.close();
+      window.mineco.window.close();
     },
   },
 
@@ -165,7 +165,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
       if (!config) return;
       const newTheme = config.theme === 'dark' ? 'light' : 'dark';
       const updated = { ...config, theme: newTheme };
-      await window.manong.config.set(updated);
+      await window.mineco.config.set(updated);
       useAppStore.getState().setConfig(updated);
     },
   },
@@ -178,7 +178,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     shift: true,
     labelKey: 'shortcuts.copyLastResponse',
     action: () => {
-      window.dispatchEvent(new CustomEvent('manong:copy-last-response'));
+      window.dispatchEvent(new CustomEvent('mineco:copy-last-response'));
     },
   },
   {
@@ -187,7 +187,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     mod: true,
     labelKey: 'shortcuts.scrollToBottom',
     action: () => {
-      window.dispatchEvent(new CustomEvent('manong:scroll-to-bottom'));
+      window.dispatchEvent(new CustomEvent('mineco:scroll-to-bottom'));
     },
   },
 
@@ -200,7 +200,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     labelKey: 'shortcuts.commandPalette',
     allowInInput: true,
     action: () => {
-      window.dispatchEvent(new CustomEvent('manong:toggle-command-palette'));
+      window.dispatchEvent(new CustomEvent('mineco:toggle-command-palette'));
     },
   },
 

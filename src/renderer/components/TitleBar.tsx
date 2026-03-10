@@ -4,14 +4,14 @@ import { useAppStore } from '../stores/app';
 import { useTranslation } from '../i18n';
 import { shortcutTitle } from '../hooks/useShortcutHint';
 
-const isMac = window.manong.platform === 'darwin';
+const isMac = window.mineco.platform === 'darwin';
 
 export const TitleBar: React.FC = () => {
   const { currentWorkspace, setWorkspace } = useAppStore();
   const t = useTranslation();
 
   const handleSwitchWorkspace = async () => {
-    const data = await window.manong.workspace.open();
+    const data = await window.mineco.workspace.open();
     if (data) {
       setWorkspace(data);
     }
@@ -57,21 +57,21 @@ export const TitleBar: React.FC = () => {
         {!isMac && (
           <div className="flex items-center ml-3">
             <button
-              onClick={() => window.manong.window.minimize()}
+              onClick={() => window.mineco.window.minimize()}
               className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-hover transition-colors"
               title={t['titlebar.minimize']}
             >
               <Minus size={16} strokeWidth={1.5} />
             </button>
             <button
-              onClick={() => window.manong.window.maximize()}
+              onClick={() => window.mineco.window.maximize()}
               className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-hover transition-colors"
               title={t['titlebar.maximize']}
             >
               <Square size={14} strokeWidth={1.5} />
             </button>
             <button
-              onClick={() => window.manong.window.close()}
+              onClick={() => window.mineco.window.close()}
               className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-error/20 transition-colors"
               title={t['titlebar.close']}
             >

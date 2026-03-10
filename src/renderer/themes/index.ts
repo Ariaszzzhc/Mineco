@@ -1,4 +1,4 @@
-// Theme management for Manong
+// Theme management for Mineco
 
 import { lightTokens, darkTokens, applyTheme, type ThemeTokens } from './tokens';
 

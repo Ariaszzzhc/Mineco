@@ -7,9 +7,9 @@ import { createLogger } from '../logger';
 
 const log = createLogger('LSPServer');
 
-const MANONG_BIN_DIR = path.join(os.homedir(), '.config', 'manong', 'bin');
-const MANONG_NODE_BIN_DIR = path.join(MANONG_BIN_DIR, 'node_modules', '.bin');
-const MANONG_GO_BIN_DIR = path.join(MANONG_BIN_DIR, 'go', 'bin');
+const MINECO_BIN_DIR = path.join(os.homedir(), '.config', 'mineco', 'bin');
+const MINECO_NODE_BIN_DIR = path.join(MINECO_BIN_DIR, 'node_modules', '.bin');
+const MINECO_GO_BIN_DIR = path.join(MINECO_BIN_DIR, 'go', 'bin');
 const INSTALL_TIMEOUT_MS = 120_000;
 
 type BuiltinServerId = 'typescript' | 'pyright' | 'gopls';
@@ -45,7 +45,7 @@ export interface EnsureServerInstallOptions {
 }
 
 export type EnsureServerInstalledResult =
-  | { ok: true; command: string; source: 'path' | 'manong-bin' | 'installed' }
+  | { ok: true; command: string; source: 'path' | 'mineco-bin' | 'installed' }
   | {
       ok: false;
       reason: InstallFailureReason;
@@ -185,16 +185,16 @@ async function findExecutableInPath(name: string): Promise<string | null> {
   });
 }
 
-async function findInManongBin(name: string): Promise<string | null> {
+async function findInMinecoBin(name: string): Promise<string | null> {
   const candidates = getExecutableCandidates(name);
 
   for (const candidate of candidates) {
-    const nodePath = path.join(MANONG_NODE_BIN_DIR, candidate);
+    const nodePath = path.join(MINECO_NODE_BIN_DIR, candidate);
     if (await hasExecutableAccess(nodePath)) {
       return nodePath;
     }
 
-    const goPath = path.join(MANONG_GO_BIN_DIR, candidate);
+    const goPath = path.join(MINECO_GO_BIN_DIR, candidate);
     if (await hasExecutableAccess(goPath)) {
       return goPath;
     }
@@ -338,7 +338,7 @@ async function installNpmPackage(
   log.info(`Installing ${packageName}@${version} via npm`);
 
   try {
-    await fs.mkdir(MANONG_BIN_DIR, { recursive: true });
+    await fs.mkdir(MINECO_BIN_DIR, { recursive: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -353,7 +353,7 @@ async function installNpmPackage(
     'npm',
     ['install', `${packageName}@${version}`, '--no-audit', '--no-fund'],
     {
-      cwd: MANONG_BIN_DIR,
+      cwd: MINECO_BIN_DIR,
       env: buildInstallEnv(),
     }
   );
@@ -362,7 +362,7 @@ async function installNpmPackage(
     return formatInstallFailure(packageName, commandResult);
   }
 
-  const installed = await findInManongBin(expectedBin);
+  const installed = await findInMinecoBin(expectedBin);
   if (!installed) {
     return {
       ok: false,
@@ -384,7 +384,7 @@ async function installGoModule(
   log.info(`Installing ${moduleName}@${version} via go install`);
 
   try {
-    await fs.mkdir(MANONG_GO_BIN_DIR, { recursive: true });
+    await fs.mkdir(MINECO_GO_BIN_DIR, { recursive: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -397,13 +397,13 @@ async function installGoModule(
 
   const baseEnv = buildInstallEnv();
   const pathValue = baseEnv.PATH
-    ? `${MANONG_GO_BIN_DIR}${path.delimiter}${baseEnv.PATH}`
-    : MANONG_GO_BIN_DIR;
+    ? `${MINECO_GO_BIN_DIR}${path.delimiter}${baseEnv.PATH}`
+    : MINECO_GO_BIN_DIR;
 
   const commandResult = await runCommandWithTimeout('go', ['install', `${moduleName}@${version}`], {
-    cwd: MANONG_BIN_DIR,
+    cwd: MINECO_BIN_DIR,
     env: buildInstallEnv({
-      GOBIN: MANONG_GO_BIN_DIR,
+      GOBIN: MINECO_GO_BIN_DIR,
       PATH: pathValue,
     }),
   });
@@ -412,7 +412,7 @@ async function installGoModule(
     return formatInstallFailure(moduleName, commandResult);
   }
 
-  const localInstalled = await findInManongBin(expectedBin);
+  const localInstalled = await findInMinecoBin(expectedBin);
   if (localInstalled) {
     log.info(`Installed ${moduleName}@${version} at ${localInstalled}`);
     return { ok: true, command: localInstalled, source: 'installed' };
@@ -470,10 +470,10 @@ export async function ensureServerInstalled(
     return { ok: true, command: systemPath, source: 'path' };
   }
 
-  const localPath = await findInManongBin(config.command);
+  const localPath = await findInMinecoBin(config.command);
   if (localPath) {
-    log.debug(`Found ${config.command} in manong bin: ${localPath}`);
-    return { ok: true, command: localPath, source: 'manong-bin' };
+    log.debug(`Found ${config.command} in mineco bin: ${localPath}`);
+    return { ok: true, command: localPath, source: 'mineco-bin' };
   }
 
   if (!allowInstall) {

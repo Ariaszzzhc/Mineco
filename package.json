@@ -1,6 +1,6 @@
 {
-  "name": "manong",
-  "productName": "manong",
+  "name": "mineco",
+  "productName": "Mineco",
   "version": "1.0.0",
   "description": "My Electron application description",
   "main": ".vite/build/main.js",

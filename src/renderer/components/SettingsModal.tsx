@@ -49,7 +49,7 @@ const useSettingsForm = () => {
       theme,
       language,
     };
-    await window.manong.config.set(newConfig);
+    await window.mineco.config.set(newConfig);
     setConfig(newConfig);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

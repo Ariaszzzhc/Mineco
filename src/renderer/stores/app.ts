@@ -268,7 +268,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     // Fetch fresh session from storage to get subagentHistory
-    const fresh = await window.manong.session.get(session.id);
+    const fresh = await window.mineco.session.get(session.id);
     const resolved = fresh ?? session;
 
     set({
@@ -299,7 +299,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   ensureSession: async () => {
     const state = get();
     if (state.currentSession) return state.currentSession;
-    const session = await window.manong.session.create();
+    const session = await window.mineco.session.create();
     set((s) => ({
       sessions: [session, ...s.sessions],
       currentSession: session,
@@ -463,7 +463,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           updatedAt: Date.now(),
         };
 
-        window.manong.session.update(updatedSession);
+        window.mineco.session.update(updatedSession);
 
         set({
           isStreaming: false,
@@ -514,7 +514,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           messages: [...session.messages, ...pending],
           updatedAt: Date.now(),
         };
-        window.manong.session.update(updatedSession);
+        window.mineco.session.update(updatedSession);
 
         set({
           isStreaming: false,
@@ -574,7 +574,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         updatedAt: Date.now(),
       };
 
-      window.manong.session.update(updatedSession);
+      window.mineco.session.update(updatedSession);
 
       return {
         isStreaming: false,
@@ -619,7 +619,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadSkills: async () => {
     try {
-      const skills = await window.manong.skill.list();
+      const skills = await window.mineco.skill.list();
       set({ skills });
     } catch (error) {
       console.error('Failed to load skills:', error);
@@ -638,13 +638,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setPermissionMode: (mode) => {
     set({ permissionMode: mode });
-    window.manong.permission.setMode(mode);
+    window.mineco.permission.setMode(mode);
   },
 
   setPendingPermission: (request) => set({ pendingPermission: request }),
 
   respondPermission: (requestId, decision) => {
-    window.manong.permission.respond(requestId, decision);
+    window.mineco.permission.respond(requestId, decision);
     set({ pendingPermission: null });
   },
 
@@ -666,7 +666,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadMCPStatus: async () => {
     try {
-      const statuses = await window.manong.mcp.getStatus();
+      const statuses = await window.mineco.mcp.getStatus();
       set({ mcpStatuses: statuses });
     } catch (error) {
       console.error('Failed to load MCP status:', error);
@@ -675,7 +675,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadMCPLayeredConfig: async () => {
     try {
-      const config = await window.manong.mcp.getLayeredConfig();
+      const config = await window.mineco.mcp.getLayeredConfig();
       set({ mcpLayeredConfig: config, mcpConfig: config.merged });
     } catch (error) {
       console.error('Failed to load MCP layered config:', error);
@@ -724,7 +724,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadViewingSubagentSession: async (sessionId) => {
     try {
-      const session = await window.manong.subagent.getSession(sessionId);
+      const session = await window.mineco.subagent.getSession(sessionId);
       set((state) => {
         const runtime = getSubagentRuntime(state, sessionId);
         const updatedRuntime: SubagentRuntimeState = {
@@ -917,7 +917,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ planMode: newMode });
 
     if (state.currentSession) {
-      window.manong.plan.toggleMode(state.currentSession.id, newMode);
+      window.mineco.plan.toggleMode(state.currentSession.id, newMode);
     }
   },
 
@@ -996,7 +996,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           updatedAt: Date.now(),
         };
 
-        window.manong.session.update(updatedSession);
+        window.mineco.session.update(updatedSession);
 
         set({
           activePlan: null,
@@ -1013,7 +1013,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     // Live plan: resolve the pending Promise in the main process
-    window.manong.plan.sendDecision(state.activePlan.id, decision);
+    window.mineco.plan.sendDecision(state.activePlan.id, decision);
 
     if (decision.type === 'approve') {
       set({

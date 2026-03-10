@@ -29,7 +29,7 @@ export const en = {
   'sidebar.noMessages': 'No messages yet',
 
   // Welcome
-  'welcome.title': 'Manong',
+  'welcome.title': 'Mineco',
   'welcome.subtitle': 'AI Coding Assistant',
   'welcome.openFolder': 'Open Folder',
   'welcome.recent': 'Recent',

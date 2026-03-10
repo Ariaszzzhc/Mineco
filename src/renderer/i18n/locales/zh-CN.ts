@@ -31,7 +31,7 @@ export const zhCN: Translations = {
   'sidebar.noMessages': '暂无消息',
 
   // Welcome
-  'welcome.title': 'Manong',
+  'welcome.title': 'Mineco',
   'welcome.subtitle': 'AI 编程助手',
   'welcome.openFolder': '打开文件夹',
   'welcome.recent': '最近',

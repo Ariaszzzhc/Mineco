@@ -5,7 +5,7 @@ import { useTranslation } from '../i18n';
 import type { TranslationKey } from '../i18n';
 import { en } from '../i18n/locales/en';
 
-const isMac = window.manong.platform === 'darwin';
+const isMac = window.mineco.platform === 'darwin';
 
 function formatShortcut(s: ShortcutDefinition): string {
   const parts: string[] = [];

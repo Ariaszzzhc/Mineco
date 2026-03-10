@@ -33,8 +33,8 @@ export const App: React.FC = () => {
   // Listen for command palette toggle event from the shortcut
   useEffect(() => {
     const handler = () => setCommandPaletteOpen((prev) => !prev);
-    window.addEventListener('manong:toggle-command-palette', handler);
-    return () => window.removeEventListener('manong:toggle-command-palette', handler);
+    window.addEventListener('mineco:toggle-command-palette', handler);
+    return () => window.removeEventListener('mineco:toggle-command-palette', handler);
   }, []);
 
   useEffect(() => {
@@ -48,37 +48,37 @@ export const App: React.FC = () => {
 
   // Initialization effect - runs once on mount
   useEffect(() => {
-    window.manong.config.get().then((loadedConfig) => {
+    window.mineco.config.get().then((loadedConfig) => {
       if (loadedConfig && loadedConfig.language === undefined) {
         const detected = detectLocale();
         const withLang = { ...loadedConfig, language: detected };
-        window.manong.config.set(withLang);
+        window.mineco.config.set(withLang);
         setConfig(withLang);
       } else {
         setConfig(loadedConfig);
       }
     });
 
-    window.manong.workspace.getCurrent().then((data) => {
+    window.mineco.workspace.getCurrent().then((data) => {
       if (data) {
         setWorkspace(data);
         loadSkills();
       }
     });
 
-    const unsubscribe = window.manong.mcp.onStatusChanged((statuses) => {
+    const unsubscribe = window.mineco.mcp.onStatusChanged((statuses) => {
       setMCPStatuses(statuses);
     });
 
-    window.manong.mcp.getStatus().then(setMCPStatuses);
+    window.mineco.mcp.getStatus().then(setMCPStatuses);
 
     // Listen for menu-triggered actions (Ctrl+N / Ctrl+O from Electron menu)
-    const unsubMenuNewSession = window.manong.menu.onNewSession(async () => {
-      const session = await window.manong.session.create();
+    const unsubMenuNewSession = window.mineco.menu.onNewSession(async () => {
+      const session = await window.mineco.session.create();
       useAppStore.getState().addSession(session);
     });
-    const unsubMenuOpenFolder = window.manong.menu.onOpenFolder(async () => {
-      const data = await window.manong.workspace.open();
+    const unsubMenuOpenFolder = window.mineco.menu.onOpenFolder(async () => {
+      const data = await window.mineco.workspace.open();
       if (data) {
         useAppStore.getState().setWorkspace(data);
       }
@@ -93,7 +93,7 @@ export const App: React.FC = () => {
 
   // Todo listener - resubscribes when currentSessionId changes
   useEffect(() => {
-    const unsubscribeTodo = window.manong.todo.onUpdate((data) => {
+    const unsubscribeTodo = window.mineco.todo.onUpdate((data) => {
       if (data.sessionId === useAppStore.getState().currentSessionId) {
         setTodos(data.todos);
       }
@@ -106,7 +106,7 @@ export const App: React.FC = () => {
 
   const handleMCPConnect = useCallback(async (name: string) => {
     try {
-      await window.manong.mcp.connect(name);
+      await window.mineco.mcp.connect(name);
     } catch (error) {
       console.error('Failed to connect to MCP server:', error);
     }
@@ -114,14 +114,14 @@ export const App: React.FC = () => {
 
   const handleMCPDisconnect = useCallback(async (name: string) => {
     try {
-      await window.manong.mcp.disconnect(name);
+      await window.mineco.mcp.disconnect(name);
     } catch (error) {
       console.error('Failed to disconnect from MCP server:', error);
     }
   }, []);
 
   const handleMCPRefresh = useCallback(() => {
-    window.manong.mcp.getStatus().then(setMCPStatuses);
+    window.mineco.mcp.getStatus().then(setMCPStatuses);
   }, [setMCPStatuses]);
 
   const renderMainContent = () => {

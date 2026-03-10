@@ -20,7 +20,7 @@ export class MCPConfigService {
   private mergedConfig: MCPConfig;
 
   constructor() {
-    const configDir = path.join(os.homedir(), '.manong');
+    const configDir = path.join(os.homedir(), '.mineco');
     this.globalConfigPath = path.join(configDir, 'mcp.json');
     this.globalConfig = { ...DEFAULT_MCP_CONFIG };
     this.mergedConfig = { ...DEFAULT_MCP_CONFIG };
@@ -59,7 +59,7 @@ export class MCPConfigService {
   }
 
   async loadProject(workspacePath: string): Promise<MCPConfig | null> {
-    const configDir = path.join(workspacePath, '.manong');
+    const configDir = path.join(workspacePath, '.mineco');
     this.projectConfigPath = path.join(configDir, 'mcp.json');
 
     try {
@@ -94,7 +94,7 @@ export class MCPConfigService {
   }
 
   async saveProject(config: MCPConfig, workspacePath: string): Promise<void> {
-    const configDir = path.join(workspacePath, '.manong');
+    const configDir = path.join(workspacePath, '.mineco');
     const configPath = path.join(configDir, 'mcp.json');
 
     try {

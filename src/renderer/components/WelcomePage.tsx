@@ -10,18 +10,18 @@ export const WelcomePage: React.FC = () => {
   const t = useTranslation();
 
   useEffect(() => {
-    window.manong.workspace.getRecent().then(setRecentWorkspaces);
+    window.mineco.workspace.getRecent().then(setRecentWorkspaces);
   }, []);
 
   const handleOpenFolder = async () => {
-    const data = await window.manong.workspace.open();
+    const data = await window.mineco.workspace.open();
     if (data) {
       setWorkspace(data);
     }
   };
 
   const handleOpenRecent = async (path: string) => {
-    const data = await window.manong.workspace.openPath(path);
+    const data = await window.mineco.workspace.openPath(path);
     if (data) {
       setWorkspace(data);
     }
