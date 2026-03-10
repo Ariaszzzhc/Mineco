@@ -1,0 +1,159 @@
+name: Nightly Build
+
+on:
+  schedule:
+    # 每天 UTC 14:00 = 北京时间 22:00
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes
+        id: check
+        run: |
+          # 获取最后一次 nightly release 对应的 commit SHA
+          LAST_RELEASE=$(gh release list --limit 50 --json tagName,targetCommitish 2>/dev/null | \
+            jq -r '.[] | select(.tagName | startswith("nightly-")) | .targetCommitish' | head -1)
+
+          if [ -z "$LAST_RELEASE" ]; then
+            echo "No previous nightly found, will build"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 比较当前 commit 和上次 release 的 commit
+          CURRENT_SHA=$(git rev-parse HEAD)
+
+          if [ "$CURRENT_SHA" = "$LAST_RELEASE" ]; then
+            echo "::notice::No changes since last nightly build, skipping"
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            COMMITS=$(git log --oneline $LAST_RELEASE..HEAD | wc -l)
+            echo "Found $COMMITS new commits since last nightly"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win32
+            artifact: out/make/squirrel.windows/x64/
+          - os: macos-latest
+            platform: darwin
+            artifact: out/make/zip/darwin/x64/
+          - os: ubuntu-latest
+            platform: linux
+            artifact: out/make/deb/x64/
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (Windows)
+        if: matrix.platform == 'win32'
+        run: pnpm run make --platform=win32
+
+      - name: Build (macOS)
+        if: matrix.platform == 'darwin'
+        run: pnpm run make --platform=darwin
+
+      - name: Build (Linux)
+        if: matrix.platform == 'linux'
+        run: pnpm run make --platform=linux
+        env:
+          DISPLAY: ':99.0'
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mineco-${{ matrix.platform }}-x64
+          path: ${{ matrix.artifact }}
+          if-no-files-found: warn
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.deb" \) -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Get version & date
+        id: info
+        run: |
+          echo "VERSION=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+          echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly-${{ steps.info.outputs.DATE }}
+          name: Nightly ${{ steps.info.outputs.DATE }} (v${{ steps.info.outputs.VERSION }})
+          body: |
+            ## Mineco Nightly Build
+
+            📅 **日期**: ${{ steps.info.outputs.DATE }}
+            📦 **版本**: v${{ steps.info.outputs.VERSION }}
+
+            ### 下载
+
+            | 平台 | 文件 |
+            |------|------|
+            | 🪟 Windows | `Mineco-${{ steps.info.outputs.VERSION }} Setup.exe` |
+            | 🍎 macOS | `Mineco-${{ steps.info.outputs.VERSION }}-darwin-x64.zip` |
+            | 🐧 Linux | `mineco_${{ steps.info.outputs.VERSION }}_amd64.deb` |
+
+            ---
+            > ⚠️ 这是自动构建的 nightly 版本，仅供测试使用。
+
+          files: release/*
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
