@@ -1,0 +1,14 @@
+{
+  "name": "@mineco/desktop",
+  "version": "0.2.0",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "license": "MIT",
+  "packageManager": "pnpm@10.29.3",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1"
+  }
+}
