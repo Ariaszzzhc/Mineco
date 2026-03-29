@@ -51,6 +51,9 @@ importers:
       '@logtape/logtape':
         specifier: ^2.0.5
         version: 2.0.5
+      '@mineco/provider':
+        specifier: workspace:*
+        version: link:../provider
       hono:
         specifier: ^4.12.9
         version: 4.12.9

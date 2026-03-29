@@ -46,6 +46,10 @@ export class ProviderRegistry {
     this.providers.set(config.id, provider);
   }
 
+  clear(): void {
+    this.providers.clear();
+  }
+
   get(id: string): IProvider {
     const provider = this.providers.get(id);
     if (!provider) {
