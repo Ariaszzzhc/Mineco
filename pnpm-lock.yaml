@@ -71,6 +71,8 @@ importers:
         specifier: ^2.10.1
         version: 2.10.1
 
+  packages/provider: {}
+
   packages/shared: {}
 
 packages:

@@ -92,3 +92,4 @@ typings/
 out/
 .claude/*.local.json
 backup/
+dist
