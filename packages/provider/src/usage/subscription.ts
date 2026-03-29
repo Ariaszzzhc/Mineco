@@ -1,0 +1,39 @@
+/** Generic quota usage info */
+export interface QuotaUsage {
+  /** Human-readable label, e.g. "5小时Token配额" */
+  label: string;
+  /** Used amount */
+  used: number;
+  /** Total limit */
+  limit: number;
+  /** Usage percentage 0-100 */
+  percentage: number;
+  /** Time window label, e.g. "5h", "weekly", "30d" */
+  window: string;
+  /** Reset timestamp in seconds, null if not applicable */
+  resetAt: number | null;
+}
+
+/** Generic subscription info */
+export interface SubscriptionInfo {
+  /** Display name of current plan, e.g. "Max", "Pro" */
+  planName: string;
+  /** Active quotas */
+  quotas: QuotaUsage[];
+  /** Subscription expiry timestamp in seconds, null if not applicable */
+  expiresAt: number | null;
+}
+
+/** Usage summary for a time range */
+export interface UsageSummary {
+  /** Total API call count */
+  callCount: number;
+  /** Total tokens consumed */
+  totalTokens: number;
+}
+
+/** Interface for querying subscription/usage from a provider */
+export interface SubscriptionClient {
+  getSubscriptionInfo(): Promise<SubscriptionInfo>;
+  getUsage(startTime: number, endTime: number): Promise<UsageSummary>;
+}
