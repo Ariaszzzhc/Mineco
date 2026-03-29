@@ -1,0 +1,26 @@
+{
+  "name": "@mineco/agent",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Agent loop and tool system for Mineco",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@mineco/provider": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0"
+  }
+}

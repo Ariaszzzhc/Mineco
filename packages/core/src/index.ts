@@ -5,12 +5,20 @@ import { honoLogger } from "@logtape/hono";
 import { contextStorage } from "hono/context-storage";
 import { requestId, type RequestIdVariables } from "hono/request-id";
 import { trimTrailingSlash } from "hono/trailing-slash";
+import { Kysely } from "kysely";
 import { ProviderRegistry } from "@mineco/provider";
 import { ConfigService } from "./config/service.js";
 import { createConfigRoutes } from "./routes/config.js";
+import { createSessionRoutes } from "./routes/session.js";
+import { createChatRoutes } from "./routes/chat.js";
+import { NodeSqliteDialect, SqliteSessionStore } from "./storage/index.js";
+import { initializeSchema, type Database } from "./storage/schema.js";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { mkdirSync } from "node:fs";
 
 type Env = {
-  Variables: RequestIdVariables & Record<string, string>; // TODO: Maybe change in future. Record<string, string> is not type safe
+  Variables: RequestIdVariables & Record<string, string>;
 };
 
 await configure({
@@ -25,15 +33,30 @@ app.use(requestId());
 app.use(honoLogger());
 app.use(trimTrailingSlash());
 
+// --- Database ---
+const dataDir = join(homedir(), ".mineco");
+mkdirSync(dataDir, { recursive: true });
+const dbPath = join(dataDir, "mineco.db");
+
+const db = new Kysely<Database>({
+  dialect: new NodeSqliteDialect(dbPath),
+});
+await initializeSchema(db);
+
+const sessionStore = new SqliteSessionStore(db);
+
 // --- Config system ---
 const registry = new ProviderRegistry();
 const configService = new ConfigService(registry);
 await configService.initialize();
 
+// --- Routes ---
 app.route("/api/config", createConfigRoutes(configService));
+app.route("/api/sessions", createSessionRoutes(sessionStore));
+app.route("/api/sessions", createChatRoutes(registry, sessionStore));
 
 app.get("/", (c) => {
-  return c.text("Hello Hono!");
+  return c.text("Mineco server is running");
 });
 
 serve(
