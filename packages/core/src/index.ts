@@ -19,57 +19,70 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 
-type Env = {
-  Variables: RequestIdVariables & Record<string, string>;
-};
+async function main() {
+  type Env = {
+    Variables: RequestIdVariables & Record<string, string>;
+  };
 
-await configure({
-  sinks: { console: getConsoleSink() },
-  loggers: [{ category: ["hono"], sinks: ["console"], lowestLevel: "info" }],
+  await configure({
+    sinks: { console: getConsoleSink() },
+    loggers: [{ category: ["hono"], sinks: ["console"], lowestLevel: "info" }],
+  });
+
+  const app = new Hono<Env>();
+
+  app.use(contextStorage());
+  app.use(requestId());
+  app.use(honoLogger());
+  app.use(trimTrailingSlash());
+
+  // --- Database ---
+  const dataDir = join(homedir(), ".mineco");
+  mkdirSync(dataDir, { recursive: true });
+  const dbPath = join(dataDir, "mineco.db");
+
+  const db = new Kysely<Database>({
+    dialect: new NodeSqliteDialect(dbPath),
+  });
+  await initializeSchema(db);
+
+  const sessionStore = new SqliteSessionStore(db);
+  const workspaceStore = new SqliteWorkspaceStore(db);
+
+  // --- Config system ---
+  const registry = new ProviderRegistry();
+  const configService = new ConfigService(registry);
+  await configService.initialize();
+
+  // --- Routes ---
+  app.route("/api/config", createConfigRoutes(configService, () => registry.list()));
+  app.route("/api/workspaces", createWorkspaceRoutes(workspaceStore));
+  app.route("/api/fs", createFsRoutes());
+  app.route("/api/sessions", createSessionRoutes(sessionStore));
+  app.route("/api/sessions", createChatRoutes(registry, sessionStore, workspaceStore));
+
+  app.get("/", (c) => {
+    return c.text("Mineco server is running");
+  });
+
+  app.get("/api/health", (c) => {
+    return c.json({ status: "ok", timestamp: Date.now() });
+  });
+
+  const port = parseInt(process.env.MINECO_PORT ?? "3000", 10);
+
+  serve(
+    {
+      fetch: app.fetch,
+      port,
+    },
+    (info) => {
+      console.log(`Server is running on http://localhost:${info.port}`);
+    },
+  );
+}
+
+main().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });
-
-const app = new Hono<Env>();
-
-app.use(contextStorage());
-app.use(requestId());
-app.use(honoLogger());
-app.use(trimTrailingSlash());
-
-// --- Database ---
-const dataDir = join(homedir(), ".mineco");
-mkdirSync(dataDir, { recursive: true });
-const dbPath = join(dataDir, "mineco.db");
-
-const db = new Kysely<Database>({
-  dialect: new NodeSqliteDialect(dbPath),
-});
-await initializeSchema(db);
-
-const sessionStore = new SqliteSessionStore(db);
-const workspaceStore = new SqliteWorkspaceStore(db);
-
-// --- Config system ---
-const registry = new ProviderRegistry();
-const configService = new ConfigService(registry);
-await configService.initialize();
-
-// --- Routes ---
-app.route("/api/config", createConfigRoutes(configService, () => registry.list()));
-app.route("/api/workspaces", createWorkspaceRoutes(workspaceStore));
-app.route("/api/fs", createFsRoutes());
-app.route("/api/sessions", createSessionRoutes(sessionStore));
-app.route("/api/sessions", createChatRoutes(registry, sessionStore, workspaceStore));
-
-app.get("/", (c) => {
-  return c.text("Mineco server is running");
-});
-
-serve(
-  {
-    fetch: app.fetch,
-    port: 3000,
-  },
-  (info) => {
-    console.log(`Server is running on http://localhost:${info.port}`);
-  },
-);

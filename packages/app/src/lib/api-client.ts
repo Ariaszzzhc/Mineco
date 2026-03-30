@@ -5,6 +5,7 @@ import type {
   Session,
   Workspace,
 } from "./types";
+import { getApiBaseUrl } from "./api-base";
 
 class ApiError extends Error {
   constructor(
@@ -20,7 +21,8 @@ async function request<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(path, {
+  const baseUrl = await getApiBaseUrl();
+  const res = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: { "Content-Type": "application/json", ...options?.headers },
   });

@@ -6,6 +6,18 @@
     "main"
   ],
   "permissions": [
-    "core:default"
+    "core:default",
+    "shell:default",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/mineco-core",
+          "sidecar": true
+        }
+      ]
+    },
+    "shell:allow-kill",
+    "core:event:default"
   ]
 }
