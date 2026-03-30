@@ -231,6 +231,31 @@ describe("Chat Routes", () => {
       expect((toolMsgs[0]![1] as SessionMessage).toolName).toBe("readFile");
     });
 
+    it("should save assistant text before tool-call event", async () => {
+      store.get = vi.fn(async () => createTestSession());
+      mockRun.mockReturnValue(mockStream([
+        { type: "text-delta", delta: "Let me" },
+        { type: "text-delta", delta: " read that file" },
+        { type: "tool-call", toolCallId: "call-1", toolName: "readFile", args: { file_path: "/tmp/test" } },
+        { type: "tool-result", toolCallId: "call-1", toolName: "readFile", result: "file content", isError: false },
+        { type: "complete", reason: "stop" },
+      ]));
+
+      const res = await app.request("/test-session-id/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: "hi", providerId: "zhipu", model: "glm-4" }),
+        headers: jsonHeaders(),
+      });
+      await res.text();
+
+      const addMessageMock = store.addMessage as ReturnType<typeof vi.fn>;
+      const assistantMsgs = addMessageMock.mock.calls.filter(
+        (call: unknown[]) => (call[1] as SessionMessage).role === "assistant",
+      );
+      expect(assistantMsgs.length).toBe(1);
+      expect((assistantMsgs[0]![1] as SessionMessage).content).toBe("Let me read that file");
+    });
+
     it("should send error event when agent loop throws", async () => {
       store.get = vi.fn(async () => createTestSession());
       mockRun.mockImplementation(() => {
