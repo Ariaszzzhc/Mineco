@@ -11,10 +11,13 @@ function jsonHeaders(): Headers {
 describe("Config Routes", () => {
   let configService: ReturnType<typeof createMockConfigService>;
   let app: ReturnType<typeof createConfigRoutes>;
+  const mockRegistryModels = () => [
+    { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5" }] },
+  ];
 
   beforeEach(() => {
     configService = createMockConfigService();
-    app = createConfigRoutes(configService);
+    app = createConfigRoutes(configService, mockRegistryModels);
     vi.clearAllMocks();
   });
 
@@ -56,6 +59,16 @@ describe("Config Routes", () => {
     });
   });
 
+  describe("GET /providers/models", () => {
+    it("should return registry provider models", async () => {
+      const res = await app.request("/providers/models");
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.data).toBeDefined();
+      expect(Array.isArray(body.data)).toBe(true);
+    });
+  });
+
   describe("POST /providers", () => {
     it("should add a provider and return 201", async () => {
       const provider = {
@@ -80,7 +93,7 @@ describe("Config Routes", () => {
         providers: [{ type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" }],
         settings: {},
       });
-      app = createConfigRoutes(configService);
+      app = createConfigRoutes(configService, mockRegistryModels);
 
       const res = await app.request("/providers/zhipu", {
         method: "DELETE",
@@ -189,7 +202,7 @@ describe("Config Routes", () => {
         ],
         settings: {},
       });
-      app = createConfigRoutes(configService);
+      app = createConfigRoutes(configService, mockRegistryModels);
 
       const res = await app.request("/providers/ollama", {
         method: "DELETE",

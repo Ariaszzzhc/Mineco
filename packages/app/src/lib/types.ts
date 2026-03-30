@@ -27,9 +27,18 @@ export interface SessionMessage {
 export interface Session {
   id: string;
   title: string;
+  workspaceId: string;
   messages: SessionMessage[];
   createdAt: number;
   updatedAt: number;
+}
+
+export interface Workspace {
+  id: string;
+  path: string;
+  name: string;
+  lastOpenedAt: number;
+  createdAt: number;
 }
 
 // Mirrors @mineco/core config types

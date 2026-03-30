@@ -5,18 +5,23 @@ import type { AppConfig, AppSettings, ProviderConfig } from "../lib/types";
 interface ConfigState {
   config: AppConfig | null;
   loading: boolean;
+  providerModels: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>;
 }
 
 const [state, setState] = createStore<ConfigState>({
   config: null,
   loading: false,
+  providerModels: [],
 });
 
 async function loadConfig() {
   setState("loading", true);
   try {
-    const config = await api.getConfig();
-    setState("config", config);
+    const [config, providerModels] = await Promise.all([
+      api.getConfig(),
+      api.getProviderModels(),
+    ]);
+    setState({ config, providerModels });
   } finally {
     setState("loading", false);
   }
@@ -36,14 +41,12 @@ function activeModel(): string | null {
   const config = state.config;
   if (!config) return null;
   if (config.settings.defaultModel) return config.settings.defaultModel;
-  // Default to first model of active provider
+  // Default to first model of active provider from registry
   const providerId = activeProviderId();
   if (!providerId) return null;
-  const provider = config.providers.find((p) =>
-    p.type === "zhipu" ? providerId === "zhipu" : p.id === providerId,
-  );
-  if (provider?.type === "openai-compatible" && provider.models.length > 0) {
-    return provider.models[0]!.id;
+  const providerMeta = state.providerModels.find((p) => p.id === providerId);
+  if (providerMeta && providerMeta.models.length > 0) {
+    return providerMeta.models[0]!.id;
   }
   return null;
 }
@@ -57,21 +60,24 @@ async function updateSettings(settings: Partial<AppSettings>) {
 
 async function addProvider(provider: unknown) {
   const providers = await api.addProvider(provider);
+  const providerModels = await api.getProviderModels();
   if (state.config) {
-    setState("config", "providers", providers);
+    setState({ config: { ...state.config, providers }, providerModels });
   }
 }
 
 async function deleteProvider(id: string) {
   const providers = await api.deleteProvider(id);
+  const providerModels = await api.getProviderModels();
   if (state.config) {
-    setState("config", "providers", providers);
+    setState({ config: { ...state.config, providers }, providerModels });
   }
 }
 
 export const configStore = {
   config: () => state.config,
   loading: () => state.loading,
+  providerModels: () => state.providerModels,
   loadConfig,
   activeProviderId,
   activeModel,

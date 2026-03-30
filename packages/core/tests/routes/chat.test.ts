@@ -24,6 +24,29 @@ vi.mock("node:crypto", () => ({
 
 import { createChatRoutes } from "../../src/routes/chat.js";
 
+function createMockWorkspaceStore() {
+  return {
+    get: vi.fn(async () => ({
+      id: "ws-1",
+      path: "/test/workspace",
+      name: "workspace",
+      lastOpenedAt: Date.now(),
+      createdAt: Date.now(),
+    })),
+    findByPath: vi.fn(async () => undefined),
+    list: vi.fn(async () => []),
+    create: vi.fn(async (path: string) => ({
+      id: "ws-1",
+      path,
+      name: path.split("/").pop() ?? path,
+      lastOpenedAt: Date.now(),
+      createdAt: Date.now(),
+    })),
+    updateLastOpened: vi.fn(async () => {}),
+    delete: vi.fn(async () => {}),
+  };
+}
+
 function jsonHeaders(): Headers {
   return new Headers({ "Content-Type": "application/json" });
 }
@@ -32,6 +55,7 @@ function createTestSession(messages: SessionMessage[] = []): Session {
   return {
     id: "test-session-id",
     title: "Test Session",
+    workspaceId: "ws-1",
     messages,
     createdAt: 1000,
     updatedAt: 2000,
@@ -41,13 +65,15 @@ function createTestSession(messages: SessionMessage[] = []): Session {
 describe("Chat Routes", () => {
   let store: ReturnType<typeof createMockSessionStore>;
   let registry: ReturnType<typeof createMockProviderRegistry>;
+  let workspaceStore: ReturnType<typeof createMockWorkspaceStore>;
   let app: ReturnType<typeof createChatRoutes>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     store = createMockSessionStore();
     registry = createMockProviderRegistry();
-    app = createChatRoutes(registry, store);
+    workspaceStore = createMockWorkspaceStore();
+    app = createChatRoutes(registry, store, workspaceStore);
   });
 
   describe("validation", () => {

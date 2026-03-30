@@ -14,13 +14,17 @@ describe("Session Routes", () => {
 
   describe("POST /", () => {
     it("should create a session and return 200", async () => {
-      const res = await app.request("/", { method: "POST" });
+      const res = await app.request("/", {
+        method: "POST",
+        body: JSON.stringify({ workspaceId: "ws-1" }),
+        headers: { "Content-Type": "application/json" },
+      });
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.id).toBeDefined();
       expect(body.title).toBe("New Session");
       expect(body.messages).toEqual([]);
-      expect(store.create).toHaveBeenCalledOnce();
+      expect(store.create).toHaveBeenCalledWith("ws-1");
     });
   });
 
@@ -37,6 +41,7 @@ describe("Session Routes", () => {
         {
           id: "s1",
           title: "Session 1",
+          workspaceId: "ws-1",
           messages: [],
           createdAt: 1000,
           updatedAt: 2000,
@@ -57,6 +62,7 @@ describe("Session Routes", () => {
       const session: Session = {
         id: "test-id",
         title: "Test",
+        workspaceId: "ws-1",
         messages: [],
         createdAt: 1000,
         updatedAt: 2000,

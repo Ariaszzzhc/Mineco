@@ -5,6 +5,8 @@ import { SqliteSessionStore } from "../../src/storage/session-store.js";
 import type { Database } from "../../src/storage/schema.js";
 import { createTestDb } from "../helper/test-db.js";
 
+const TEST_WORKSPACE_ID = "test-workspace";
+
 describe("SqliteSessionStore", () => {
   let db: Kysely<Database>;
   let store: SqliteSessionStore;
@@ -15,6 +17,15 @@ describe("SqliteSessionStore", () => {
     db = testDb.db;
     cleanup = testDb.cleanup;
     store = new SqliteSessionStore(db);
+
+    // Create a workspace for foreign key constraint
+    await db.insertInto("workspaces").values({
+      id: TEST_WORKSPACE_ID,
+      path: "/test/workspace",
+      name: "test-workspace",
+      last_opened_at: Date.now(),
+      created_at: Date.now(),
+    }).execute();
   });
 
   afterEach(async () => {
@@ -23,7 +34,7 @@ describe("SqliteSessionStore", () => {
 
   describe("create()", () => {
     it("should create a session and return it", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       expect(session.id).toBeDefined();
       expect(session.title).toBe("New Session");
       expect(session.messages).toEqual([]);
@@ -32,7 +43,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should persist session to database", async () => {
-      const created = await store.create();
+      const created = await store.create(TEST_WORKSPACE_ID);
       const fetched = await store.get(created.id);
       expect(fetched).toBeDefined();
       expect(fetched!.id).toBe(created.id);
@@ -46,7 +57,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should return session with messages ordered by created_at", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       const msg1: SessionMessage = {
         id: "msg-1",
         role: "user",
@@ -70,7 +81,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should map tool_calls from JSON", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       const msg: SessionMessage = {
         id: "msg-tool",
         role: "assistant",
@@ -94,7 +105,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should map is_error correctly", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       const errMsg: SessionMessage = {
         id: "msg-err",
         role: "tool",
@@ -109,7 +120,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should not set isError when is_error is 0", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       const msg: SessionMessage = {
         id: "msg-ok",
         role: "tool",
@@ -123,7 +134,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should map usage from JSON", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       const msg: SessionMessage = {
         id: "msg-usage",
         role: "assistant",
@@ -149,7 +160,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should return sessions ordered by updated_at DESC", async () => {
-      const s1 = await store.create();
+      const s1 = await store.create(TEST_WORKSPACE_ID);
       // Update s1's updated_at by adding a message
       await store.addMessage(s1.id, {
         id: "msg-1",
@@ -158,7 +169,7 @@ describe("SqliteSessionStore", () => {
         createdAt: Date.now(),
       });
 
-      const s2 = await store.create();
+      const s2 = await store.create(TEST_WORKSPACE_ID);
 
       const sessions = await store.list();
       expect(sessions).toHaveLength(2);
@@ -169,7 +180,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should not include messages in listed sessions", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       await store.addMessage(session.id, {
         id: "msg-1",
         role: "user",
@@ -184,7 +195,7 @@ describe("SqliteSessionStore", () => {
 
   describe("addMessage()", () => {
     it("should insert message and update session timestamp", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       const originalUpdatedAt = session.updatedAt;
 
       // Small delay to ensure timestamp differs
@@ -203,7 +214,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should store tool_call_id and tool_name", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       const msg: SessionMessage = {
         id: "msg-tool",
         role: "tool",
@@ -220,7 +231,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should store usage as JSON", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       const msg: SessionMessage = {
         id: "msg-usage",
         role: "assistant",
@@ -241,7 +252,7 @@ describe("SqliteSessionStore", () => {
 
   describe("updateMessages()", () => {
     it("should replace all messages for a session", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       await store.addMessage(session.id, {
         id: "old-msg-1",
         role: "user",
@@ -262,7 +273,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should delete all messages when empty array", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       await store.addMessage(session.id, {
         id: "msg-1",
         role: "user",
@@ -277,7 +288,7 @@ describe("SqliteSessionStore", () => {
     });
 
     it("should update session updated_at", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       const originalUpdatedAt = session.updatedAt;
 
       await new Promise((r) => setTimeout(r, 10));
@@ -293,7 +304,7 @@ describe("SqliteSessionStore", () => {
 
   describe("delete()", () => {
     it("should delete session and associated messages", async () => {
-      const session = await store.create();
+      const session = await store.create(TEST_WORKSPACE_ID);
       await store.addMessage(session.id, {
         id: "msg-1",
         role: "user",

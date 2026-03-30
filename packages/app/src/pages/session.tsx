@@ -9,7 +9,7 @@ export function SessionPage() {
   const navigate = useNavigate();
 
   onMount(async () => {
-    const id = params.id;
+    const id = params.sessionId;
     if (!id) {
       navigate("/", { replace: true });
       return;
@@ -20,9 +20,14 @@ export function SessionPage() {
       configStore.config() ? Promise.resolve() : configStore.loadConfig(),
     ]);
 
-    // If session not found, go home
+    // If session not found, go back to workspace
     if (!sessionStore.currentSession()) {
-      navigate("/", { replace: true });
+      const workspaceId = params.workspaceId;
+      if (workspaceId) {
+        navigate(`/workspaces/${workspaceId}`, { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     }
   });
 

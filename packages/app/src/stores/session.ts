@@ -14,10 +14,10 @@ const [state, setState] = createStore<SessionState>({
   loading: false,
 });
 
-async function loadSessions() {
+async function loadSessions(workspaceId?: string) {
   setState("loading", true);
   try {
-    const sessions = await api.listSessions();
+    const sessions = await api.listSessions(workspaceId);
     setState("sessions", sessions);
   } finally {
     setState("loading", false);

@@ -15,15 +15,17 @@ export interface SessionMessage {
 export interface Session {
   id: string;
   title: string;
+  workspaceId: string;
   messages: SessionMessage[];
   createdAt: number;
   updatedAt: number;
 }
 
 export interface SessionStore {
-  create(): Promise<Session>;
+  create(workspaceId: string): Promise<Session>;
   get(id: string): Promise<Session | undefined>;
   list(): Promise<Session[]>;
+  listByWorkspace(workspaceId: string): Promise<Session[]>;
   addMessage(sessionId: string, msg: SessionMessage): Promise<void>;
   updateMessages(
     sessionId: string,

@@ -1,9 +1,17 @@
 import { Kysely, sql } from "kysely";
 
 export interface Database {
+  workspaces: {
+    id: string;
+    path: string;
+    name: string;
+    last_opened_at: number;
+    created_at: number;
+  };
   sessions: {
     id: string;
     title: string;
+    workspace_id: string;
     created_at: number;
     updated_at: number;
   };
@@ -22,9 +30,18 @@ export interface Database {
 }
 
 export async function initializeSchema(db: Kysely<Database>): Promise<void> {
+  await sql`CREATE TABLE IF NOT EXISTS workspaces (
+    id TEXT PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    last_opened_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  )`.execute(db);
+
   await sql`CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL DEFAULT 'New Session',
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   )`.execute(db);
@@ -41,4 +58,5 @@ export async function initializeSchema(db: Kysely<Database>): Promise<void> {
     usage TEXT,
     created_at INTEGER NOT NULL
   )`.execute(db);
+
 }

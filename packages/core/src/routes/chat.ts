@@ -8,11 +8,13 @@ import {
 } from "@mineco/agent";
 import type { ProviderRegistry } from "@mineco/provider";
 import type { SessionStore } from "@mineco/agent";
+import type { SqliteWorkspaceStore } from "../storage/workspace-store.js";
 import { randomUUID } from "node:crypto";
 
 export function createChatRoutes(
   providerRegistry: ProviderRegistry,
   store: SessionStore,
+  workspaceStore: SqliteWorkspaceStore,
 ): Hono {
   const app = new Hono();
   const tools = createDefaultToolRegistry();
@@ -38,6 +40,10 @@ export function createChatRoutes(
       return c.json({ error: "Session not found" }, 404);
     }
 
+    // Resolve working directory from workspace
+    const workspace = await workspaceStore.get(session.workspaceId);
+    const workingDir = workspace?.path ?? process.cwd();
+
     const userMsg: SessionMessage = {
       id: randomUUID(),
       role: "user",
@@ -48,7 +54,7 @@ export function createChatRoutes(
     session.messages.push(userMsg);
 
     const systemPrompt = buildSystemPrompt({
-      workingDir: process.cwd(),
+      workingDir,
       platform: process.platform,
       date: new Date().toISOString().split("T")[0] ?? new Date().toDateString(),
       model: body.model!,
@@ -63,7 +69,7 @@ export function createChatRoutes(
           providerId: body.providerId!,
           model: body.model!,
           systemPrompt,
-          workingDir: process.cwd(),
+          workingDir,
           maxSteps: 50,
         })) {
           await stream.writeSSE({

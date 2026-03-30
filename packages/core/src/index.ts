@@ -11,7 +11,9 @@ import { ConfigService } from "./config/service.js";
 import { createConfigRoutes } from "./routes/config.js";
 import { createSessionRoutes } from "./routes/session.js";
 import { createChatRoutes } from "./routes/chat.js";
-import { NodeSqliteDialect, SqliteSessionStore } from "./storage/index.js";
+import { createWorkspaceRoutes } from "./routes/workspace.js";
+import { createFsRoutes } from "./routes/fs.js";
+import { NodeSqliteDialect, SqliteSessionStore, SqliteWorkspaceStore } from "./storage/index.js";
 import { initializeSchema, type Database } from "./storage/schema.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -44,6 +46,7 @@ const db = new Kysely<Database>({
 await initializeSchema(db);
 
 const sessionStore = new SqliteSessionStore(db);
+const workspaceStore = new SqliteWorkspaceStore(db);
 
 // --- Config system ---
 const registry = new ProviderRegistry();
@@ -51,9 +54,11 @@ const configService = new ConfigService(registry);
 await configService.initialize();
 
 // --- Routes ---
-app.route("/api/config", createConfigRoutes(configService));
+app.route("/api/config", createConfigRoutes(configService, () => registry.list()));
+app.route("/api/workspaces", createWorkspaceRoutes(workspaceStore));
+app.route("/api/fs", createFsRoutes());
 app.route("/api/sessions", createSessionRoutes(sessionStore));
-app.route("/api/sessions", createChatRoutes(registry, sessionStore));
+app.route("/api/sessions", createChatRoutes(registry, sessionStore, workspaceStore));
 
 app.get("/", (c) => {
   return c.text("Mineco server is running");

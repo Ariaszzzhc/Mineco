@@ -7,13 +7,13 @@ import { randomUUID } from "node:crypto";
 export class SqliteSessionStore implements SessionStore {
   constructor(private db: Kysely<Database>) {}
 
-  async create(): Promise<Session> {
+  async create(workspaceId: string): Promise<Session> {
     const now = Date.now();
     const id = randomUUID();
 
-    await this.db.insertInto("sessions").values({ id, title: "New Session", created_at: now, updated_at: now }).execute();
+    await this.db.insertInto("sessions").values({ id, title: "New Session", workspace_id: workspaceId, created_at: now, updated_at: now }).execute();
 
-    return { id, title: "New Session", messages: [], createdAt: now, updatedAt: now };
+    return { id, title: "New Session", workspaceId, messages: [], createdAt: now, updatedAt: now };
   }
 
   async get(id: string): Promise<Session | undefined> {
@@ -26,6 +26,7 @@ export class SqliteSessionStore implements SessionStore {
     return {
       id: session.id,
       title: session.title,
+      workspaceId: session.workspace_id,
       messages: rows.map(rowToMessage),
       createdAt: session.created_at,
       updatedAt: session.updated_at,
@@ -38,6 +39,20 @@ export class SqliteSessionStore implements SessionStore {
     return sessions.map((s) => ({
       id: s.id,
       title: s.title,
+      workspaceId: s.workspace_id,
+      messages: [],
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+    }));
+  }
+
+  async listByWorkspace(workspaceId: string): Promise<Session[]> {
+    const sessions = await this.db.selectFrom("sessions").selectAll().where("workspace_id", "=", workspaceId).orderBy("updated_at", "desc").execute();
+
+    return sessions.map((s) => ({
+      id: s.id,
+      title: s.title,
+      workspaceId: s.workspace_id,
       messages: [],
       createdAt: s.created_at,
       updatedAt: s.updated_at,
