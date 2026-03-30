@@ -48,6 +48,9 @@ importers:
       '@fontsource/jetbrains-mono':
         specifier: ^5.2.8
         version: 5.2.8
+      '@mineco/core':
+        specifier: workspace:*
+        version: link:../core
       '@solidjs/router':
         specifier: ^0.16.1
         version: 0.16.1(solid-js@1.9.12)
@@ -67,9 +70,6 @@ importers:
         specifier: ^1.9.11
         version: 1.9.12
     devDependencies:
-      '@mineco/core':
-        specifier: workspace:*
-        version: link:../core
       '@solidjs/testing-library':
         specifier: ^0.8.10
         version: 0.8.10(@solidjs/router@0.16.1(solid-js@1.9.12))(solid-js@1.9.12)

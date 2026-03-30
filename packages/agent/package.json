@@ -12,7 +12,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.src.json",
+    "build": "tsc -p tsconfig.build.json",
+    "check":"tsc -p .",
     "dev": "tsx watch src/index.ts"
   },
   "license": "MIT",
