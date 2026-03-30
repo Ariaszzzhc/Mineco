@@ -16,12 +16,16 @@
     "@biomejs/biome": "2.4.9",
     "@types/node": "^25.5.0",
     "@vitest/coverage-v8": "^4.1.2",
+    "turbo": "^2.9.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   },
   "scripts": {
-    "dev:app": "pnpm --filter @mineco/app dev",
-    "dev:core": "pnpm --filter @mineco/core dev",
-    "test": "vitest run"
+    "build": "turbo run build",
+    "check": "turbo run check",
+    "dev": "turbo run dev --filter=@mineco/core --filter=@mineco/app",
+    "dev:app": "turbo run dev --filter=@mineco/app",
+    "dev:core": "turbo run dev --filter=@mineco/core",
+    "test": "turbo run test"
   }
 }
