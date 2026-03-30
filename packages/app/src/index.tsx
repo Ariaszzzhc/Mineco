@@ -1,8 +1,15 @@
 /* @refresh reload */
-import { render } from 'solid-js/web'
-import './index.css'
-import App from './App.tsx'
+import { render } from "solid-js/web";
+import "./index.css";
+import { applyTheme, lightTokens } from "./theme";
+import { initHighlighter } from "./lib/markdown";
+import App from "./App";
 
-const root = document.getElementById('root')
+applyTheme(lightTokens);
+initHighlighter();
 
-render(() => <App />, root!)
+const root = document.getElementById("root");
+
+if (root != null) {
+  render(() => <App />, root);
+}

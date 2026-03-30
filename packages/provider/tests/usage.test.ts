@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { UsageTracker } from "../src/usage/tracker.js";
-import { PricingDB } from "../src/usage/pricing.js";
+import { UsageTracker } from "../src/usage/tracker";
+import { PricingDB } from "../src/usage/pricing";
 import type { ModelInfo, Usage } from "../src/types.js";
 
 describe("UsageTracker", () => {
