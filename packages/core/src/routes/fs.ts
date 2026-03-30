@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { browseFsSchema } from "../config/schema.js";
 import { readdirSync, statSync } from "node:fs";
 import { join, dirname, sep } from "node:path";
 import { homedir } from "node:os";
@@ -14,58 +16,55 @@ interface BrowseResult {
   directories: DirEntry[];
 }
 
-export function createFsRoutes(): Hono {
-  const app = new Hono();
+export function createFsRoutes() {
+  return new Hono()
+    .get("/browse", zValidator("query", browseFsSchema), async (c) => {
+      const { path: rawPath } = c.req.valid("query");
+      const dirPath = rawPath || homedir();
 
-  app.get("/browse", async (c) => {
-    const rawPath = c.req.query("path");
-    const dirPath = rawPath || homedir();
-
-    // Normalize and validate
-    let resolved: string;
-    try {
-      resolved = resolveDirPath(dirPath);
-    } catch {
-      return c.json({ error: "Invalid path" }, 400);
-    }
-
-    // Check accessible
-    let entries: string[];
-    try {
-      entries = readdirSync(resolved);
-    } catch {
-      return c.json({ error: "Cannot read directory" }, 403);
-    }
-
-    const directories: DirEntry[] = [];
-    for (const entry of entries) {
-      const fullPath = join(resolved, entry);
+      // Normalize and validate
+      let resolved: string;
       try {
-        const stat = statSync(fullPath);
-        if (stat.isDirectory()) {
-          directories.push({ name: entry, path: fullPath });
-        }
+        resolved = resolveDirPath(dirPath);
       } catch {
-        // Skip entries we can't stat
+        return c.json({ error: "Invalid path" }, 400);
       }
-    }
 
-    // Sort alphabetically, case-insensitive
-    directories.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      // Check accessible
+      let entries: string[];
+      try {
+        entries = readdirSync(resolved);
+      } catch {
+        return c.json({ error: "Cannot read directory" }, 403);
+      }
 
-    const root = getRootPath();
-    const parentPath = resolved === root ? null : dirname(resolved);
+      const directories: DirEntry[] = [];
+      for (const entry of entries) {
+        const fullPath = join(resolved, entry);
+        try {
+          const stat = statSync(fullPath);
+          if (stat.isDirectory()) {
+            directories.push({ name: entry, path: fullPath });
+          }
+        } catch {
+          // Skip entries we can't stat
+        }
+      }
 
-    const result: BrowseResult = {
-      currentPath: resolved,
-      parentPath,
-      directories,
-    };
+      // Sort alphabetically, case-insensitive
+      directories.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
-    return c.json(result);
-  });
+      const root = getRootPath();
+      const parentPath = resolved === root ? null : dirname(resolved);
 
-  return app;
+      const result: BrowseResult = {
+        currentPath: resolved,
+        parentPath,
+        directories,
+      };
+
+      return c.json(result);
+    });
 }
 
 function resolveDirPath(p: string): string {

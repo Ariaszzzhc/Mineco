@@ -1,4 +1,4 @@
-// Mirrors @mineco/agent types
+// Types inferred from Hono RPC client — aligned with exactOptionalPropertyTypes
 
 export interface ToolCall {
   id: string;
@@ -16,11 +16,11 @@ export interface SessionMessage {
   id: string;
   role: "user" | "assistant" | "tool";
   content: string;
-  toolCalls?: ToolCall[];
-  toolCallId?: string;
-  toolName?: string;
-  isError?: boolean;
-  usage?: Usage;
+  toolCalls?: ToolCall[] | undefined;
+  toolCallId?: string | undefined;
+  toolName?: string | undefined;
+  isError?: boolean | undefined;
+  usage?: Usage | undefined;
   createdAt: number;
 }
 
@@ -54,16 +54,16 @@ export interface OpenAICompatProviderConfig {
   type: "openai-compatible";
   id: string;
   baseURL: string;
-  apiKey?: string;
-  headers?: Record<string, string>;
+  apiKey?: string | undefined;
+  headers?: Record<string, string> | undefined;
   models: Array<{ id: string; name: string }>;
 }
 
 export type ProviderConfig = ZhipuProviderConfig | OpenAICompatProviderConfig;
 
 export interface AppSettings {
-  defaultProvider?: string;
-  defaultModel?: string;
+  defaultProvider?: string | undefined;
+  defaultModel?: string | undefined;
 }
 
 export interface AppConfig {

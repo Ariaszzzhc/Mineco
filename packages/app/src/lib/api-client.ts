@@ -1,10 +1,5 @@
-import type {
-  AppConfig,
-  AppSettings,
-  ProviderConfig,
-  Session,
-  Workspace,
-} from "./types";
+import { hc } from "hono/client";
+import type { AppType } from "@mineco/core";
 import { getApiBaseUrl } from "./api-base";
 
 class ApiError extends Error {
@@ -17,126 +12,150 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  options?: RequestInit,
-): Promise<T> {
-  const baseUrl = await getApiBaseUrl();
-  const res = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(
-      res.status,
-      (body as { error?: string }).error ?? res.statusText,
-    );
+type Client = ReturnType<typeof hc<AppType>>;
+let _client: Client | null = null;
+
+async function getClient(): Promise<Client> {
+  if (!_client) {
+    const baseUrl = await getApiBaseUrl();
+    _client = hc<AppType>(baseUrl);
   }
-  if (res.status === 204 || res.headers.get("content-length") === "0") {
-    return undefined as T;
-  }
-  const json = (await res.json()) as { data?: T } | T;
-  return (json as { data: T }).data ?? (json as T);
+  return _client;
 }
 
 export const api = {
   // Workspaces
-  listWorkspaces(): Promise<Workspace[]> {
-    return request("/api/workspaces");
+  async listWorkspaces() {
+    const client = await getClient();
+    const res = await client.api.workspaces.$get();
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  createWorkspace(path: string): Promise<Workspace> {
-    return request("/api/workspaces", {
-      method: "POST",
-      body: JSON.stringify({ path }),
-    });
+  async createWorkspace(path: string) {
+    const client = await getClient();
+    const res = await client.api.workspaces.$post({ json: { path } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  openWorkspace(id: string): Promise<Workspace> {
-    return request(`/api/workspaces/${id}/open`, { method: "POST" });
+  async openWorkspace(id: string) {
+    const client = await getClient();
+    const res = await client.api.workspaces[":id"].open.$post({ param: { id } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  deleteWorkspace(id: string): Promise<void> {
-    return request(`/api/workspaces/${id}`, { method: "DELETE" });
+  async deleteWorkspace(id: string) {
+    const client = await getClient();
+    const res = await client.api.workspaces[":id"].$delete({ param: { id } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
   },
 
   // Filesystem browsing
-  browseFs(path?: string): Promise<{
-    currentPath: string;
-    parentPath: string | null;
-    directories: Array<{ name: string; path: string }>;
-  }> {
-    const query = path ? `?path=${encodeURIComponent(path)}` : "";
-    return request(`/api/fs/browse${query}`);
+  async browseFs(path?: string) {
+    const client = await getClient();
+    const res = await client.api.fs.browse.$get({ query: { path: path ?? undefined } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
   // Sessions
-  createSession(workspaceId: string): Promise<Session> {
-    return request("/api/sessions", {
-      method: "POST",
-      body: JSON.stringify({ workspaceId }),
-    });
+  async createSession(workspaceId: string) {
+    const client = await getClient();
+    const res = await client.api.sessions.$post({ json: { workspaceId } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  listSessions(workspaceId?: string): Promise<Session[]> {
-    const query = workspaceId ? `?workspaceId=${workspaceId}` : "";
-    return request(`/api/sessions${query}`);
+  async listSessions(workspaceId?: string) {
+    const client = await getClient();
+    const query = workspaceId ? { workspaceId } : undefined;
+    const res = await client.api.sessions.$get({ query });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  getSession(id: string): Promise<Session> {
-    return request(`/api/sessions/${id}`);
+  async getSession(id: string) {
+    const client = await getClient();
+    const res = await client.api.sessions[":id"].$get({ param: { id } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  deleteSession(id: string): Promise<void> {
-    return request(`/api/sessions/${id}`, { method: "DELETE" });
+  async deleteSession(id: string) {
+    const client = await getClient();
+    const res = await client.api.sessions[":id"].$delete({ param: { id } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
   },
 
   // Config
-  getConfig(): Promise<AppConfig> {
-    return request("/api/config");
+  async getConfig() {
+    const client = await getClient();
+    const res = await client.api.config.$get();
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  updateConfig(config: unknown): Promise<AppConfig> {
-    return request("/api/config", {
-      method: "PUT",
-      body: JSON.stringify(config),
-    });
+  async updateConfig(config: unknown) {
+    const client = await getClient();
+    const res = await client.api.config.$put({ json: config as Record<string, unknown> });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
   // Providers
-  getProviders(): Promise<ProviderConfig[]> {
-    return request("/api/config/providers");
+  async getProviders() {
+    const client = await getClient();
+    const res = await client.api.config.providers.$get();
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  getProviderModels(): Promise<Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>> {
-    return request("/api/config/providers/models");
+  async getProviderModels() {
+    const client = await getClient();
+    const res = await client.api.config.providers.models.$get();
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  addProvider(provider: unknown): Promise<ProviderConfig[]> {
-    return request("/api/config/providers", {
-      method: "POST",
-      body: JSON.stringify(provider),
-    });
+  async addProvider(provider: unknown) {
+    const client = await getClient();
+    const res = await client.api.config.providers.$post({ json: provider as Record<string, unknown> });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  deleteProvider(id: string): Promise<ProviderConfig[]> {
-    return request(`/api/config/providers/${id}`, {
-      method: "DELETE",
-    });
+  async deleteProvider(id: string) {
+    const client = await getClient();
+    const res = await client.api.config.providers[":id"].$delete({ param: { id } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
   // Settings
-  getSettings(): Promise<AppSettings> {
-    return request("/api/config/settings");
+  async getSettings() {
+    const client = await getClient();
+    const res = await client.api.config.settings.$get();
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 
-  updateSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
-    return request("/api/config/settings", {
-      method: "PATCH",
-      body: JSON.stringify(settings),
-    });
+  async updateSettings(settings: Record<string, unknown>) {
+    const client = await getClient();
+    const res = await client.api.config.settings.$patch({ json: settings as Record<string, unknown> });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
   },
 };
+
+async function extractError(res: Response): Promise<string> {
+  try {
+    const body = await res.json() as Record<string, unknown>;
+    return (body.error as string) ?? `HTTP ${res.status}`;
+  } catch {
+    return `HTTP ${res.status}`;
+  }
+}
 
 export { ApiError };

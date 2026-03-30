@@ -22,13 +22,12 @@ describe("Config Routes", () => {
   });
 
   describe("GET /", () => {
-    it("should return masked config wrapped in data", async () => {
+    it("should return masked config", async () => {
       const res = await app.request("/");
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.data).toBeDefined();
-      expect(body.data.providers).toEqual([]);
-      expect(body.data.settings).toEqual({});
+      expect(body.providers).toEqual([]);
+      expect(body.settings).toEqual({});
     });
   });
 
@@ -45,7 +44,7 @@ describe("Config Routes", () => {
       });
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.data.settings.defaultProvider).toBe("zhipu");
+      expect(body.settings.defaultProvider).toBe("zhipu");
       expect(configService.updateConfig).toHaveBeenCalledWith(newConfig);
     });
   });
@@ -55,7 +54,7 @@ describe("Config Routes", () => {
       const res = await app.request("/providers");
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.data).toBeDefined();
+      expect(Array.isArray(body)).toBe(true);
     });
   });
 
@@ -64,8 +63,7 @@ describe("Config Routes", () => {
       const res = await app.request("/providers/models");
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.data).toBeDefined();
-      expect(Array.isArray(body.data)).toBe(true);
+      expect(Array.isArray(body)).toBe(true);
     });
   });
 
@@ -82,7 +80,7 @@ describe("Config Routes", () => {
       });
       expect(res.status).toBe(201);
       const body = await res.json();
-      expect(body.data).toBeDefined();
+      expect(Array.isArray(body)).toBe(true);
     });
   });
 
@@ -116,7 +114,7 @@ describe("Config Routes", () => {
       const res = await app.request("/settings");
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.data).toBeDefined();
+      expect(body).toBeDefined();
     });
   });
 
@@ -129,7 +127,7 @@ describe("Config Routes", () => {
       });
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.data).toBeDefined();
+      expect(body).toBeDefined();
       expect(configService.updateConfig).toHaveBeenCalled();
     });
 
