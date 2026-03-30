@@ -35,6 +35,28 @@ export const settingsSchema = z.object({
   defaultModel: z.string().optional(),
 });
 
+// --- Request body schemas ---
+
+export const createWorkspaceSchema = z.object({
+  path: z.string().min(1),
+});
+
+export const createSessionSchema = z.object({
+  workspaceId: z.string().min(1),
+});
+
+export const chatRequestSchema = z.object({
+  message: z.string().min(1),
+  providerId: z.string().min(1),
+  model: z.string().min(1),
+});
+
+export const updateSettingsSchema = settingsSchema.partial();
+
+export const browseFsSchema = z.object({
+  path: z.string().optional(),
+});
+
 // --- Root schema ---
 
 export const configSchema = z.object({

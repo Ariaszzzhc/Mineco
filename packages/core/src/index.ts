@@ -19,22 +19,46 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 
-async function main() {
-  type Env = {
-    Variables: RequestIdVariables & Record<string, string>;
-  };
+type Env = {
+  Variables: RequestIdVariables;
+};
 
-  await configure({
-    sinks: { console: getConsoleSink() },
-    loggers: [{ category: ["hono"], sinks: ["console"], lowestLevel: "info" }],
-  });
-
+/**
+ * Build routes with injected deps. Return type is exported as AppType for RPC client.
+ */
+function buildRoutes(deps: {
+  configService: ConfigService;
+  getRegistryModels: () => Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>;
+  sessionStore: SqliteSessionStore;
+  workspaceStore: SqliteWorkspaceStore;
+  registry: ProviderRegistry;
+}) {
   const app = new Hono<Env>();
 
   app.use(contextStorage());
   app.use(requestId());
   app.use(honoLogger());
   app.use(trimTrailingSlash());
+
+  const routes = app
+    .get("/", (c) => c.text("Mineco server is running"))
+    .get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }))
+    .route("/api/config", createConfigRoutes(deps.configService, deps.getRegistryModels))
+    .route("/api/workspaces", createWorkspaceRoutes(deps.workspaceStore))
+    .route("/api/fs", createFsRoutes())
+    .route("/api/sessions", createSessionRoutes(deps.sessionStore))
+    .route("/api/sessions", createChatRoutes(deps.registry, deps.sessionStore, deps.workspaceStore));
+
+  return routes;
+}
+
+export type AppType = ReturnType<typeof buildRoutes>;
+
+async function main() {
+  await configure({
+    sinks: { console: getConsoleSink() },
+    loggers: [{ category: ["hono"], sinks: ["console"], lowestLevel: "info" }],
+  });
 
   // --- Database ---
   const dataDir = join(homedir(), ".mineco");
@@ -55,18 +79,12 @@ async function main() {
   await configService.initialize();
 
   // --- Routes ---
-  app.route("/api/config", createConfigRoutes(configService, () => registry.list()));
-  app.route("/api/workspaces", createWorkspaceRoutes(workspaceStore));
-  app.route("/api/fs", createFsRoutes());
-  app.route("/api/sessions", createSessionRoutes(sessionStore));
-  app.route("/api/sessions", createChatRoutes(registry, sessionStore, workspaceStore));
-
-  app.get("/", (c) => {
-    return c.text("Mineco server is running");
-  });
-
-  app.get("/api/health", (c) => {
-    return c.json({ status: "ok", timestamp: Date.now() });
+  const app = buildRoutes({
+    configService,
+    getRegistryModels: () => registry.list(),
+    sessionStore,
+    workspaceStore,
+    registry,
   });
 
   const port = parseInt(process.env.MINECO_PORT ?? "3000", 10);

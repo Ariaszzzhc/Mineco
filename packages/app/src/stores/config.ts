@@ -1,6 +1,8 @@
 import { createStore } from "solid-js/store";
 import { api } from "../lib/api-client";
-import type { AppConfig, AppSettings, ProviderConfig } from "../lib/types";
+
+type AppConfig = Awaited<ReturnType<typeof api.getConfig>>;
+type AppSettings = AppConfig["settings"];
 
 interface ConfigState {
   config: AppConfig | null;
