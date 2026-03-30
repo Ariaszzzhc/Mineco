@@ -93,3 +93,4 @@ out/
 .claude/*.local.json
 backup/
 dist
+.idea
