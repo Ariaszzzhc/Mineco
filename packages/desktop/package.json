@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "scripts": {
     "dev": "tauri dev",
-    "build": "tsx scripts/build.ts",
+    "build:desktop": "tsx scripts/build.ts",
     "build:tauri": "tauri build",
     "tauri": "tauri"
   },
