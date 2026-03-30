@@ -1,14 +1,12 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.src.json",
   "compilerOptions": {
-    "rootDir": ".",
     "noEmit": true,
     "module": "preserve",
     "moduleResolution": "bundler",
     "types": ["node"]
   },
   "include": [
-    "tests",
-    "src"
+    "tests"
   ]
 }

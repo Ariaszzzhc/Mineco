@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ProviderRegistry } from "../src/registry.js";
-import { ZhipuProvider } from "../src/adapters/zhipu.js";
-import type { UserProviderConfig } from "../src/types.js";
+import { ProviderRegistry } from "../src/registry";
+import { ZhipuProvider } from "../src/adapters/zhipu";
+import type { UserProviderConfig } from "../src/types";
 
 describe("ProviderRegistry", () => {
   it("should register a provider", () => {

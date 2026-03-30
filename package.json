@@ -21,6 +21,7 @@
   },
   "scripts": {
     "dev:app": "pnpm --filter @mineco/app dev",
+    "dev:core": "pnpm --filter @mineco/core dev",
     "test": "vitest run"
   }
 }
