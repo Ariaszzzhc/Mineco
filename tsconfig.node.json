@@ -1,5 +1,5 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2023",
     "lib": [
@@ -12,7 +12,7 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "allowArbitraryExtensions": true,
-    "noEmit": true,
+    "noEmit": true
   },
   "include": [
     "vitest.config.ts"
