@@ -1,4 +1,5 @@
 import type { AgentEvent } from "./types";
+import { getApiBaseUrl } from "./api-base";
 
 export interface StreamHandle {
   promise: Promise<void>;
@@ -15,7 +16,8 @@ export function streamChat(
   const controller = new AbortController();
 
   const promise = (async () => {
-    const res = await fetch(`/api/sessions/${sessionId}/chat`, {
+    const baseUrl = await getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/api/sessions/${sessionId}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, providerId, model }),
