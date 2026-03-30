@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
+import { ZodError } from "zod";
 import { createConfigRoutes } from "../../src/routes/config.js";
 import { createMockConfigService } from "../helper/mock-config-service.js";
 import type { AppConfig } from "../../src/config/schema.js";
@@ -117,6 +118,123 @@ describe("Config Routes", () => {
       const body = await res.json();
       expect(body.data).toBeDefined();
       expect(configService.updateConfig).toHaveBeenCalled();
+    });
+
+    it("should return 400 for invalid settings", async () => {
+      configService.updateConfig = vi.fn(async () => {
+        throw new ZodError([
+          { code: "invalid_type", expected: "string", received: "number", path: ["defaultProvider"], message: "Expected string" },
+        ]);
+      }) as unknown as ConfigService["updateConfig"];
+
+      const res = await app.request("/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ defaultProvider: 123 }),
+        headers: jsonHeaders(),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBe("Validation failed");
+      expect(body.details).toBeDefined();
+      expect(body.details).toHaveLength(1);
+    });
+  });
+
+  describe("error handling", () => {
+    it("should return 400 when PUT / fails Zod validation", async () => {
+      configService.updateConfig = vi.fn(async () => {
+        throw new ZodError([
+          { code: "invalid_type", expected: "string", received: "undefined", path: ["providers"], message: "Required" },
+        ]);
+      }) as unknown as ConfigService["updateConfig"];
+
+      const res = await app.request("/", {
+        method: "PUT",
+        body: JSON.stringify({ providers: "invalid" }),
+        headers: jsonHeaders(),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBe("Validation failed");
+      expect(body.details).toBeDefined();
+    });
+
+    it("should return 400 when POST /providers fails Zod validation", async () => {
+      configService.updateConfig = vi.fn(async () => {
+        throw new ZodError([
+          { code: "invalid_type", expected: "string", received: "undefined", path: ["type"], message: "Required" },
+        ]);
+      }) as unknown as ConfigService["updateConfig"];
+
+      const res = await app.request("/providers", {
+        method: "POST",
+        body: JSON.stringify({ invalid: "provider" }),
+        headers: jsonHeaders(),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBe("Validation failed");
+      expect(body.details).toBeDefined();
+    });
+
+    it("should delete openai-compatible provider by id", async () => {
+      configService = createMockConfigService({
+        providers: [
+          {
+            type: "openai-compatible",
+            id: "ollama",
+            baseURL: "http://localhost:11434/v1",
+            models: [{ id: "qwen3", name: "Qwen3" }],
+          },
+        ],
+        settings: {},
+      });
+      app = createConfigRoutes(configService);
+
+      const res = await app.request("/providers/ollama", {
+        method: "DELETE",
+      });
+      expect(res.status).toBe(200);
+      expect(configService.updateConfig).toHaveBeenCalled();
+    });
+
+    it("should re-throw non-ZodError from PUT /", async () => {
+      configService.updateConfig = vi.fn(async () => {
+        throw new Error("database error");
+      }) as unknown as ConfigService["updateConfig"];
+
+      const res = await app.request("/", {
+        method: "PUT",
+        body: JSON.stringify({ providers: [], settings: {} }),
+        headers: jsonHeaders(),
+      });
+      expect(res.status).toBe(500);
+    });
+
+    it("should re-throw non-ZodError from POST /providers", async () => {
+      configService.updateConfig = vi.fn(async () => {
+        throw new Error("database error");
+      }) as unknown as ConfigService["updateConfig"];
+
+      const res = await app.request("/providers", {
+        method: "POST",
+        body: JSON.stringify({ type: "zhipu", apiKey: "key" }),
+        headers: jsonHeaders(),
+      });
+      expect(res.status).toBe(500);
+    });
+
+    it("should re-throw non-ZodError from PATCH /settings", async () => {
+      configService.updateConfig = vi.fn(async () => {
+        throw new Error("database error");
+      }) as unknown as ConfigService["updateConfig"];
+
+      const res = await app.request("/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ defaultProvider: "zhipu" }),
+        headers: jsonHeaders(),
+      });
+      expect(res.status).toBe(500);
     });
   });
 });
