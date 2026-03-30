@@ -35,9 +35,8 @@ describe("request", () => {
 
   it("should send with Content-Type header", async () => {
     mockFetch.mockResolvedValue(mockResponse({ data: "ok" }));
-    await api.createSession();
-    expect(mockFetch).toHaveBeenCalledWith("/api/sessions", {
-      method: "POST",
+    await api.listWorkspaces();
+    expect(mockFetch).toHaveBeenCalledWith("/api/workspaces", {
       headers: { "Content-Type": "application/json" },
     });
   });
@@ -121,9 +120,12 @@ describe("api methods", () => {
     mockFetch.mockResolvedValue(mockResponse({ data: null }));
   });
 
-  it("createSession should POST /api/sessions", async () => {
-    await api.createSession();
-    expect(mockFetch).toHaveBeenCalledWith("/api/sessions", expect.objectContaining({ method: "POST" }));
+  it("createSession should POST /api/sessions with workspaceId", async () => {
+    await api.createSession("ws-1");
+    expect(mockFetch).toHaveBeenCalledWith("/api/sessions", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ workspaceId: "ws-1" }),
+    }));
   });
 
   it("listSessions should GET /api/sessions", async () => {
@@ -154,6 +156,11 @@ describe("api methods", () => {
   it("getProviders should GET /api/config/providers", async () => {
     await api.getProviders();
     expect(mockFetch).toHaveBeenCalledWith("/api/config/providers", expect.any(Object));
+  });
+
+  it("getProviderModels should GET /api/config/providers/models", async () => {
+    await api.getProviderModels();
+    expect(mockFetch).toHaveBeenCalledWith("/api/config/providers/models", expect.any(Object));
   });
 
   it("addProvider should POST /api/config/providers with body", async () => {

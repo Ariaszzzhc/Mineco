@@ -5,11 +5,20 @@ export function createSessionRoutes(store: SessionStore): Hono {
   const app = new Hono();
 
   app.post("/", async (c) => {
-    const session = await store.create();
+    const body = await c.req.json<{ workspaceId?: string }>();
+    if (!body.workspaceId) {
+      return c.json({ error: "workspaceId is required" }, 400);
+    }
+    const session = await store.create(body.workspaceId);
     return c.json(session);
   });
 
   app.get("/", async (c) => {
+    const workspaceId = c.req.query("workspaceId");
+    if (workspaceId) {
+      const sessions = await store.listByWorkspace(workspaceId);
+      return c.json(sessions);
+    }
     const sessions = await store.list();
     return c.json(sessions);
   });

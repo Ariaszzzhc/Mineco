@@ -3,6 +3,7 @@ import { createTestConfig, createZhipuProvider, createOpenAIProvider } from "../
 
 const mockApi = vi.hoisted(() => ({
   getConfig: vi.fn(),
+  getProviderModels: vi.fn(),
   updateSettings: vi.fn(),
   addProvider: vi.fn(),
   deleteProvider: vi.fn(),
@@ -19,6 +20,7 @@ describe("configStore", () => {
     vi.clearAllMocks();
     // Reset store state by loading empty config
     mockApi.getConfig.mockResolvedValue(createTestConfig());
+    mockApi.getProviderModels.mockResolvedValue([]);
     await configStore.loadConfig();
   });
 
@@ -121,16 +123,22 @@ describe("configStore", () => {
       mockApi.getConfig.mockResolvedValue(
         createTestConfig({ providers: [createOpenAIProvider()] }),
       );
+      mockApi.getProviderModels.mockResolvedValue([
+        { id: "test-provider", name: "Test", models: [{ id: "qwen3", name: "Qwen3" }] },
+      ]);
       await configStore.loadConfig();
       expect(configStore.activeModel()).toBe("qwen3");
     });
 
-    it("should return null when active provider is zhipu", async () => {
+    it("should return first model of zhipu provider from registry", async () => {
       mockApi.getConfig.mockResolvedValue(
         createTestConfig({ providers: [createZhipuProvider()] }),
       );
+      mockApi.getProviderModels.mockResolvedValue([
+        { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5" }] },
+      ]);
       await configStore.loadConfig();
-      expect(configStore.activeModel()).toBeNull();
+      expect(configStore.activeModel()).toBe("glm-5");
     });
   });
 
@@ -157,10 +165,14 @@ describe("configStore", () => {
   describe("addProvider", () => {
     it("should call API and update store when config exists", async () => {
       mockApi.getConfig.mockResolvedValue(createTestConfig());
+      mockApi.getProviderModels.mockResolvedValue([]);
       await configStore.loadConfig();
 
       const newProviders = [createZhipuProvider()];
       mockApi.addProvider.mockResolvedValue(newProviders);
+      mockApi.getProviderModels.mockResolvedValue([
+        { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5" }] },
+      ]);
       await configStore.addProvider({ type: "zhipu", apiKey: "key" });
 
       expect(mockApi.addProvider).toHaveBeenCalled();
@@ -174,9 +186,13 @@ describe("configStore", () => {
       mockApi.getConfig.mockResolvedValue(
         createTestConfig({ providers: [provider] }),
       );
+      mockApi.getProviderModels.mockResolvedValue([
+        { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5" }] },
+      ]);
       await configStore.loadConfig();
 
       mockApi.deleteProvider.mockResolvedValue([]);
+      mockApi.getProviderModels.mockResolvedValue([]);
       await configStore.deleteProvider("zhipu");
 
       expect(mockApi.deleteProvider).toHaveBeenCalledWith("zhipu");

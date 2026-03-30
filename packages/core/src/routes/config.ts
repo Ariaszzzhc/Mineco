@@ -3,7 +3,10 @@ import { ZodError } from "zod";
 import type { ConfigService } from "../config/service.js";
 import type { ProviderConfig } from "../config/schema.js";
 
-export function createConfigRoutes(configService: ConfigService): Hono {
+export function createConfigRoutes(
+  configService: ConfigService,
+  getRegistryModels: () => Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>,
+): Hono {
   const router = new Hono();
 
   // GET / — full config (masked)
@@ -32,6 +35,11 @@ export function createConfigRoutes(configService: ConfigService): Hono {
   router.get("/providers", (c) => {
     const config = configService.getMaskedConfig();
     return c.json({ data: config.providers });
+  });
+
+  // GET /providers/models — list providers with available models from registry
+  router.get("/providers/models", (c) => {
+    return c.json({ data: getRegistryModels() });
   });
 
   // POST /providers — add provider

@@ -11,6 +11,9 @@ const mockConfigRef: { value: () => AppConfig | null } = {
 vi.mock("../../../src/stores/config", () => ({
   configStore: {
     config: () => mockConfigRef.value(),
+    providerModels: () => [
+      { id: "test-provider", name: "Test Provider", models: [{ id: "qwen3", name: "Qwen3" }] },
+    ],
     updateSettings: vi.fn(async () => ({})),
   },
 }));

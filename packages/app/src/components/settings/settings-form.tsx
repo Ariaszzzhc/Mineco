@@ -15,18 +15,11 @@ export function SettingsForm() {
     return p.type === "zhipu" ? "Zhipu" : p.id;
   }
 
-  function availableModels(): Array<{ id: string; name: string; provider: string }> {
+  function availableModels(): Array<{ id: string; name: string }> {
     const pid = providerId();
-    const provider = providers().find((p) =>
-      p.type === "zhipu" ? pid === "zhipu" : p.id === pid,
-    );
-    if (provider?.type === "openai-compatible") {
-      return provider.models.map((m) => ({
-        ...m,
-        provider: pid,
-      }));
-    }
-    return [];
+    if (!pid) return [];
+    const meta = configStore.providerModels().find((p) => p.id === pid);
+    return meta?.models ?? [];
   }
 
   async function handleSave() {

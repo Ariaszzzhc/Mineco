@@ -3,6 +3,7 @@ import type {
   AppSettings,
   ProviderConfig,
   Session,
+  Workspace,
 } from "./types";
 
 class ApiError extends Error {
@@ -38,13 +39,47 @@ async function request<T>(
 }
 
 export const api = {
-  // Sessions
-  createSession(): Promise<Session> {
-    return request("/api/sessions", { method: "POST" });
+  // Workspaces
+  listWorkspaces(): Promise<Workspace[]> {
+    return request("/api/workspaces");
   },
 
-  listSessions(): Promise<Session[]> {
-    return request("/api/sessions");
+  createWorkspace(path: string): Promise<Workspace> {
+    return request("/api/workspaces", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    });
+  },
+
+  openWorkspace(id: string): Promise<Workspace> {
+    return request(`/api/workspaces/${id}/open`, { method: "POST" });
+  },
+
+  deleteWorkspace(id: string): Promise<void> {
+    return request(`/api/workspaces/${id}`, { method: "DELETE" });
+  },
+
+  // Filesystem browsing
+  browseFs(path?: string): Promise<{
+    currentPath: string;
+    parentPath: string | null;
+    directories: Array<{ name: string; path: string }>;
+  }> {
+    const query = path ? `?path=${encodeURIComponent(path)}` : "";
+    return request(`/api/fs/browse${query}`);
+  },
+
+  // Sessions
+  createSession(workspaceId: string): Promise<Session> {
+    return request("/api/sessions", {
+      method: "POST",
+      body: JSON.stringify({ workspaceId }),
+    });
+  },
+
+  listSessions(workspaceId?: string): Promise<Session[]> {
+    const query = workspaceId ? `?workspaceId=${workspaceId}` : "";
+    return request(`/api/sessions${query}`);
   },
 
   getSession(id: string): Promise<Session> {
@@ -70,6 +105,10 @@ export const api = {
   // Providers
   getProviders(): Promise<ProviderConfig[]> {
     return request("/api/config/providers");
+  },
+
+  getProviderModels(): Promise<Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>> {
+    return request("/api/config/providers/models");
   },
 
   addProvider(provider: unknown): Promise<ProviderConfig[]> {
