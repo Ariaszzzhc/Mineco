@@ -1,5 +1,6 @@
 import type { AgentEvent } from "./types";
 import { getApiBaseUrl } from "./api-base";
+import { getPlatform } from "./platform";
 
 export interface StreamHandle {
   promise: Promise<void>;
@@ -18,9 +19,16 @@ export function streamChat(
 
   const promise = (async () => {
     const baseUrl = baseUrlOverride ?? getApiBaseUrl();
+    const platform = getPlatform();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (platform.token) {
+      headers.Authorization = `Bearer ${platform.token}`;
+    }
     const res = await fetch(`${baseUrl}/api/sessions/${sessionId}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ message, providerId, model }),
       signal: controller.signal,
     });

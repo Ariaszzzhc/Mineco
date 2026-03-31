@@ -3,6 +3,7 @@ import { createContext, useContext, type JSX } from "solid-js";
 export interface Platform {
   readonly name: "web" | "desktop";
   readonly apiBaseUrl: string;
+  readonly token?: string;
 }
 
 // --- Module-level singleton (for non-reactive use in utilities/stores) ---
@@ -44,5 +45,15 @@ export function PlatformProvider(props: {
 // --- Factory functions ---
 
 export function createWebPlatform(): Platform {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+
+  if (token) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("token");
+    window.history.replaceState({}, "", url.toString());
+    return { name: "web", apiBaseUrl: "", token };
+  }
+
   return { name: "web", apiBaseUrl: "" };
 }

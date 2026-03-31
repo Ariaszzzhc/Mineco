@@ -15,9 +15,10 @@ import { createWorkspaceRoutes } from "./routes/workspace.js";
 import { createFsRoutes } from "./routes/fs.js";
 import { NodeSqliteDialect, SqliteSessionStore, SqliteWorkspaceStore } from "./storage/index.js";
 import { initializeSchema, type Database } from "./storage/schema.js";
+import { tokenAuth } from "./middleware/auth.js";
 import { homedir } from "node:os";
-import { join } from "node:path";
-import { mkdirSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { mkdirSync, readFileSync, statSync } from "node:fs";
 
 type Env = {
   Variables: RequestIdVariables;
@@ -39,6 +40,7 @@ function buildRoutes(deps: {
   app.use(requestId());
   app.use(honoLogger());
   app.use(trimTrailingSlash());
+  app.use("/api/*", tokenAuth());
 
   const routes = app
     .get("/", (c) => c.text("Mineco server is running"))
@@ -88,14 +90,52 @@ async function main() {
   });
 
   const port = parseInt(process.env.MINECO_PORT ?? "3000", 10);
+  const host = process.env.MINECO_HOST ?? "127.0.0.1";
+
+  // --- SPA serving (web mode only) ---
+  const spaDir = process.env.MINECO_SPA_DIR;
+  if (spaDir) {
+    const resolvedSpaDir = resolve(spaDir);
+    const indexHtml = readFileSync(join(resolvedSpaDir, "index.html"), "utf-8");
+
+    app.get("*", (c) => {
+      const filePath = join(resolvedSpaDir, c.req.path);
+      try {
+        const stats = statSync(filePath);
+        if (stats.isFile()) {
+          const content = readFileSync(filePath);
+          const ext = filePath.split(".").pop() ?? "";
+          const mimeTypes: Record<string, string> = {
+            js: "application/javascript",
+            css: "text/css",
+            html: "text/html",
+            json: "application/json",
+            png: "image/png",
+            jpg: "image/jpeg",
+            svg: "image/svg+xml",
+            ico: "image/x-icon",
+            woff: "font/woff",
+            woff2: "font/woff2",
+            ttf: "font/ttf",
+          };
+          c.header("Content-Type", mimeTypes[ext] ?? "application/octet-stream");
+          return c.body(content);
+        }
+      } catch {
+        // File not found — fall through to SPA fallback
+      }
+      return c.html(indexHtml);
+    });
+  }
 
   serve(
     {
       fetch: app.fetch,
       port,
+      hostname: host,
     },
     (info) => {
-      console.log(`Server is running on http://localhost:${info.port}`);
+      console.log(`Server is running on http://${host}:${info.port}`);
     },
   );
 }
