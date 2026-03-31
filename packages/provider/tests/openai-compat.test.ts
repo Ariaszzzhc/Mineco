@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { OpenAICompatAdapter } from "../src/adapters/openai-compat.js";
-import type { ChatRequest, ChatResponse } from "../src/types.js";
+import type { ChatRequest, ChatResponse, ChatStreamChunk } from "../src/types.js";
 
 const MOCK_MODELS = [
   {
@@ -186,5 +186,67 @@ describe("OpenAICompatAdapter", () => {
     ).rejects.toThrow("Invalid API key");
 
     globalThis.fetch = originalFetch;
+  });
+
+  describe("transformStreamChunk", () => {
+    function callTransformStreamChunk(raw: unknown): ChatStreamChunk | null {
+      const adapter = createAdapter();
+      return (
+        adapter as unknown as {
+          transformStreamChunk: (raw: unknown) => ChatStreamChunk | null;
+        }
+      ).transformStreamChunk(raw);
+    }
+
+    it("should parse reasoning_content as thinking delta", () => {
+      const raw = {
+        choices: [
+          {
+            index: 0,
+            delta: { reasoning_content: "Let me think about this..." },
+            finish_reason: null,
+          },
+        ],
+      };
+
+      const result = callTransformStreamChunk(raw);
+      expect(result?.delta.thinking).toBe("Let me think about this...");
+      expect(result?.delta.content).toBeUndefined();
+    });
+
+    it("should parse both content and reasoning_content in same chunk", () => {
+      const raw = {
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: "Hello",
+              reasoning_content: "thinking...",
+            },
+            finish_reason: null,
+          },
+        ],
+      };
+
+      const result = callTransformStreamChunk(raw);
+      expect(result?.delta.content).toBe("Hello");
+      expect(result?.delta.thinking).toBe("thinking...");
+    });
+
+    it("should not set thinking when reasoning_content is absent", () => {
+      const raw = {
+        choices: [
+          {
+            index: 0,
+            delta: { content: "Hello" },
+            finish_reason: null,
+          },
+        ],
+      };
+
+      const result = callTransformStreamChunk(raw);
+      expect(result?.delta.content).toBe("Hello");
+      expect(result?.delta.thinking).toBeUndefined();
+    });
   });
 });

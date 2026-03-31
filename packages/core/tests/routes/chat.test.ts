@@ -359,6 +359,142 @@ describe("Chat Routes", () => {
       );
     });
 
+    it("should stream thinking-delta events", async () => {
+      store.get = vi.fn(async () => createTestSession());
+      mockRun.mockReturnValue(
+        mockStream([
+          { type: "thinking-delta", delta: "Let me reason" },
+          { type: "thinking-delta", delta: " about this" },
+          { type: "text-delta", delta: "Answer" },
+          { type: "complete", reason: "stop" },
+        ]),
+      );
+
+      const res = await app.request("/test-session-id/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          message: "hi",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
+        headers: jsonHeaders(),
+      });
+
+      const events = await collectSSEEvents(res);
+      const thinkingDeltas = events.filter(
+        (e) => e.event === "thinking-delta",
+      );
+      expect(thinkingDeltas).toHaveLength(2);
+      expect(thinkingDeltas[0]?.data).toEqual({
+        type: "thinking-delta",
+        delta: "Let me reason",
+      });
+    });
+
+    it("should save thinking with assistant message on complete", async () => {
+      store.get = vi.fn(async () => createTestSession());
+      mockRun.mockReturnValue(
+        mockStream([
+          { type: "thinking-delta", delta: "reasoning..." },
+          { type: "text-delta", delta: "Answer" },
+          { type: "complete", reason: "stop" },
+        ]),
+      );
+
+      const res = await app.request("/test-session-id/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          message: "hi",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
+        headers: jsonHeaders(),
+      });
+      await res.text();
+
+      const addMessageMock = store.addMessage as ReturnType<typeof vi.fn>;
+      const assistantMsgs = addMessageMock.mock.calls.filter(
+        (call: unknown[]) => (call[1] as SessionMessage).role === "assistant",
+      );
+      expect(assistantMsgs.length).toBe(1);
+      expect((assistantMsgs[0]?.[1] as SessionMessage).content).toBe("Answer");
+      expect((assistantMsgs[0]?.[1] as SessionMessage).thinking).toBe(
+        "reasoning...",
+      );
+    });
+
+    it("should save thinking with assistant text before tool-call", async () => {
+      store.get = vi.fn(async () => createTestSession());
+      mockRun.mockReturnValue(
+        mockStream([
+          { type: "thinking-delta", delta: "thinking first" },
+          { type: "text-delta", delta: "I will read" },
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "readFile",
+            args: { file_path: "/tmp/test" },
+          },
+          {
+            type: "tool-result",
+            toolCallId: "call-1",
+            toolName: "readFile",
+            result: "content",
+            isError: false,
+          },
+          { type: "complete", reason: "stop" },
+        ]),
+      );
+
+      const res = await app.request("/test-session-id/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          message: "hi",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
+        headers: jsonHeaders(),
+      });
+      await res.text();
+
+      const addMessageMock = store.addMessage as ReturnType<typeof vi.fn>;
+      const assistantMsgs = addMessageMock.mock.calls.filter(
+        (call: unknown[]) => (call[1] as SessionMessage).role === "assistant",
+      );
+      expect(assistantMsgs.length).toBe(1);
+      expect((assistantMsgs[0]?.[1] as SessionMessage).thinking).toBe(
+        "thinking first",
+      );
+    });
+
+    it("should not set thinking when no thinking-delta events", async () => {
+      store.get = vi.fn(async () => createTestSession());
+      mockRun.mockReturnValue(
+        mockStream([
+          { type: "text-delta", delta: "Hello" },
+          { type: "complete", reason: "stop" },
+        ]),
+      );
+
+      const res = await app.request("/test-session-id/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          message: "hi",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
+        headers: jsonHeaders(),
+      });
+      await res.text();
+
+      const addMessageMock = store.addMessage as ReturnType<typeof vi.fn>;
+      const assistantMsgs = addMessageMock.mock.calls.filter(
+        (call: unknown[]) => (call[1] as SessionMessage).role === "assistant",
+      );
+      expect(assistantMsgs.length).toBe(1);
+      expect((assistantMsgs[0]?.[1] as SessionMessage).thinking).toBeUndefined();
+    });
+
     it("should send error event when agent loop throws", async () => {
       store.get = vi.fn(async () => createTestSession());
       mockRun.mockImplementation(() => {

@@ -10,6 +10,7 @@ export interface AgentConfig {
 
 export type AgentEvent =
   | { type: "text-delta"; delta: string }
+  | { type: "thinking-delta"; delta: string }
   | {
       type: "tool-call";
       toolCallId: string;

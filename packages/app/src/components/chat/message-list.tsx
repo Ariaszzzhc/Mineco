@@ -3,6 +3,7 @@ import { renderMarkdown } from "../../lib/markdown";
 import type { SessionMessage } from "../../lib/types";
 import { chatStore } from "../../stores/chat";
 import { MessageItem } from "./message-item";
+import { ThinkingBlock } from "./thinking-block";
 import { ToolCard } from "./tool-card";
 
 interface MessageListProps {
@@ -25,6 +26,7 @@ export function MessageList(props: MessageListProps) {
     on(
       () => [
         props.messages.length,
+        chatStore.streamingThinking(),
         chatStore.streamingText(),
         chatStore.streamingToolCalls().length,
       ],
@@ -47,11 +49,18 @@ export function MessageList(props: MessageListProps) {
 
         <Show
           when={
+            chatStore.streamingThinking() ||
             chatStore.streamingText() ||
             chatStore.streamingToolCalls().length > 0
           }
         >
           <div class="border-l-2 border-[var(--primary)] py-3 pl-4">
+            <Show when={chatStore.streamingThinking()}>
+              <ThinkingBlock
+                text={chatStore.streamingThinking()}
+                isStreaming={true}
+              />
+            </Show>
             <Show when={chatStore.streamingText()}>
               <div
                 class="prose max-w-none text-sm text-[var(--text-primary)]"

@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import { renderMarkdown } from "../../lib/markdown";
 import type { SessionMessage } from "../../lib/types";
+import { ThinkingBlock } from "./thinking-block";
 import { ToolCard } from "./tool-card";
 
 interface MessageItemProps {
@@ -27,6 +28,9 @@ export function MessageItem(props: MessageItemProps) {
       </Show>
 
       <Show when={props.message.role === "assistant"}>
+        <Show when={props.message.thinking}>
+          <ThinkingBlock text={props.message.thinking!} />
+        </Show>
         <div
           class="prose max-w-none text-sm text-[var(--text-primary)]"
           innerHTML={renderMarkdown(props.message.content)}

@@ -52,7 +52,7 @@ function activeModel(): string | null {
   if (!providerId) return null;
   const providerMeta = state.providerModels.find((p) => p.id === providerId);
   if (providerMeta && providerMeta.models.length > 0) {
-    return providerMeta.models[0]?.id;
+    return providerMeta.models[0]?.id ?? null;
   }
   return null;
 }

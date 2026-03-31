@@ -8,6 +8,7 @@ import { sessionStore } from "./session";
 interface ChatState {
   isStreaming: boolean;
   streamingText: string;
+  streamingThinking: string;
   streamingToolCalls: ToolCallEvent[];
   streamingToolResults: ToolResultEvent[];
   error: string | null;
@@ -16,6 +17,7 @@ interface ChatState {
 const [state, setState] = createStore<ChatState>({
   isStreaming: false,
   streamingText: "",
+  streamingThinking: "",
   streamingToolCalls: [],
   streamingToolResults: [],
   error: null,
@@ -39,6 +41,7 @@ async function startStream(sessionId: string, message: string) {
     setState({
       isStreaming: true,
       streamingText: "",
+      streamingThinking: "",
       streamingToolCalls: [],
       streamingToolResults: [],
       error: null,
@@ -54,6 +57,9 @@ async function startStream(sessionId: string, message: string) {
       switch (event.type) {
         case "text-delta":
           setState("streamingText", (prev) => prev + event.delta);
+          break;
+        case "thinking-delta":
+          setState("streamingThinking", (prev) => prev + event.delta);
           break;
         case "tool-call":
           setState("streamingToolCalls", (prev) => [...prev, event]);
@@ -80,6 +86,7 @@ async function startStream(sessionId: string, message: string) {
       setState({
         isStreaming: false,
         streamingText: "",
+        streamingThinking: "",
         streamingToolCalls: [],
         streamingToolResults: [],
       });
@@ -97,6 +104,7 @@ function stopStream() {
 export const chatStore = {
   isStreaming: () => state.isStreaming,
   streamingText: () => state.streamingText,
+  streamingThinking: () => state.streamingThinking,
   streamingToolCalls: () => state.streamingToolCalls,
   streamingToolResults: () => state.streamingToolResults,
   error: () => state.error,

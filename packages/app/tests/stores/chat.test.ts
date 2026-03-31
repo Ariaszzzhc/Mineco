@@ -55,6 +55,7 @@ describe("chatStore", () => {
   it("should have correct initial state", () => {
     expect(chatStore.isStreaming()).toBe(false);
     expect(chatStore.streamingText()).toBe("");
+    expect(chatStore.streamingThinking()).toBe("");
     expect(chatStore.streamingToolCalls()).toEqual([]);
     expect(chatStore.streamingToolResults()).toEqual([]);
     expect(chatStore.error()).toBeNull();
@@ -63,7 +64,7 @@ describe("chatStore", () => {
   describe("startStream", () => {
     it("should return early when stream already in progress", async () => {
       // Set up a stream that never resolves
-      let resolveStream: () => void;
+      let resolveStream: () => void = () => {};
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
@@ -112,7 +113,7 @@ describe("chatStore", () => {
     });
 
     it("should accumulate text deltas", async () => {
-      let resolveStream: () => void;
+      let resolveStream: () => void = () => {};
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
@@ -132,8 +133,29 @@ describe("chatStore", () => {
       await p;
     });
 
+    it("should accumulate thinking deltas", async () => {
+      let resolveStream: () => void = () => {};
+      mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
+        capturedOnEvent = onEvent;
+        return {
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
+          abort: mockAbort,
+        };
+      });
+
+      const p = chatStore.startStream("s1", "hello");
+      capturedOnEvent({ type: "thinking-delta", delta: "Let me" });
+      capturedOnEvent({ type: "thinking-delta", delta: " think" });
+      expect(chatStore.streamingThinking()).toBe("Let me think");
+
+      resolveStream?.();
+      await p;
+    });
+
     it("should accumulate tool-call events", async () => {
-      let resolveStream: () => void;
+      let resolveStream: () => void = () => {};
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
@@ -160,7 +182,7 @@ describe("chatStore", () => {
     });
 
     it("should accumulate tool-result events", async () => {
-      let resolveStream: () => void;
+      let resolveStream: () => void = () => {};
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
@@ -187,7 +209,7 @@ describe("chatStore", () => {
     });
 
     it("should set error on error event", async () => {
-      let resolveStream: () => void;
+      let resolveStream: () => void = () => {};
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
@@ -210,6 +232,7 @@ describe("chatStore", () => {
       await chatStore.startStream("s1", "hello");
       expect(chatStore.isStreaming()).toBe(false);
       expect(chatStore.streamingText()).toBe("");
+      expect(chatStore.streamingThinking()).toBe("");
       expect(chatStore.streamingToolCalls()).toEqual([]);
       expect(chatStore.streamingToolResults()).toEqual([]);
     });
@@ -249,7 +272,7 @@ describe("chatStore", () => {
 
   describe("stopStream", () => {
     it("should call abort function", async () => {
-      let resolveStream: () => void;
+      let resolveStream: () => void = () => {};
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {

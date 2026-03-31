@@ -140,6 +140,37 @@ describe("SqliteSessionStore", () => {
       expect(result?.messages[0]?.isError).toBeUndefined();
     });
 
+    it("should map thinking text", async () => {
+      const session = await store.create(TEST_WORKSPACE_ID);
+      const msg: SessionMessage = {
+        id: "msg-thinking",
+        role: "assistant",
+        content: "answer",
+        thinking: "Let me reason about this...",
+        createdAt: 1000,
+      };
+      await store.addMessage(session.id, msg);
+
+      const result = await store.get(session.id);
+      expect(result?.messages[0]?.thinking).toBe(
+        "Let me reason about this...",
+      );
+    });
+
+    it("should not set thinking when not provided", async () => {
+      const session = await store.create(TEST_WORKSPACE_ID);
+      const msg: SessionMessage = {
+        id: "msg-no-thinking",
+        role: "assistant",
+        content: "plain answer",
+        createdAt: 1000,
+      };
+      await store.addMessage(session.id, msg);
+
+      const result = await store.get(session.id);
+      expect(result?.messages[0]?.thinking).toBeUndefined();
+    });
+
     it("should map usage from JSON", async () => {
       const session = await store.create(TEST_WORKSPACE_ID);
       const msg: SessionMessage = {

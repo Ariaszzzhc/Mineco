@@ -9,6 +9,7 @@ import {
   finishChunk,
   mockProvider,
   textChunk,
+  thinkingChunk,
   toolCallDelta,
 } from "./helper/mock-provider.js";
 
@@ -257,13 +258,52 @@ describe("AgentLoop", () => {
     });
   });
 
+  describe("thinking deltas", () => {
+    it("yields thinking-delta events from stream", async () => {
+      const provider = mockProvider([
+        thinkingChunk("Let me"),
+        thinkingChunk(" think..."),
+        textChunk("Answer"),
+        finishChunk("stop"),
+      ]);
+
+      const loop = new AgentLoop(makeRegistry(provider), new ToolRegistry());
+      const events = await collectEvents(loop, makeSession(), makeConfig());
+
+      const thinkingDeltas = events.filter((e) => e.type === "thinking-delta");
+      expect(thinkingDeltas).toEqual([
+        { type: "thinking-delta", delta: "Let me" },
+        { type: "thinking-delta", delta: " think..." },
+      ]);
+    });
+
+    it("yields thinking before text in event order", async () => {
+      const provider = mockProvider([
+        thinkingChunk("reasoning"),
+        textChunk("answer"),
+        finishChunk("stop"),
+      ]);
+
+      const loop = new AgentLoop(makeRegistry(provider), new ToolRegistry());
+      const events = await collectEvents(loop, makeSession(), makeConfig());
+
+      const types = events.map((e) => e.type);
+      expect(types).toEqual([
+        "step",
+        "thinking-delta",
+        "text-delta",
+        "complete",
+      ]);
+    });
+  });
+
   describe("error handling", () => {
     it("yields error event when provider.chatStream throws", async () => {
       const provider: ReturnType<typeof mockProvider> = {
         id: "test",
         name: "test",
         // biome-ignore lint/correctness/useYield: intentionally throws before yielding
-        chatStream: async function* (_req) {
+        chatStream: async function* (_req: unknown) {
           throw new Error("stream failed");
         },
         chat: () => {

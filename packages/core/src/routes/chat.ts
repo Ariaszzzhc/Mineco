@@ -61,6 +61,7 @@ export function createChatRoutes(
 
     return streamSSE(c, async (stream) => {
       let currentText = "";
+      let currentThinking = "";
       const toolMessages: SessionMessage[] = [];
 
       try {
@@ -78,16 +79,20 @@ export function createChatRoutes(
 
           if (event.type === "text-delta") {
             currentText += event.delta;
+          } else if (event.type === "thinking-delta") {
+            currentThinking += event.delta;
           } else if (event.type === "tool-call") {
             // Tool call marks end of current assistant text
-            if (currentText) {
+            if (currentText || currentThinking) {
               await store.addMessage(sessionId, {
                 id: randomUUID(),
                 role: "assistant",
                 content: currentText,
+                ...(currentThinking ? { thinking: currentThinking } : {}),
                 createdAt: Date.now(),
               });
               currentText = "";
+              currentThinking = "";
             }
           } else if (event.type === "tool-result") {
             toolMessages.push({
@@ -105,11 +110,12 @@ export function createChatRoutes(
               await store.addMessage(sessionId, msg);
             }
             // Save final assistant text
-            if (currentText) {
+            if (currentText || currentThinking) {
               await store.addMessage(sessionId, {
                 id: randomUUID(),
                 role: "assistant",
                 content: currentText,
+                ...(currentThinking ? { thinking: currentThinking } : {}),
                 createdAt: Date.now(),
               });
             }
