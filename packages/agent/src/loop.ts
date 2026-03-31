@@ -1,14 +1,13 @@
 import type {
   ChatRequest,
-  ChatStreamChunk,
   FinishReason,
   ProviderRegistry,
   ToolCall,
   Usage,
 } from "@mineco/provider";
-import type { AgentConfig, AgentEvent } from "./types.js";
 import type { Session } from "./session/types.js";
 import type { ToolRegistry } from "./tools/registry.js";
+import type { AgentConfig, AgentEvent } from "./types.js";
 
 export class AgentLoop {
   constructor(

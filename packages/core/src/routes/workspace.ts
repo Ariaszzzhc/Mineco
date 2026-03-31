@@ -1,5 +1,5 @@
-import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
 import { createWorkspaceSchema } from "../config/schema.js";
 import type { SqliteWorkspaceStore } from "../storage/workspace-store.js";
 

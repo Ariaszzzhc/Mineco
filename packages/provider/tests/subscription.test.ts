@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { OpenAICompatAdapter } from "../src/adapters/openai-compat.js";
 import { ZhipuProvider } from "../src/adapters/zhipu.js";
 import type { Provider } from "../src/provider.js";
 import { hasSubscription } from "../src/provider.js";
-import { OpenAICompatAdapter } from "../src/adapters/openai-compat.js";
 
 describe("hasSubscription", () => {
   it("should return true for provider with subscription", () => {

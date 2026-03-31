@@ -1,13 +1,13 @@
-import { ZhipuProvider } from "@mineco/provider";
 import type { ProviderRegistry } from "@mineco/provider";
+import { ZhipuProvider } from "@mineco/provider";
 import { loadConfig, saveConfig } from "./loader.js";
 import { maskApiKey } from "./mask.js";
-import { configSchema } from "./schema.js";
 import type {
   AppConfig,
   OpenAICompatProviderConfig,
   ProviderConfig,
 } from "./schema.js";
+import { configSchema } from "./schema.js";
 
 export class ConfigService {
   private config: AppConfig;

@@ -1,5 +1,5 @@
-import { useNavigate, useLocation } from "@solidjs/router";
-import { Plus, Settings, Trash2, ArrowLeft } from "lucide-solid";
+import { useLocation, useNavigate } from "@solidjs/router";
+import { ArrowLeft, Plus, Settings, Trash2 } from "lucide-solid";
 import { For, onMount, Show } from "solid-js";
 import { api } from "../../lib/api-client";
 import type { Session } from "../../lib/types";
@@ -18,7 +18,9 @@ export function Sidebar() {
 
   // Extract session ID from route
   const currentSessionId = () => {
-    const match = location.pathname.match(/^\/workspaces\/[^/]+\/sessions\/(.+)$/);
+    const match = location.pathname.match(
+      /^\/workspaces\/[^/]+\/sessions\/(.+)$/,
+    );
     return match?.[1];
   };
 
@@ -103,8 +105,9 @@ export function Sidebar() {
       <div class="flex-1 overflow-y-auto px-2">
         <For each={sessionStore.sessions()}>
           {(session: Session) => (
-            <div
-              class="group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
+            <button
+              type="button"
+              class="group flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
               classList={{
                 "bg-[var(--active)] text-[var(--text-primary)]":
                   currentSessionId() === session.id,
@@ -112,7 +115,9 @@ export function Sidebar() {
                   currentSessionId() !== session.id,
               }}
               onClick={() =>
-                navigate(`/workspaces/${session.workspaceId}/sessions/${session.id}`)
+                navigate(
+                  `/workspaces/${session.workspaceId}/sessions/${session.id}`,
+                )
               }
             >
               <span class="flex-1 truncate">{session.title}</span>
@@ -124,7 +129,7 @@ export function Sidebar() {
               >
                 <Trash2 size={14} />
               </button>
-            </div>
+            </button>
           )}
         </For>
       </div>

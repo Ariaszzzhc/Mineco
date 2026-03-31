@@ -1,6 +1,6 @@
-import { z } from "zod";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { z } from "zod";
 import { defineTool } from "./define.js";
 
 const ReadFileSchema = z.object({
@@ -40,7 +40,7 @@ export const readFileTool = defineTool({
         .join("\n");
 
       return {
-        output: numbered + `\n\n(total ${totalLines} lines)`,
+        output: `${numbered}\n\n(total ${totalLines} lines)`,
       };
     } catch (error) {
       return {

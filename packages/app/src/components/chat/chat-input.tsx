@@ -1,4 +1,4 @@
-import { Square, ArrowUp } from "lucide-solid";
+import { ArrowUp, Square } from "lucide-solid";
 import { createSignal } from "solid-js";
 
 interface ChatInputProps {

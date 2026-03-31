@@ -1,4 +1,4 @@
-import { createStore, produce } from "solid-js/store";
+import { createStore } from "solid-js/store";
 import { api } from "../lib/api-client";
 
 type Session = Awaited<ReturnType<typeof api.getSession>>;

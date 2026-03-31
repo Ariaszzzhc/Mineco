@@ -77,8 +77,8 @@ describe("ZhipuProvider", () => {
     });
 
     const body = transformed as Record<string, unknown>;
-    expect(body["thinking"]).toEqual({ type: "enabled" });
-    expect(body["do_sample"]).toBe(false);
+    expect(body.thinking).toEqual({ type: "enabled" });
+    expect(body.do_sample).toBe(false);
   });
 
   it("should not add zhipu-specific fields without providerOptions", () => {
@@ -95,7 +95,7 @@ describe("ZhipuProvider", () => {
     });
 
     const body = transformed as Record<string, unknown>;
-    expect(body["thinking"]).toBeUndefined();
-    expect(body["do_sample"]).toBeUndefined();
+    expect(body.thinking).toBeUndefined();
+    expect(body.do_sample).toBeUndefined();
   });
 });

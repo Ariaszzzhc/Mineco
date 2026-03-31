@@ -1,8 +1,8 @@
-import { useParams, useNavigate } from "@solidjs/router";
+import { useNavigate, useParams } from "@solidjs/router";
 import { onMount, Show } from "solid-js";
 import { ChatView } from "../components/chat/chat-view";
-import { sessionStore } from "../stores/session";
 import { configStore } from "../stores/config";
+import { sessionStore } from "../stores/session";
 
 export function SessionPage() {
   const params = useParams();

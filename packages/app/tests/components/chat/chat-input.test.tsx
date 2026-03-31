@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent } from "@solidjs/testing-library";
+import { fireEvent, render } from "@solidjs/testing-library";
+import { describe, expect, it, vi } from "vitest";
 import { ChatInput } from "../../../src/components/chat/chat-input";
 
 describe("ChatInput", () => {
@@ -8,44 +8,65 @@ describe("ChatInput", () => {
       <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
     ));
     expect(container.querySelector("textarea")).toBeTruthy();
-    expect(container.querySelector('button[aria-label="Send message"]')).toBeTruthy();
+    expect(
+      container.querySelector('button[aria-label="Send message"]'),
+    ).toBeTruthy();
   });
 
   it("should show stop button when isStreaming", () => {
     const { container } = render(() => (
       <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={true} />
     ));
-    expect(container.querySelector('button[aria-label="Stop streaming"]')).toBeTruthy();
-    expect(container.querySelector('button[aria-label="Send message"]')).toBeFalsy();
+    expect(
+      container.querySelector('button[aria-label="Stop streaming"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('button[aria-label="Send message"]'),
+    ).toBeFalsy();
   });
 
   it("should show send button when not streaming", () => {
     const { container } = render(() => (
       <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
     ));
-    expect(container.querySelector('button[aria-label="Send message"]')).toBeTruthy();
-    expect(container.querySelector('button[aria-label="Stop streaming"]')).toBeFalsy();
+    expect(
+      container.querySelector('button[aria-label="Send message"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('button[aria-label="Stop streaming"]'),
+    ).toBeFalsy();
   });
 
   it("should disable textarea when disabled prop is true", () => {
     const { container } = render(() => (
-      <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} disabled={true} />
+      <ChatInput
+        onSend={vi.fn()}
+        onStop={vi.fn()}
+        isStreaming={false}
+        disabled={true}
+      />
     ));
-    expect((container.querySelector("textarea") as HTMLTextAreaElement).disabled).toBe(true);
+    expect(
+      (container.querySelector("textarea") as HTMLTextAreaElement).disabled,
+    ).toBe(true);
   });
 
   it("should disable textarea when isStreaming", () => {
     const { container } = render(() => (
       <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={true} />
     ));
-    expect((container.querySelector("textarea") as HTMLTextAreaElement).disabled).toBe(true);
+    expect(
+      (container.querySelector("textarea") as HTMLTextAreaElement).disabled,
+    ).toBe(true);
   });
 
   it("should disable send button when textarea is empty", () => {
     const { container } = render(() => (
       <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
     ));
-    const btn = container.querySelector('button[aria-label="Send message"]') as HTMLButtonElement;
+    const btn = container.querySelector(
+      'button[aria-label="Send message"]',
+    ) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
 
@@ -107,7 +128,12 @@ describe("ChatInput", () => {
   it("should not send when disabled", () => {
     const onSend = vi.fn();
     const { container } = render(() => (
-      <ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} disabled={true} />
+      <ChatInput
+        onSend={onSend}
+        onStop={vi.fn()}
+        isStreaming={false}
+        disabled={true}
+      />
     ));
 
     const textarea = container.querySelector("textarea")!;
@@ -124,7 +150,9 @@ describe("ChatInput", () => {
 
     const textarea = container.querySelector("textarea")!;
     fireEvent.input(textarea, { target: { value: "   " } });
-    const btn = container.querySelector('button[aria-label="Send message"]') as HTMLButtonElement;
+    const btn = container.querySelector(
+      'button[aria-label="Send message"]',
+    ) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
 
     fireEvent.click(btn);

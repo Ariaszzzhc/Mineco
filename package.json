@@ -26,6 +26,9 @@
     "dev": "turbo run dev --filter=@mineco/core --filter=@mineco/app",
     "dev:app": "turbo run dev --filter=@mineco/app",
     "dev:core": "turbo run dev --filter=@mineco/core",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "biome check .",
+    "lint:fix": "biome check --fix .",
+    "format": "biome format --fix ."
   }
 }

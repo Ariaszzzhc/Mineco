@@ -1,10 +1,10 @@
 /* @refresh reload */
 import { render } from "solid-js/web";
 import "./index.css";
-import { applyTheme, lightTokens } from "./theme";
-import { initHighlighter } from "./lib/markdown";
-import { PlatformProvider, createPlatform } from "./lib/platform";
 import App from "./App";
+import { initHighlighter } from "./lib/markdown";
+import { createPlatform, PlatformProvider } from "./lib/platform";
+import { applyTheme, lightTokens } from "./theme";
 
 applyTheme(lightTokens);
 initHighlighter();

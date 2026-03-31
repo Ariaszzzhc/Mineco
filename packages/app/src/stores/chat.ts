@@ -1,13 +1,9 @@
-import { createStore } from "solid-js/store";
 import { batch } from "solid-js";
+import { createStore } from "solid-js/store";
 import { streamChat } from "../lib/sse-client";
-import type {
-  AgentEvent,
-  ToolCallEvent,
-  ToolResultEvent,
-} from "../lib/types";
-import { sessionStore } from "./session";
+import type { AgentEvent, ToolCallEvent, ToolResultEvent } from "../lib/types";
 import { configStore } from "./config";
+import { sessionStore } from "./session";
 
 interface ChatState {
   isStreaming: boolean;

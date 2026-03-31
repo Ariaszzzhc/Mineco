@@ -1,11 +1,11 @@
 export { default as App } from "./App";
+export type { Platform } from "./lib/platform";
 export {
-  PlatformProvider,
-  usePlatform,
-  createWebPlatform,
   createDesktopPlatform,
   createPlatform,
+  createWebPlatform,
   getPlatform,
+  PlatformProvider,
   setPlatform,
+  usePlatform,
 } from "./lib/platform";
-export type { Platform } from "./lib/platform";

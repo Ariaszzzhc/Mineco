@@ -1,17 +1,22 @@
 export {
-  configSchema,
-  zhipuProviderSchema,
-  openaiCompatProviderSchema,
-  settingsSchema,
-  providerSchema,
-} from "./schema.js";
+  createDefaultConfig,
+  getConfigPath,
+  loadConfig,
+  saveConfig,
+} from "./loader.js";
+export { maskApiKey } from "./mask.js";
 export type {
   AppConfig,
   AppSettings,
+  OpenAICompatProviderConfig,
   ProviderConfig,
   ZhipuProviderConfig,
-  OpenAICompatProviderConfig,
 } from "./schema.js";
-export { loadConfig, saveConfig, createDefaultConfig, getConfigPath } from "./loader.js";
+export {
+  configSchema,
+  openaiCompatProviderSchema,
+  providerSchema,
+  settingsSchema,
+  zhipuProviderSchema,
+} from "./schema.js";
 export { ConfigService } from "./service.js";
-export { maskApiKey } from "./mask.js";

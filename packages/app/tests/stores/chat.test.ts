@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentEvent } from "../../src/lib/types";
 
 const mockStreamChat = vi.hoisted(() => vi.fn());
@@ -32,9 +32,18 @@ describe("chatStore", () => {
     mockAbort = vi.fn();
 
     mockStreamChat.mockImplementation(
-      (_sid: string, _msg: string, _pid: string, _model: string, onEvent: (e: AgentEvent) => void) => {
+      (
+        _sid: string,
+        _msg: string,
+        _pid: string,
+        _model: string,
+        onEvent: (e: AgentEvent) => void,
+      ) => {
         capturedOnEvent = onEvent;
-        return { promise: new Promise<void>((resolve) => resolve()), abort: mockAbort };
+        return {
+          promise: new Promise<void>((resolve) => resolve()),
+          abort: mockAbort,
+        };
       },
     );
 
@@ -58,7 +67,9 @@ describe("chatStore", () => {
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
-          promise: new Promise<void>((r) => { resolveStream = r; }),
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
           abort: mockAbort,
         };
       });
@@ -72,7 +83,7 @@ describe("chatStore", () => {
       expect(mockStreamChat).toHaveBeenCalledOnce();
 
       // Clean up
-      resolveStream!();
+      resolveStream?.();
       await p1;
     });
 
@@ -105,7 +116,9 @@ describe("chatStore", () => {
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
-          promise: new Promise<void>((r) => { resolveStream = r; }),
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
           abort: mockAbort,
         };
       });
@@ -115,7 +128,7 @@ describe("chatStore", () => {
       capturedOnEvent({ type: "text-delta", delta: " world" });
       expect(chatStore.streamingText()).toBe("Hello world");
 
-      resolveStream!();
+      resolveStream?.();
       await p;
     });
 
@@ -124,18 +137,25 @@ describe("chatStore", () => {
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
-          promise: new Promise<void>((r) => { resolveStream = r; }),
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
           abort: mockAbort,
         };
       });
 
       const p = chatStore.startStream("s1", "hello");
-      const tc = { type: "tool-call" as const, toolCallId: "tc1", toolName: "read", args: {} };
+      const tc = {
+        type: "tool-call" as const,
+        toolCallId: "tc1",
+        toolName: "read",
+        args: {},
+      };
       capturedOnEvent(tc);
       expect(chatStore.streamingToolCalls()).toHaveLength(1);
       expect(chatStore.streamingToolCalls()[0]).toEqual(tc);
 
-      resolveStream!();
+      resolveStream?.();
       await p;
     });
 
@@ -144,17 +164,25 @@ describe("chatStore", () => {
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
-          promise: new Promise<void>((r) => { resolveStream = r; }),
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
           abort: mockAbort,
         };
       });
 
       const p = chatStore.startStream("s1", "hello");
-      const tr = { type: "tool-result" as const, toolCallId: "tc1", toolName: "read", result: "ok", isError: false };
+      const tr = {
+        type: "tool-result" as const,
+        toolCallId: "tc1",
+        toolName: "read",
+        result: "ok",
+        isError: false,
+      };
       capturedOnEvent(tr);
       expect(chatStore.streamingToolResults()).toHaveLength(1);
 
-      resolveStream!();
+      resolveStream?.();
       await p;
     });
 
@@ -163,7 +191,9 @@ describe("chatStore", () => {
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
-          promise: new Promise<void>((r) => { resolveStream = r; }),
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
           abort: mockAbort,
         };
       });
@@ -172,7 +202,7 @@ describe("chatStore", () => {
       capturedOnEvent({ type: "error", error: "boom" });
       expect(chatStore.error()).toBe("boom");
 
-      resolveStream!();
+      resolveStream?.();
       await p;
     });
 
@@ -223,7 +253,9 @@ describe("chatStore", () => {
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
         capturedOnEvent = onEvent;
         return {
-          promise: new Promise<void>((r) => { resolveStream = r; }),
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
           abort: mockAbort,
         };
       });
@@ -232,7 +264,7 @@ describe("chatStore", () => {
       chatStore.stopStream();
       expect(mockAbort).toHaveBeenCalled();
 
-      resolveStream!();
+      resolveStream?.();
       await p;
     });
 

@@ -1,6 +1,6 @@
-import type { UserProviderConfig } from "./types.js";
-import type { Provider as IProvider } from "./provider.js";
 import { OpenAICompatAdapter } from "./adapters/openai-compat.js";
+import type { Provider as IProvider } from "./provider.js";
+import type { UserProviderConfig } from "./types.js";
 import { UsageTracker } from "./usage/tracker.js";
 
 export interface ProviderMeta {
@@ -24,7 +24,7 @@ export class ProviderRegistry {
     };
 
     if (config.apiKey) {
-      headers["Authorization"] = `Bearer ${config.apiKey}`;
+      headers.Authorization = `Bearer ${config.apiKey}`;
     }
 
     const provider = new OpenAICompatAdapter({

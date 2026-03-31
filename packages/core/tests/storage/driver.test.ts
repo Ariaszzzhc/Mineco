@@ -1,10 +1,9 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { Kysely, CompiledQuery, SqliteQueryCompiler, sql } from "kysely";
-import type { CompiledQuery as CompiledQueryType } from "kysely";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { mkdir, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { CompiledQuery, Kysely, SqliteQueryCompiler, sql } from "kysely";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { NodeSqliteDialect } from "../../src/storage/dialect.js";
 import { SqliteDriver } from "../../src/storage/driver.js";
 
@@ -25,7 +24,9 @@ describe("SqliteDriver", () => {
     await mkdir(dir, { recursive: true });
     dbPath = join(dir, "test.db");
     db = new Kysely<TestDb>({ dialect: new NodeSqliteDialect(dbPath) });
-    await sql`CREATE TABLE IF NOT EXISTS counters (id TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0)`.execute(db);
+    await sql`CREATE TABLE IF NOT EXISTS counters (id TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0)`.execute(
+      db,
+    );
     cleanup = async () => {
       await db.destroy();
       await rm(dir, { recursive: true, force: true });
@@ -53,27 +54,45 @@ describe("SqliteDriver", () => {
   describe("transactions", () => {
     it("should commit a transaction", async () => {
       await db.transaction().execute(async (trx) => {
-        await trx.insertInto("counters").values({ id: "a", value: 1 }).execute();
-        const row = await trx.selectFrom("counters").selectAll().where("id", "=", "a").executeTakeFirst();
+        await trx
+          .insertInto("counters")
+          .values({ id: "a", value: 1 })
+          .execute();
+        const row = await trx
+          .selectFrom("counters")
+          .selectAll()
+          .where("id", "=", "a")
+          .executeTakeFirst();
         expect(row).toBeDefined();
-        expect(row!.value).toBe(1);
+        expect(row?.value).toBe(1);
       });
 
       // Verify committed
-      const row = await db.selectFrom("counters").selectAll().where("id", "=", "a").executeTakeFirst();
+      const row = await db
+        .selectFrom("counters")
+        .selectAll()
+        .where("id", "=", "a")
+        .executeTakeFirst();
       expect(row).toBeDefined();
     });
 
     it("should rollback a transaction on error", async () => {
       await expect(
         db.transaction().execute(async (trx) => {
-          await trx.insertInto("counters").values({ id: "b", value: 2 }).execute();
+          await trx
+            .insertInto("counters")
+            .values({ id: "b", value: 2 })
+            .execute();
           throw new Error("rollback test");
         }),
       ).rejects.toThrow("rollback test");
 
       // Verify rolled back
-      const row = await db.selectFrom("counters").selectAll().where("id", "=", "b").executeTakeFirst();
+      const row = await db
+        .selectFrom("counters")
+        .selectAll()
+        .where("id", "=", "b")
+        .executeTakeFirst();
       expect(row).toBeUndefined();
     });
   });
@@ -92,35 +111,49 @@ describe("SqliteDriver", () => {
         await driver.beginTransaction(connection, {});
 
         // Insert a row
-        await connection.executeQuery(CompiledQuery.raw(
-          "INSERT INTO counters (id, value) VALUES ('sp', 10)",
-        ));
+        await connection.executeQuery(
+          CompiledQuery.raw(
+            "INSERT INTO counters (id, value) VALUES ('sp', 10)",
+          ),
+        );
 
         // Create savepoint via driver's savepoint method
-        await driver.savepoint(connection, "sp1", compiler.compileQuery.bind(compiler));
+        await driver.savepoint(
+          connection,
+          "sp1",
+          compiler.compileQuery.bind(compiler),
+        );
 
         // Update within savepoint
-        await connection.executeQuery(CompiledQuery.raw(
-          "UPDATE counters SET value = 99 WHERE id = 'sp'",
-        ));
+        await connection.executeQuery(
+          CompiledQuery.raw("UPDATE counters SET value = 99 WHERE id = 'sp'"),
+        );
 
         // Verify updated value
-        let result = await connection.executeQuery<{ value: number }>(CompiledQuery.raw(
-          "SELECT value FROM counters WHERE id = 'sp'",
-        ));
-        expect(result.rows[0]!.value).toBe(99);
+        let result = await connection.executeQuery<{ value: number }>(
+          CompiledQuery.raw("SELECT value FROM counters WHERE id = 'sp'"),
+        );
+        expect(result.rows[0]?.value).toBe(99);
 
         // Rollback to savepoint via driver's method
-        await driver.rollbackToSavepoint(connection, "sp1", compiler.compileQuery.bind(compiler));
+        await driver.rollbackToSavepoint(
+          connection,
+          "sp1",
+          compiler.compileQuery.bind(compiler),
+        );
 
         // Verify rolled back to savepoint
-        result = await connection.executeQuery<{ value: number }>(CompiledQuery.raw(
-          "SELECT value FROM counters WHERE id = 'sp'",
-        ));
-        expect(result.rows[0]!.value).toBe(10);
+        result = await connection.executeQuery<{ value: number }>(
+          CompiledQuery.raw("SELECT value FROM counters WHERE id = 'sp'"),
+        );
+        expect(result.rows[0]?.value).toBe(10);
 
         // Release savepoint via driver's method
-        await driver.releaseSavepoint(connection, "sp1", compiler.compileQuery.bind(compiler));
+        await driver.releaseSavepoint(
+          connection,
+          "sp1",
+          compiler.compileQuery.bind(compiler),
+        );
 
         // Commit outer transaction
         await driver.commitTransaction(connection);
@@ -137,15 +170,15 @@ describe("SqliteDriver", () => {
       const conn = driver.connection;
       await driver.destroy();
       // Connection is closed; subsequent operations should fail
-      await expect(conn.executeQuery(CompiledQuery.raw(
-        "SELECT 1",
-      ))).rejects.toThrow();
+      await expect(
+        conn.executeQuery(CompiledQuery.raw("SELECT 1")),
+      ).rejects.toThrow();
     });
 
     it("should support Symbol.asyncDispose", async () => {
       const driver = new SqliteDriver(":memory:");
       await driver.init();
-      await using disposable = driver;
+      await using _disposable = driver;
       // When the block exits, asyncDispose should be called
     });
   });

@@ -44,5 +44,7 @@ function getTargetTriple(): string {
   if (platform === "darwin") {
     return arch === "arm64" ? "aarch64-apple-darwin" : "x86_64-apple-darwin";
   }
-  return arch === "arm64" ? "aarch64-unknown-linux-gnu" : "x86_64-unknown-linux-gnu";
+  return arch === "arm64"
+    ? "aarch64-unknown-linux-gnu"
+    : "x86_64-unknown-linux-gnu";
 }

@@ -1,8 +1,7 @@
 import { useNavigate } from "@solidjs/router";
-import { For, onMount, Show, createSignal } from "solid-js";
-import { workspaceStore } from "../stores/workspace";
-import { sessionStore } from "../stores/session";
+import { createSignal, For, onMount, Show } from "solid-js";
 import { DirBrowser } from "../components/workspace/dir-browser";
+import { workspaceStore } from "../stores/workspace";
 
 export function WorkspacePickerPage() {
   const navigate = useNavigate();
@@ -57,8 +56,19 @@ export function WorkspacePickerPage() {
             onClick={() => setShowBrowser(true)}
             class="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary-subtle)] hover:text-[var(--primary)]"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 3v10M3 8h10"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
             </svg>
             Open Directory
           </button>
@@ -78,8 +88,18 @@ export function WorkspacePickerPage() {
                     onClick={() => handleOpenWorkspace(ws.id)}
                     class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--hover)]"
                   >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 text-[var(--text-muted)]">
-                      <path d="M2 4.5A1.5 1.5 0 013.5 3h3.172a1.5 1.5 0 011.06.44l.94.94H12.5A1.5 1.5 0 0114 5.88v5.62a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 11.5V4.5z" fill="currentColor" />
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      class="shrink-0 text-[var(--text-muted)]"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M2 4.5A1.5 1.5 0 013.5 3h3.172a1.5 1.5 0 011.06.44l.94.94H12.5A1.5 1.5 0 0114 5.88v5.62a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 11.5V4.5z"
+                        fill="currentColor"
+                      />
                     </svg>
                     <div class="min-w-0 flex-1">
                       <div class="truncate text-sm font-medium text-[var(--text-primary)]">
@@ -100,7 +120,12 @@ export function WorkspacePickerPage() {
         </Show>
 
         {/* Empty state */}
-        <Show when={workspaceStore.workspaces().length === 0 && !workspaceStore.loading()}>
+        <Show
+          when={
+            workspaceStore.workspaces().length === 0 &&
+            !workspaceStore.loading()
+          }
+        >
           <div class="mt-8 text-center">
             <p class="text-sm text-[var(--text-muted)]">
               No workspaces yet. Open a directory to create one.

@@ -1,12 +1,12 @@
+import { ProviderError } from "./errors.js";
+import type { Provider } from "./provider.js";
+import { parseSSEStream } from "./sse.js";
 import type {
   ChatRequest,
   ChatResponse,
   ChatStreamChunk,
   ModelInfo,
 } from "./types.js";
-import { ProviderError } from "./errors.js";
-import { parseSSEStream } from "./sse.js";
-import type { Provider } from "./provider.js";
 
 export abstract class BaseAdapter implements Provider {
   abstract readonly id: string;
@@ -22,9 +22,7 @@ export abstract class BaseAdapter implements Provider {
   }
 
   protected abstract transformResponse(raw: unknown): ChatResponse;
-  protected abstract transformStreamChunk(
-    raw: unknown,
-  ): ChatStreamChunk | null;
+  protected abstract transformStreamChunk(raw: unknown): ChatStreamChunk | null;
 
   async chat(req: ChatRequest): Promise<ChatResponse> {
     const url = `${this.getBaseURL()}/chat/completions`;
@@ -48,9 +46,7 @@ export abstract class BaseAdapter implements Provider {
     return this.transformResponse(data);
   }
 
-  async *chatStream(
-    req: ChatRequest,
-  ): AsyncGenerator<ChatStreamChunk> {
+  async *chatStream(req: ChatRequest): AsyncGenerator<ChatStreamChunk> {
     const url = `${this.getBaseURL()}/chat/completions`;
     const body = this.transformRequest({ ...req, stream: true });
 

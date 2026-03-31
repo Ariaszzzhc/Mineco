@@ -1,6 +1,6 @@
 import { createSignal, Show } from "solid-js";
-import { Button } from "../ui/button";
 import { configStore } from "../../stores/config";
+import { Button } from "../ui/button";
 
 export function ProviderForm() {
   const [type, setType] = createSignal<"zhipu" | "openai-compatible">("zhipu");
@@ -55,7 +55,8 @@ export function ProviderForm() {
           class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
           classList={{
             "bg-[var(--primary)] text-[var(--on-primary)]": type() === "zhipu",
-            "bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--active)]": type() !== "zhipu",
+            "bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--active)]":
+              type() !== "zhipu",
           }}
         >
           Zhipu
@@ -65,8 +66,10 @@ export function ProviderForm() {
           onClick={() => setType("openai-compatible")}
           class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
           classList={{
-            "bg-[var(--primary)] text-[var(--on-primary)]": type() === "openai-compatible",
-            "bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--active)]": type() !== "openai-compatible",
+            "bg-[var(--primary)] text-[var(--on-primary)]":
+              type() === "openai-compatible",
+            "bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--active)]":
+              type() !== "openai-compatible",
           }}
         >
           OpenAI Compatible
@@ -95,7 +98,9 @@ export function ProviderForm() {
               </span>
               <select
                 value={platform()}
-                onChange={(e) => setPlatform(e.currentTarget.value as "cn" | "intl")}
+                onChange={(e) =>
+                  setPlatform(e.currentTarget.value as "cn" | "intl")
+                }
                 class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--border-focus)] focus:outline-none"
               >
                 <option value="cn">China</option>
@@ -108,7 +113,9 @@ export function ProviderForm() {
               </span>
               <select
                 value={endpoint()}
-                onChange={(e) => setEndpoint(e.currentTarget.value as "general" | "coding")}
+                onChange={(e) =>
+                  setEndpoint(e.currentTarget.value as "general" | "coding")
+                }
                 class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--border-focus)] focus:outline-none"
               >
                 <option value="general">General</option>

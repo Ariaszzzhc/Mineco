@@ -35,12 +35,7 @@ interface UsageRecord {
 export class UsageTracker {
   private readonly records: UsageRecord[] = [];
 
-  record(
-    providerId: string,
-    model: string,
-    usage: Usage,
-    cost = 0,
-  ): void {
+  record(providerId: string, model: string, usage: Usage, cost = 0): void {
     this.records.push({ providerId, model, usage, cost });
   }
 

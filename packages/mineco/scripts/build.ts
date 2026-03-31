@@ -1,6 +1,14 @@
 import { execSync } from "node:child_process";
-import { copyFileSync, cpSync, mkdirSync, renameSync, readdirSync, rmSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
+import {
+  copyFileSync,
+  cpSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+} from "node:fs";
+import { basename, join } from "node:path";
 
 /**
  * Build script for @mineco/mineco (Tauri desktop + CLI).
@@ -31,7 +39,9 @@ function getTargetTriple(): string {
   if (platform === "darwin") {
     return arch === "arm64" ? "aarch64-apple-darwin" : "x86_64-apple-darwin";
   }
-  return arch === "arm64" ? "aarch64-unknown-linux-gnu" : "x86_64-unknown-linux-gnu";
+  return arch === "arm64"
+    ? "aarch64-unknown-linux-gnu"
+    : "x86_64-unknown-linux-gnu";
 }
 
 // Step 1: Build core SEA (requires core `build` to have run first — guaranteed by turbo)
@@ -40,7 +50,10 @@ run("pnpm --filter @mineco/core sea");
 // Step 2: Copy SEA binary to Tauri sidecar location
 const targetTriple = getTargetTriple();
 const ext = process.platform === "win32" ? ".exe" : "";
-const seaSource = join(ROOT, `packages/core/sea-dist/mineco-core-${targetTriple}${ext}`);
+const seaSource = join(
+  ROOT,
+  `packages/core/sea-dist/mineco-core-${targetTriple}${ext}`,
+);
 const binariesDir = join(TAURI_DIR, "binaries");
 mkdirSync(binariesDir, { recursive: true });
 const seaDest = join(binariesDir, `mineco-core-${targetTriple}${ext}`);

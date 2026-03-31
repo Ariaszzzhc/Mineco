@@ -1,6 +1,5 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
-import type { DatabaseConnection, QueryResult } from "kysely";
-import { CompiledQuery } from "kysely";
+import type { CompiledQuery, DatabaseConnection, QueryResult } from "kysely";
 
 export class SqliteConnection implements DatabaseConnection, Disposable {
   #db: DatabaseSync;
@@ -54,7 +53,9 @@ export class SqliteConnection implements DatabaseConnection, Disposable {
     }
   }
 
-  async *streamQuery<R>(compiledQuery: CompiledQuery): AsyncIterableIterator<QueryResult<R>> {
+  async *streamQuery<R>(
+    compiledQuery: CompiledQuery,
+  ): AsyncIterableIterator<QueryResult<R>> {
     const result = await this.executeQuery<R>(compiledQuery);
     if (result.rows) {
       yield { rows: result.rows };

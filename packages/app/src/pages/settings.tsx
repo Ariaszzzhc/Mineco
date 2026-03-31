@@ -1,8 +1,8 @@
 import { useNavigate } from "@solidjs/router";
 import { ArrowLeft } from "lucide-solid";
 import { onMount } from "solid-js";
-import { ProviderList } from "../components/settings/provider-list";
 import { ProviderForm } from "../components/settings/provider-form";
+import { ProviderList } from "../components/settings/provider-list";
 import { SettingsForm } from "../components/settings/settings-form";
 import { configStore } from "../stores/config";
 

@@ -1,7 +1,7 @@
-import { createSignal, createEffect, Show, For } from "solid-js";
-import { Button } from "../ui/button";
-import { configStore } from "../../stores/config";
+import { createEffect, createSignal, For, Show } from "solid-js";
 import type { ProviderConfig } from "../../lib/types";
+import { configStore } from "../../stores/config";
+import { Button } from "../ui/button";
 
 export function SettingsForm() {
   const [providerId, setProviderId] = createSignal("");
@@ -28,7 +28,9 @@ export function SettingsForm() {
       const settings: Record<string, string> = {};
       if (providerId()) settings.defaultProvider = providerId()!;
       if (model()) settings.defaultModel = model()!;
-      await configStore.updateSettings(settings as Partial<import("../../lib/types").AppSettings>);
+      await configStore.updateSettings(
+        settings as Partial<import("../../lib/types").AppSettings>,
+      );
     } finally {
       setSaving(false);
     }

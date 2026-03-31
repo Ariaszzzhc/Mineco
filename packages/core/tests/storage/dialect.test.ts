@@ -1,5 +1,10 @@
+import {
+  Kysely,
+  SqliteAdapter,
+  SqliteIntrospector,
+  SqliteQueryCompiler,
+} from "kysely";
 import { describe, expect, it } from "vitest";
-import { Kysely, SqliteIntrospector, SqliteAdapter, SqliteQueryCompiler } from "kysely";
 import { NodeSqliteDialect } from "../../src/storage/dialect.js";
 
 describe("NodeSqliteDialect", () => {

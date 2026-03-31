@@ -27,9 +27,6 @@ export interface SessionStore {
   list(): Promise<Session[]>;
   listByWorkspace(workspaceId: string): Promise<Session[]>;
   addMessage(sessionId: string, msg: SessionMessage): Promise<void>;
-  updateMessages(
-    sessionId: string,
-    messages: SessionMessage[],
-  ): Promise<void>;
+  updateMessages(sessionId: string, messages: SessionMessage[]): Promise<void>;
   delete(id: string): Promise<void>;
 }

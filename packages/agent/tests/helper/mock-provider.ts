@@ -1,16 +1,10 @@
-import type { Provider } from "@mineco/provider";
-import type {
-  ChatRequest,
-  ChatStreamChunk,
-} from "@mineco/provider";
+import type { ChatRequest, ChatStreamChunk, Provider } from "@mineco/provider";
 
 /**
  * Create a mock Provider whose chatStream yields the given chunk arrays
  * in sequence (one array per call).
  */
-export function mockProvider(
-  ...stepChunks: ChatStreamChunk[][]
-): Provider {
+export function mockProvider(...stepChunks: ChatStreamChunk[][]): Provider {
   let callCount = 0;
   return {
     id: "test",

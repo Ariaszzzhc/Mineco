@@ -1,5 +1,5 @@
-import { build } from "esbuild";
 import { join } from "node:path";
+import { build } from "esbuild";
 
 const root = join(import.meta.dirname, "..");
 

@@ -1,8 +1,8 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { configSchema } from "./schema.js";
 import type { AppConfig } from "./schema.js";
+import { configSchema } from "./schema.js";
 
 const CONFIG_DIR = ".mineco";
 const CONFIG_FILE = "config.json";
@@ -22,11 +22,7 @@ export async function loadConfig(): Promise<AppConfig> {
   try {
     raw = await readFile(configPath, "utf-8");
   } catch (error: unknown) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       return createDefaultConfig();
     }
     throw error;

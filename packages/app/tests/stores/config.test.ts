@@ -1,5 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTestConfig, createZhipuProvider, createOpenAIProvider } from "../helper/fixture";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createOpenAIProvider,
+  createTestConfig,
+  createZhipuProvider,
+} from "../helper/fixture";
 
 const mockApi = vi.hoisted(() => ({
   getConfig: vi.fn(),
@@ -124,7 +128,11 @@ describe("configStore", () => {
         createTestConfig({ providers: [createOpenAIProvider()] }),
       );
       mockApi.getProviderModels.mockResolvedValue([
-        { id: "test-provider", name: "Test", models: [{ id: "qwen3", name: "Qwen3" }] },
+        {
+          id: "test-provider",
+          name: "Test",
+          models: [{ id: "qwen3", name: "Qwen3" }],
+        },
       ]);
       await configStore.loadConfig();
       expect(configStore.activeModel()).toBe("qwen3");
@@ -135,7 +143,11 @@ describe("configStore", () => {
         createTestConfig({ providers: [createZhipuProvider()] }),
       );
       mockApi.getProviderModels.mockResolvedValue([
-        { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5" }] },
+        {
+          id: "zhipu",
+          name: "Zhipu",
+          models: [{ id: "glm-5", name: "GLM-5" }],
+        },
       ]);
       await configStore.loadConfig();
       expect(configStore.activeModel()).toBe("glm-5");
@@ -171,7 +183,11 @@ describe("configStore", () => {
       const newProviders = [createZhipuProvider()];
       mockApi.addProvider.mockResolvedValue(newProviders);
       mockApi.getProviderModels.mockResolvedValue([
-        { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5" }] },
+        {
+          id: "zhipu",
+          name: "Zhipu",
+          models: [{ id: "glm-5", name: "GLM-5" }],
+        },
       ]);
       await configStore.addProvider({ type: "zhipu", apiKey: "key" });
 
@@ -187,7 +203,11 @@ describe("configStore", () => {
         createTestConfig({ providers: [provider] }),
       );
       mockApi.getProviderModels.mockResolvedValue([
-        { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5" }] },
+        {
+          id: "zhipu",
+          name: "Zhipu",
+          models: [{ id: "glm-5", name: "GLM-5" }],
+        },
       ]);
       await configStore.loadConfig();
 

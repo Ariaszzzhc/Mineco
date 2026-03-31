@@ -1,8 +1,13 @@
-import { DatabaseSync } from "node:sqlite";
-import type { DatabaseConnection, Driver, QueryCompiler, TransactionSettings } from "kysely";
-import { CompiledQuery, IdentifierNode, RawNode, createQueryId } from "kysely";
-import { Mutex } from "./mutex.js";
+import type { DatabaseSync } from "node:sqlite";
+import type {
+  DatabaseConnection,
+  Driver,
+  QueryCompiler,
+  TransactionSettings,
+} from "kysely";
+import { CompiledQuery, createQueryId, IdentifierNode, RawNode } from "kysely";
 import { SqliteConnection } from "./connection.js";
+import { Mutex } from "./mutex.js";
 
 export class SqliteDriver implements Driver {
   readonly #args: ConstructorParameters<typeof DatabaseSync>;
@@ -31,7 +36,10 @@ export class SqliteDriver implements Driver {
     this.#mutex.unlock();
   }
 
-  async beginTransaction(_connection: DatabaseConnection, _settings: TransactionSettings): Promise<void> {
+  async beginTransaction(
+    _connection: DatabaseConnection,
+    _settings: TransactionSettings,
+  ): Promise<void> {
     await this.connection.executeQuery(CompiledQuery.raw("BEGIN"));
   }
 
@@ -49,7 +57,10 @@ export class SqliteDriver implements Driver {
     compileQuery: QueryCompiler["compileQuery"],
   ): Promise<void> {
     await this.connection.executeQuery(
-      compileQuery(savepointCommand("SAVEPOINT", savepointName), createQueryId()),
+      compileQuery(
+        savepointCommand("SAVEPOINT", savepointName),
+        createQueryId(),
+      ),
     );
   }
 
@@ -59,7 +70,10 @@ export class SqliteDriver implements Driver {
     compileQuery: QueryCompiler["compileQuery"],
   ): Promise<void> {
     await this.connection.executeQuery(
-      compileQuery(savepointCommand("RELEASE SAVEPOINT", savepointName), createQueryId()),
+      compileQuery(
+        savepointCommand("RELEASE SAVEPOINT", savepointName),
+        createQueryId(),
+      ),
     );
   }
 
@@ -69,7 +83,10 @@ export class SqliteDriver implements Driver {
     compileQuery: QueryCompiler["compileQuery"],
   ): Promise<void> {
     await this.connection.executeQuery(
-      compileQuery(savepointCommand("ROLLBACK TO SAVEPOINT", savepointName), createQueryId()),
+      compileQuery(
+        savepointCommand("ROLLBACK TO SAVEPOINT", savepointName),
+        createQueryId(),
+      ),
     );
   }
 

@@ -1,10 +1,14 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { configSchema, zhipuProviderSchema, openaiCompatProviderSchema } from "./schema.js";
-import type { AppConfig } from "./schema.js";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { maskApiKey } from "./mask.js";
+import type { AppConfig } from "./schema.js";
+import {
+  configSchema,
+  openaiCompatProviderSchema,
+  zhipuProviderSchema,
+} from "./schema.js";
 
 // --- Schema tests ---
 
@@ -130,7 +134,12 @@ describe("loader", () => {
     const path = getTestConfigPath();
     const config: AppConfig = {
       providers: [
-        { type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "coding" },
+        {
+          type: "zhipu",
+          apiKey: "test-key",
+          platform: "cn",
+          endpoint: "coding",
+        },
       ],
       settings: { defaultProvider: "zhipu" },
     };
@@ -147,7 +156,9 @@ describe("loader", () => {
     const path = getTestConfigPath();
     await writeFile(path, "not json{{{", "utf-8");
 
-    await expect(readFile(path, "utf-8").then((r) => JSON.parse(r))).rejects.toThrow();
+    await expect(
+      readFile(path, "utf-8").then((r) => JSON.parse(r)),
+    ).rejects.toThrow();
   });
 
   it("should reject schema-invalid config", async () => {

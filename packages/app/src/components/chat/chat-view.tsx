@@ -1,10 +1,10 @@
 import { Show } from "solid-js";
-import { ChatInput } from "./chat-input";
-import { MessageList } from "./message-list";
-import { HeroPrompt } from "./hero-prompt";
 import { chatStore } from "../../stores/chat";
-import { sessionStore } from "../../stores/session";
 import { configStore } from "../../stores/config";
+import { sessionStore } from "../../stores/session";
+import { ChatInput } from "./chat-input";
+import { HeroPrompt } from "./hero-prompt";
+import { MessageList } from "./message-list";
 
 export function ChatView() {
   const session = () => sessionStore.currentSession();

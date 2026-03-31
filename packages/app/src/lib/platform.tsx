@@ -1,4 +1,4 @@
-import { createContext, useContext, type JSX } from "solid-js";
+import { createContext, type JSX, useContext } from "solid-js";
 
 export interface Platform {
   readonly name: "web" | "desktop";
@@ -59,7 +59,8 @@ export function createWebPlatform(): Platform {
 }
 
 export function createDesktopPlatform(): Platform {
-  const apiUrl = (window as unknown as Record<string, unknown>).__MINECO_API_URL__;
+  const apiUrl = (window as unknown as Record<string, unknown>)
+    .__MINECO_API_URL__;
   if (typeof apiUrl !== "string" || !apiUrl) {
     throw new Error("Desktop platform initialized without __MINECO_API_URL__");
   }

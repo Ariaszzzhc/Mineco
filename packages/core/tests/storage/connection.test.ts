@@ -1,11 +1,11 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { Kysely, CompiledQuery, sql } from "kysely";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { mkdir, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { NodeSqliteDialect } from "../../src/storage/dialect.js";
+import { mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { CompiledQuery, Kysely, sql } from "kysely";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqliteConnection } from "../../src/storage/connection.js";
+import { NodeSqliteDialect } from "../../src/storage/dialect.js";
 
 interface TestDb {
   items: {
@@ -23,7 +23,9 @@ describe("SqliteConnection", () => {
     await mkdir(dir, { recursive: true });
     const dbPath = join(dir, "test.db");
     db = new Kysely<TestDb>({ dialect: new NodeSqliteDialect(dbPath) });
-    await sql`CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, name TEXT NOT NULL)`.execute(db);
+    await sql`CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, name TEXT NOT NULL)`.execute(
+      db,
+    );
     cleanup = async () => {
       await db.destroy();
       await rm(dir, { recursive: true, force: true });
@@ -36,7 +38,10 @@ describe("SqliteConnection", () => {
 
   describe("RETURNING clause", () => {
     it("should return rows for INSERT with RETURNING", async () => {
-      const result = await sql`INSERT INTO items (id, name) VALUES ('a', 'test') RETURNING *`.execute(db);
+      const result =
+        await sql`INSERT INTO items (id, name) VALUES ('a', 'test') RETURNING *`.execute(
+          db,
+        );
       expect(result.rows).toHaveLength(1);
       expect((result.rows[0] as { name: string }).name).toBe("test");
     });
@@ -48,12 +53,13 @@ describe("SqliteConnection", () => {
         .returningAll()
         .execute();
       expect(result).toHaveLength(1);
-      expect(result[0]!.name).toBe("via builder");
+      expect(result[0]?.name).toBe("via builder");
     });
 
     it("should return rows for DELETE with RETURNING", async () => {
       await sql`INSERT INTO items (id, name) VALUES ('a', 'test')`.execute(db);
-      const result = await sql`DELETE FROM items WHERE id = 'a' RETURNING *`.execute(db);
+      const result =
+        await sql`DELETE FROM items WHERE id = 'a' RETURNING *`.execute(db);
       expect(result.rows).toHaveLength(1);
       expect((result.rows[0] as { id: string }).id).toBe("a");
     });
@@ -69,24 +75,30 @@ describe("SqliteConnection", () => {
   describe("streamQuery", () => {
     it("should yield rows from streamQuery", async () => {
       const conn = new SqliteConnection(":memory:");
-      await conn.executeQuery(CompiledQuery.raw(
-        "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT NOT NULL)",
-      ));
-      await conn.executeQuery(CompiledQuery.raw(
-        "INSERT INTO items (id, name) VALUES ('a', 'first'), ('b', 'second')",
-      ));
+      await conn.executeQuery(
+        CompiledQuery.raw(
+          "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT NOT NULL)",
+        ),
+      );
+      await conn.executeQuery(
+        CompiledQuery.raw(
+          "INSERT INTO items (id, name) VALUES ('a', 'first'), ('b', 'second')",
+        ),
+      );
 
       const compiledQuery = CompiledQuery.raw(
         "SELECT * FROM items ORDER BY id",
       );
 
       const rows: Array<{ id: string; name: string }> = [];
-      for await (const chunk of conn.streamQuery<{ id: string; name: string }>(compiledQuery)) {
+      for await (const chunk of conn.streamQuery<{ id: string; name: string }>(
+        compiledQuery,
+      )) {
         rows.push(...(chunk.rows as Array<{ id: string; name: string }>));
       }
       expect(rows).toHaveLength(2);
-      expect(rows[0]!.id).toBe("a");
-      expect(rows[1]!.id).toBe("b");
+      expect(rows[0]?.id).toBe("a");
+      expect(rows[1]?.id).toBe("b");
 
       conn[Symbol.dispose]();
     });
