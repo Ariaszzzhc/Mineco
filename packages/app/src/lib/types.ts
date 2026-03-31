@@ -16,6 +16,7 @@ export interface SessionMessage {
   id: string;
   role: "user" | "assistant" | "tool";
   content: string;
+  thinking?: string | undefined;
   toolCalls?: ToolCall[] | undefined;
   toolCallId?: string | undefined;
   toolName?: string | undefined;
@@ -74,6 +75,7 @@ export interface AppConfig {
 // SSE event types (mirrors @mineco/agent AgentEvent)
 
 export type TextDeltaEvent = { type: "text-delta"; delta: string };
+export type ThinkingDeltaEvent = { type: "thinking-delta"; delta: string };
 export type ToolCallEvent = {
   type: "tool-call";
   toolCallId: string;
@@ -97,6 +99,7 @@ export type ErrorEvent = { type: "error"; error: string };
 
 export type AgentEvent =
   | TextDeltaEvent
+  | ThinkingDeltaEvent
   | ToolCallEvent
   | ToolResultEvent
   | UsageEvent

@@ -54,6 +54,7 @@ export interface ChatResponse {
 export interface ChatStreamChunk {
   delta: {
     content?: string;
+    thinking?: string;
     toolCalls?: Array<{ index: number } & Partial<ToolCall>>;
   };
   usage?: Usage;

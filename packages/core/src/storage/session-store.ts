@@ -101,6 +101,7 @@ export class SqliteSessionStore implements SessionStore {
         session_id: sessionId,
         role: msg.role,
         content: msg.content,
+        thinking: msg.thinking ?? null,
         tool_calls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
         tool_call_id: msg.toolCallId ?? null,
         tool_name: msg.toolName ?? null,
@@ -164,6 +165,7 @@ function rowToMessage(row: Database["messages"]): SessionMessage {
     id: row.id as string,
     role: row.role as "user" | "assistant" | "tool",
     content: row.content as string,
+    ...(row.thinking ? { thinking: row.thinking as string } : {}),
     ...(row.tool_calls
       ? { toolCalls: JSON.parse(row.tool_calls as string) as ToolCall[] }
       : {}),

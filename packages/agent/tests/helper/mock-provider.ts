@@ -28,6 +28,14 @@ export function textChunk(content: string): ChatStreamChunk {
   };
 }
 
+/** Helper to build a thinking-delta chunk */
+export function thinkingChunk(thinking: string): ChatStreamChunk {
+  return {
+    delta: { thinking },
+    finishReason: null,
+  };
+}
+
 /** Helper to build a tool-call delta chunk */
 export function toolCallDelta(
   index: number,

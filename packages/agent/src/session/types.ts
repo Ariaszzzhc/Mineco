@@ -4,6 +4,7 @@ export interface SessionMessage {
   id: string;
   role: "user" | "assistant" | "tool";
   content: string;
+  thinking?: string;
   toolCalls?: ToolCall[];
   toolCallId?: string;
   toolName?: string;

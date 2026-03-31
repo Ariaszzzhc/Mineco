@@ -36,6 +36,7 @@ export class AgentLoop {
       };
 
       let text = "";
+      let thinking = "";
       const toolCallMap = new Map<number, ToolCall>();
       let finishReason: FinishReason | null = null;
       let usage: Usage | undefined;
@@ -47,6 +48,11 @@ export class AgentLoop {
           if (delta.content) {
             text += delta.content;
             yield { type: "text-delta", delta: delta.content };
+          }
+
+          if (delta.thinking) {
+            thinking += delta.thinking;
+            yield { type: "thinking-delta", delta: delta.thinking };
           }
 
           if (delta.toolCalls) {

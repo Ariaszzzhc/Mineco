@@ -182,6 +182,10 @@ export class OpenAICompatAdapter extends BaseAdapter {
       result.delta.content = delta.content;
     }
 
+    if (typeof delta.reasoning_content === "string") {
+      result.delta.thinking = delta.reasoning_content;
+    }
+
     const rawToolCalls = delta.tool_calls as
       | Array<Record<string, unknown>>
       | undefined;

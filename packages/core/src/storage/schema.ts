@@ -20,6 +20,7 @@ export interface Database {
     session_id: string;
     role: string;
     content: string;
+    thinking: string | null;
     tool_calls: string | null;
     tool_call_id: string | null;
     tool_name: string | null;
@@ -51,6 +52,7 @@ export async function initializeSchema(db: Kysely<Database>): Promise<void> {
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     role TEXT NOT NULL,
     content TEXT NOT NULL,
+    thinking TEXT,
     tool_calls TEXT,
     tool_call_id TEXT,
     tool_name TEXT,
@@ -58,4 +60,11 @@ export async function initializeSchema(db: Kysely<Database>): Promise<void> {
     usage TEXT,
     created_at INTEGER NOT NULL
   )`.execute(db);
+
+  // Migrate existing databases: add thinking column if missing
+  try {
+    await sql`ALTER TABLE messages ADD COLUMN thinking TEXT`.execute(db);
+  } catch {
+    // Column already exists — ignore
+  }
 }
