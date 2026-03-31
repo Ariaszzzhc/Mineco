@@ -57,3 +57,18 @@ export function createWebPlatform(): Platform {
 
   return { name: "web", apiBaseUrl: "" };
 }
+
+export function createDesktopPlatform(): Platform {
+  const apiUrl = (window as unknown as Record<string, unknown>).__MINECO_API_URL__;
+  if (typeof apiUrl !== "string" || !apiUrl) {
+    throw new Error("Desktop platform initialized without __MINECO_API_URL__");
+  }
+  return { name: "desktop", apiBaseUrl: apiUrl };
+}
+
+export function createPlatform(): Platform {
+  if ((window as unknown as Record<string, unknown>).__MINECO_API_URL__) {
+    return createDesktopPlatform();
+  }
+  return createWebPlatform();
+}

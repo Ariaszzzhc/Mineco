@@ -165,13 +165,20 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Some(state) = app_handle.try_state::<Mutex<SidecarState>>() {
+                    if let Ok(mut s) = state.lock() {
+                        if let Some(child) = s.child.take() {
+                            let _ = child.kill();
+                        }
+                    }
+                }
+            }
+        });
 }
-
-// ---------------------------------------------------------------------------
-// Web mode (headless HTTP server)
-// ---------------------------------------------------------------------------
 
 pub fn run_web(host: String, port: u16, no_open: bool) {
     use rand::Rng;
