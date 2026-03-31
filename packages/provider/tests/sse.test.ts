@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSSEStream } from "../src/sse";
+import { parseSSEStream } from "../src/sse.js";
 
 function toStream(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();

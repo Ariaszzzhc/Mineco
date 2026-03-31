@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ZhipuProvider } from "../src/adapters/zhipu";
-import { hasSubscription } from "../src/provider";
+import { ZhipuProvider } from "../src/adapters/zhipu.js";
+import { hasSubscription } from "../src/provider.js";
 
 describe("ZhipuProvider", () => {
   it("should accept string config (backward compatible)", () => {

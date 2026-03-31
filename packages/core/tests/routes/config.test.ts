@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { ZodError } from "zod";
 import { createConfigRoutes } from "../../src/routes/config.js";
 import { createMockConfigService } from "../helper/mock-config-service.js";
+import type { ConfigService } from "../../src/config/service.js";
 import type { AppConfig } from "../../src/config/schema.js";
 
 function jsonHeaders(): Headers {
@@ -134,9 +135,9 @@ describe("Config Routes", () => {
     it("should return 400 for invalid settings", async () => {
       configService.updateConfig = vi.fn(async () => {
         throw new ZodError([
-          { code: "invalid_type", expected: "string", received: "number", path: ["defaultProvider"], message: "Expected string" },
+          { code: "invalid_type", expected: "string", input: 1, path: ["defaultProvider"], message: "Expected string" },
         ]);
-      }) as unknown as ConfigService["updateConfig"];
+      });
 
       const res = await app.request("/settings", {
         method: "PATCH",
@@ -155,9 +156,9 @@ describe("Config Routes", () => {
     it("should return 400 when PUT / fails Zod validation", async () => {
       configService.updateConfig = vi.fn(async () => {
         throw new ZodError([
-          { code: "invalid_type", expected: "string", received: "undefined", path: ["providers"], message: "Required" },
+          { code: "invalid_type", expected: "string", input: undefined, path: ["providers"], message: "Required" },
         ]);
-      }) as unknown as ConfigService["updateConfig"];
+      });
 
       const res = await app.request("/", {
         method: "PUT",
@@ -173,9 +174,9 @@ describe("Config Routes", () => {
     it("should return 400 when POST /providers fails Zod validation", async () => {
       configService.updateConfig = vi.fn(async () => {
         throw new ZodError([
-          { code: "invalid_type", expected: "string", received: "undefined", path: ["type"], message: "Required" },
+          { code: "invalid_type", expected: "string", input: undefined, path: ["type"], message: "Required" },
         ]);
-      }) as unknown as ConfigService["updateConfig"];
+      });
 
       const res = await app.request("/providers", {
         method: "POST",
@@ -212,7 +213,7 @@ describe("Config Routes", () => {
     it("should re-throw non-ZodError from PUT /", async () => {
       configService.updateConfig = vi.fn(async () => {
         throw new Error("database error");
-      }) as unknown as ConfigService["updateConfig"];
+      });
 
       const res = await app.request("/", {
         method: "PUT",
@@ -225,7 +226,7 @@ describe("Config Routes", () => {
     it("should re-throw non-ZodError from POST /providers", async () => {
       configService.updateConfig = vi.fn(async () => {
         throw new Error("database error");
-      }) as unknown as ConfigService["updateConfig"];
+      });
 
       const res = await app.request("/providers", {
         method: "POST",
@@ -238,7 +239,7 @@ describe("Config Routes", () => {
     it("should re-throw non-ZodError from PATCH /settings", async () => {
       configService.updateConfig = vi.fn(async () => {
         throw new Error("database error");
-      }) as unknown as ConfigService["updateConfig"];
+      });
 
       const res = await app.request("/settings", {
         method: "PATCH",

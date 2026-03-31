@@ -89,13 +89,11 @@ describe("SqliteDriver", () => {
         const compiler = new SqliteQueryCompiler();
 
         // Begin outer transaction
-        await driver.beginTransaction(connection, { isolationLevel: undefined });
+        await driver.beginTransaction(connection, {});
 
         // Insert a row
         await connection.executeQuery(CompiledQuery.raw(
           "INSERT INTO counters (id, value) VALUES ('sp', 10)",
-          [],
-          { kind: "InsertQueryNode" },
         ));
 
         // Create savepoint via driver's savepoint method
@@ -104,15 +102,11 @@ describe("SqliteDriver", () => {
         // Update within savepoint
         await connection.executeQuery(CompiledQuery.raw(
           "UPDATE counters SET value = 99 WHERE id = 'sp'",
-          [],
-          { kind: "UpdateQueryNode" },
         ));
 
         // Verify updated value
         let result = await connection.executeQuery<{ value: number }>(CompiledQuery.raw(
           "SELECT value FROM counters WHERE id = 'sp'",
-          [],
-          { kind: "SelectQueryNode" },
         ));
         expect(result.rows[0]!.value).toBe(99);
 
@@ -122,8 +116,6 @@ describe("SqliteDriver", () => {
         // Verify rolled back to savepoint
         result = await connection.executeQuery<{ value: number }>(CompiledQuery.raw(
           "SELECT value FROM counters WHERE id = 'sp'",
-          [],
-          { kind: "SelectQueryNode" },
         ));
         expect(result.rows[0]!.value).toBe(10);
 
@@ -147,8 +139,6 @@ describe("SqliteDriver", () => {
       // Connection is closed; subsequent operations should fail
       await expect(conn.executeQuery(CompiledQuery.raw(
         "SELECT 1",
-        [],
-        { kind: "SelectQueryNode" },
       ))).rejects.toThrow();
     });
 

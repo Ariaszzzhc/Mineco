@@ -27,6 +27,7 @@ function makeSession(messages?: Session["messages"]): Session {
   return {
     id: "sess-1",
     title: "Test",
+    workspaceId: "ws-1",
     messages: messages ?? [
       { id: "m1", role: "user", content: "hello", createdAt: Date.now() },
     ],
