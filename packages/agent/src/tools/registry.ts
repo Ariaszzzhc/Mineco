@@ -1,6 +1,6 @@
 import type { Tool } from "@mineco/provider";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "./types.js";
+import type { ToolContext, ToolDefinition, ToolResult } from "./types.js";
 
 export class ToolRegistry {
   private tools = new Map<string, ToolDefinition>();
@@ -37,8 +37,7 @@ export class ToolRegistry {
     try {
       return await tool.execute(args as never, ctx);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
+      const message = error instanceof Error ? error.message : "Unknown error";
       return { output: `Tool "${name}" error: ${message}`, isError: true };
     }
   }

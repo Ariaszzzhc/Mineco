@@ -1,9 +1,9 @@
-import { Marked } from "marked";
 import DOMPurify from "dompurify";
+import { Marked } from "marked";
 import {
+  type BundledLanguage,
   createHighlighter,
   type Highlighter,
-  type BundledLanguage,
 } from "shiki";
 
 let highlighterPromise: Promise<Highlighter> | null = null;

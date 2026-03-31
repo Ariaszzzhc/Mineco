@@ -1,10 +1,9 @@
 import type {
+  AppConfig,
+  OpenAICompatProviderConfig,
   Session,
   SessionMessage,
-  AppConfig,
-  AppSettings,
   ZhipuProviderConfig,
-  OpenAICompatProviderConfig,
 } from "../../src/lib/types";
 
 export function createTestSession(overrides?: Partial<Session>): Session {

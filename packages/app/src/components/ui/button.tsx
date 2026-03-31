@@ -17,8 +17,7 @@ const variantStyles: Record<string, string> = {
     "bg-[var(--surface-elevated)] text-[var(--text-primary)] hover:bg-[var(--active)] border border-[var(--border)]",
   ghost:
     "text-[var(--text-secondary)] hover:bg-[var(--hover)] hover:text-[var(--text-primary)]",
-  danger:
-    "bg-[var(--error)] text-[var(--on-error)] hover:opacity-90",
+  danger: "bg-[var(--error)] text-[var(--on-error)] hover:opacity-90",
 };
 
 const sizeStyles: Record<string, string> = {

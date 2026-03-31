@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ProviderRegistry } from "../src/registry.js";
 import { ZhipuProvider } from "../src/adapters/zhipu.js";
+import { ProviderRegistry } from "../src/registry.js";
 import type { UserProviderConfig } from "../src/types.js";
 
 describe("ProviderRegistry", () => {
@@ -14,7 +14,9 @@ describe("ProviderRegistry", () => {
 
   it("should throw for unknown provider", () => {
     const registry = new ProviderRegistry();
-    expect(() => registry.get("unknown")).toThrow('Provider "unknown" not found');
+    expect(() => registry.get("unknown")).toThrow(
+      'Provider "unknown" not found',
+    );
   });
 
   it("should list registered providers", () => {
@@ -57,7 +59,10 @@ describe("ProviderRegistry", () => {
     expect(models[0]?.maxOutputTokens).toBe(4096); // default
     expect(models[1]?.supportsVision).toBe(true);
     expect(models[1]?.maxOutputTokens).toBe(8192);
-    expect(models[1]?.pricing).toEqual({ inputPerMillion: 0, outputPerMillion: 0 });
+    expect(models[1]?.pricing).toEqual({
+      inputPerMillion: 0,
+      outputPerMillion: 0,
+    });
   });
 
   it("should have a usage tracker", () => {

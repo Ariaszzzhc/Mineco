@@ -35,10 +35,7 @@ interface ModelUsageResponse {
 
 // Zhipu quota unit → label/window mapping
 
-const QUOTA_LABELS: Record<
-  number,
-  { label: string; window: string }
-> = {
+const QUOTA_LABELS: Record<number, { label: string; window: string }> = {
   3: { label: "Token 配额", window: "5h" },
   5: { label: "MCP 配额", window: "30d" },
   6: { label: "每周配额", window: "weekly" },
@@ -82,17 +79,12 @@ export class ZhipuSubscriptionClient implements SubscriptionClient {
   }
 
   async getSubscriptionInfo(): Promise<SubscriptionInfo> {
-    const response = await fetch(
-      `${this.baseURL}/monitor/usage/quota/limit`,
-      {
-        headers: { Authorization: `Bearer ${this.apiKey}` },
-      },
-    );
+    const response = await fetch(`${this.baseURL}/monitor/usage/quota/limit`, {
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+    });
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to fetch subscription info: ${response.status}`,
-      );
+      throw new Error(`Failed to fetch subscription info: ${response.status}`);
     }
 
     const body = (await response.json()) as QuotaLimitResponse;

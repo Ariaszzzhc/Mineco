@@ -1,6 +1,6 @@
 import { vi } from "vitest";
-import type { ConfigService } from "../../src/config/service.js";
 import type { AppConfig } from "../../src/config/schema.js";
+import type { ConfigService } from "../../src/config/service.js";
 
 export function createMockConfigService(
   initialConfig: AppConfig = { providers: [], settings: {} },
@@ -12,9 +12,7 @@ export function createMockConfigService(
     getMaskedConfig: vi.fn(() => ({
       ...config,
       providers: config.providers.map((p) =>
-        p.type === "zhipu"
-          ? { ...p, apiKey: "sk-p...xxxx" }
-          : p,
+        p.type === "zhipu" ? { ...p, apiKey: "sk-p...xxxx" } : p,
       ),
     })),
     updateConfig: vi.fn(async (raw: unknown) => {
@@ -22,9 +20,7 @@ export function createMockConfigService(
       return {
         ...config,
         providers: config.providers.map((p) =>
-          p.type === "zhipu"
-            ? { ...p, apiKey: "sk-p...xxxx" }
-            : p,
+          p.type === "zhipu" ? { ...p, apiKey: "sk-p...xxxx" } : p,
         ),
       };
     }),

@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { exec } from "node:child_process";
+import { z } from "zod";
 import { defineTool } from "./define.js";
 
 const BashSchema = z.object({
@@ -31,7 +31,9 @@ export const bashTool = defineTool({
         (error, stdout, stderr) => {
           if (error) {
             const output =
-              stderr || error.message || `Exit code: ${error.code ?? "unknown"}`;
+              stderr ||
+              error.message ||
+              `Exit code: ${error.code ?? "unknown"}`;
             resolve({ output: output.trim(), isError: true });
             return;
           }

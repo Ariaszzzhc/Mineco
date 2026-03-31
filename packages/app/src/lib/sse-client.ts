@@ -1,6 +1,6 @@
-import type { AgentEvent } from "./types";
 import { getApiBaseUrl } from "./api-base";
 import { getPlatform } from "./platform";
+import type { AgentEvent } from "./types";
 
 export interface StreamHandle {
   promise: Promise<void>;
@@ -58,12 +58,12 @@ export function streamChat(
       for (const part of parts) {
         if (!part.trim()) continue;
 
-        let eventType = "";
+        let _eventType = "";
         let data = "";
 
         for (const line of part.split("\n")) {
           if (line.startsWith("event: ")) {
-            eventType = line.slice(7);
+            _eventType = line.slice(7);
           } else if (line.startsWith("data: ")) {
             data = line.slice(6);
           }

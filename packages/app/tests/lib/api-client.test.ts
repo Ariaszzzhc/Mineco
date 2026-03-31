@@ -1,18 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { api, ApiError } from "../../src/lib/api-client";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError, api } from "../../src/lib/api-client";
 
 function mockResponse(
   body: unknown,
   status = 200,
   headers: Record<string, string> = {},
 ): Response {
-  return new Response(
-    status === 204 ? null : JSON.stringify(body),
-    {
-      status,
-      headers: { "Content-Type": "application/json", ...headers },
-    },
-  );
+  return new Response(status === 204 ? null : JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...headers },
+  });
 }
 
 describe("ApiError", () => {
@@ -26,7 +23,8 @@ describe("ApiError", () => {
 });
 
 describe("request", () => {
-  const mockFetch = vi.fn<(input: RequestInfo, init?: RequestInit) => Promise<Response>>();
+  const mockFetch =
+    vi.fn<(input: RequestInfo, init?: RequestInit) => Promise<Response>>();
 
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
@@ -36,9 +34,12 @@ describe("request", () => {
   it("should send request via Hono client", async () => {
     mockFetch.mockResolvedValue(mockResponse({ data: "ok" }));
     await api.listWorkspaces();
-    expect(mockFetch).toHaveBeenCalledWith("/api/workspaces", expect.objectContaining({
-      method: "GET",
-    }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/workspaces",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
   });
 
   it("should return raw JSON response", async () => {
@@ -99,7 +100,10 @@ describe("request", () => {
 
   it("should handle malformed JSON in error body", async () => {
     mockFetch.mockResolvedValue(
-      new Response("not json", { status: 500, statusText: "Internal Server Error" }),
+      new Response("not json", {
+        status: 500,
+        statusText: "Internal Server Error",
+      }),
     );
     try {
       await api.getConfig();
@@ -112,7 +116,8 @@ describe("request", () => {
 });
 
 describe("api methods", () => {
-  const mockFetch = vi.fn<(input: RequestInfo, init?: RequestInit) => Promise<Response>>();
+  const mockFetch =
+    vi.fn<(input: RequestInfo, init?: RequestInit) => Promise<Response>>();
 
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
@@ -122,24 +127,36 @@ describe("api methods", () => {
 
   it("createSession should POST /api/sessions with workspaceId", async () => {
     await api.createSession("ws-1");
-    expect(mockFetch).toHaveBeenCalledWith("/api/sessions", expect.objectContaining({
-      method: "POST",
-    }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/sessions",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
   });
 
   it("listSessions should GET /api/sessions", async () => {
     await api.listSessions();
-    expect(mockFetch).toHaveBeenCalledWith("/api/sessions", expect.objectContaining({ headers: expect.any(Object) }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/sessions",
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
   });
 
   it("getSession should GET /api/sessions/:id", async () => {
     await api.getSession("abc");
-    expect(mockFetch).toHaveBeenCalledWith("/api/sessions/abc", expect.any(Object));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/sessions/abc",
+      expect.any(Object),
+    );
   });
 
   it("deleteSession should DELETE /api/sessions/:id", async () => {
     await api.deleteSession("abc");
-    expect(mockFetch).toHaveBeenCalledWith("/api/sessions/abc", expect.objectContaining({ method: "DELETE" }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/sessions/abc",
+      expect.objectContaining({ method: "DELETE" }),
+    );
   });
 
   it("getConfig should GET /api/config", async () => {
@@ -149,36 +166,57 @@ describe("api methods", () => {
 
   it("updateConfig should PUT /api/config with body", async () => {
     await api.updateConfig({ providers: [] });
-    expect(mockFetch).toHaveBeenCalledWith("/api/config", expect.objectContaining({ method: "PUT" }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config",
+      expect.objectContaining({ method: "PUT" }),
+    );
   });
 
   it("getProviders should GET /api/config/providers", async () => {
     await api.getProviders();
-    expect(mockFetch).toHaveBeenCalledWith("/api/config/providers", expect.any(Object));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/providers",
+      expect.any(Object),
+    );
   });
 
   it("getProviderModels should GET /api/config/providers/models", async () => {
     await api.getProviderModels();
-    expect(mockFetch).toHaveBeenCalledWith("/api/config/providers/models", expect.any(Object));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/providers/models",
+      expect.any(Object),
+    );
   });
 
   it("addProvider should POST /api/config/providers with body", async () => {
     await api.addProvider({ type: "zhipu" });
-    expect(mockFetch).toHaveBeenCalledWith("/api/config/providers", expect.objectContaining({ method: "POST" }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/providers",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("deleteProvider should DELETE /api/config/providers/:id", async () => {
     await api.deleteProvider("zhipu");
-    expect(mockFetch).toHaveBeenCalledWith("/api/config/providers/zhipu", expect.objectContaining({ method: "DELETE" }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/providers/zhipu",
+      expect.objectContaining({ method: "DELETE" }),
+    );
   });
 
   it("getSettings should GET /api/config/settings", async () => {
     await api.getSettings();
-    expect(mockFetch).toHaveBeenCalledWith("/api/config/settings", expect.any(Object));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/settings",
+      expect.any(Object),
+    );
   });
 
   it("updateSettings should PATCH /api/config/settings with body", async () => {
     await api.updateSettings({ defaultProvider: "zhipu" });
-    expect(mockFetch).toHaveBeenCalledWith("/api/config/settings", expect.objectContaining({ method: "PATCH" }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/settings",
+      expect.objectContaining({ method: "PATCH" }),
+    );
   });
 });

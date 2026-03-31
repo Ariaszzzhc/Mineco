@@ -1,11 +1,14 @@
 import { Show } from "solid-js";
-import type { SessionMessage } from "../../lib/types";
 import { renderMarkdown } from "../../lib/markdown";
+import type { SessionMessage } from "../../lib/types";
 import { ToolCard } from "./tool-card";
 
 interface MessageItemProps {
   message: SessionMessage;
-  streamingCalls?: Array<{ call?: import("../../lib/types").ToolCallEvent; result?: import("../../lib/types").ToolResultEvent }>;
+  streamingCalls?: Array<{
+    call?: import("../../lib/types").ToolCallEvent;
+    result?: import("../../lib/types").ToolResultEvent;
+  }>;
 }
 
 export function MessageItem(props: MessageItemProps) {
@@ -13,7 +16,8 @@ export function MessageItem(props: MessageItemProps) {
     <div
       class="py-3"
       classList={{
-        "pl-4 border-l-2 border-[var(--primary)]": props.message.role === "assistant",
+        "pl-4 border-l-2 border-[var(--primary)]":
+          props.message.role === "assistant",
       }}
     >
       <Show when={props.message.role === "user"}>

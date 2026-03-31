@@ -1,3 +1,4 @@
+import { BaseAdapter } from "../adapter.js";
 import type {
   ChatRequest,
   ChatResponse,
@@ -10,7 +11,6 @@ import type {
   ToolCall,
   Usage,
 } from "../types.js";
-import { BaseAdapter } from "../adapter.js";
 
 function toProviderMessage(msg: Message): unknown {
   const result: Record<string, unknown> = {
@@ -19,7 +19,7 @@ function toProviderMessage(msg: Message): unknown {
   };
 
   if (msg.toolCalls) {
-    result["tool_calls"] = msg.toolCalls.map((tc) => ({
+    result.tool_calls = msg.toolCalls.map((tc) => ({
       id: tc.id,
       type: "function",
       function: { name: tc.name, arguments: tc.arguments },
@@ -27,7 +27,7 @@ function toProviderMessage(msg: Message): unknown {
   }
 
   if (msg.toolCallId) {
-    result["tool_call_id"] = msg.toolCallId;
+    result.tool_call_id = msg.toolCallId;
   }
 
   return result;
@@ -58,33 +58,33 @@ function toProviderTools(tools: Tool[]): unknown[] {
 function parseUsage(raw: unknown): Usage {
   const u = raw as Record<string, unknown>;
   return {
-    promptTokens: (u["prompt_tokens"] as number) ?? 0,
-    completionTokens: (u["completion_tokens"] as number) ?? 0,
-    totalTokens: (u["total_tokens"] as number) ?? 0,
+    promptTokens: (u.prompt_tokens as number) ?? 0,
+    completionTokens: (u.completion_tokens as number) ?? 0,
+    totalTokens: (u.total_tokens as number) ?? 0,
   };
 }
 
 function parseToolCalls(raw: unknown): ToolCall[] {
   const calls = raw as Array<Record<string, unknown>>;
   return calls.map((tc) => {
-    const fn = tc["function"] as Record<string, unknown>;
+    const fn = tc.function as Record<string, unknown>;
     return {
-      id: tc["id"] as string,
-      name: fn["name"] as string,
-      arguments: fn["arguments"] as string,
+      id: tc.id as string,
+      name: fn.name as string,
+      arguments: fn.arguments as string,
     };
   });
 }
 
 function parseMessage(raw: unknown): Message {
   const m = raw as Record<string, unknown>;
-  const rawToolCalls = m["tool_calls"] as
+  const rawToolCalls = m.tool_calls as
     | Array<Record<string, unknown>>
     | undefined;
 
   return {
-    role: (m["role"] as Message["role"]) ?? "assistant",
-    content: (m["content"] as MessageContent) ?? "",
+    role: (m.role as Message["role"]) ?? "assistant",
+    content: (m.content as MessageContent) ?? "",
     ...(rawToolCalls ? { toolCalls: parseToolCalls(rawToolCalls) } : {}),
   };
 }
@@ -131,16 +131,16 @@ export class OpenAICompatAdapter extends BaseAdapter {
     };
 
     if (req.tools) {
-      body["tools"] = toProviderTools(req.tools);
+      body.tools = toProviderTools(req.tools);
     }
     if (req.temperature !== undefined) {
-      body["temperature"] = req.temperature;
+      body.temperature = req.temperature;
     }
     if (req.maxTokens !== undefined) {
-      body["max_tokens"] = req.maxTokens;
+      body.max_tokens = req.maxTokens;
     }
     if (req.stream !== undefined) {
-      body["stream"] = req.stream;
+      body.stream = req.stream;
     }
 
     return body;
@@ -148,16 +148,16 @@ export class OpenAICompatAdapter extends BaseAdapter {
 
   protected override transformResponse(raw: unknown): ChatResponse {
     const data = raw as Record<string, unknown>;
-    const choices = data["choices"] as Array<Record<string, unknown>>;
+    const choices = data.choices as Array<Record<string, unknown>>;
     const choice = choices[0] as Record<string, unknown>;
-    const message = parseMessage(choice["message"]);
-    const finishReason = (choice["finish_reason"] as FinishReason) ?? "stop";
+    const message = parseMessage(choice.message);
+    const finishReason = (choice.finish_reason as FinishReason) ?? "stop";
 
     return {
-      id: data["id"] as string,
-      model: data["model"] as string,
+      id: data.id as string,
+      model: data.model as string,
       message,
-      usage: parseUsage(data["usage"]),
+      usage: parseUsage(data.usage),
       finishReason,
     };
   }
@@ -166,43 +166,41 @@ export class OpenAICompatAdapter extends BaseAdapter {
     raw: unknown,
   ): ChatStreamChunk | null {
     const data = raw as Record<string, unknown>;
-    const choices = data["choices"] as
-      | Array<Record<string, unknown>>
-      | undefined;
+    const choices = data.choices as Array<Record<string, unknown>> | undefined;
     if (!choices || choices.length === 0) return null;
 
     const choice = choices[0] as Record<string, unknown>;
-    const delta = choice["delta"] as Record<string, unknown> | undefined;
+    const delta = choice.delta as Record<string, unknown> | undefined;
     if (!delta) return null;
 
     const result: ChatStreamChunk = {
       delta: {},
-      finishReason: (choice["finish_reason"] as FinishReason | null) ?? null,
+      finishReason: (choice.finish_reason as FinishReason | null) ?? null,
     };
 
-    if (typeof delta["content"] === "string") {
-      result.delta.content = delta["content"];
+    if (typeof delta.content === "string") {
+      result.delta.content = delta.content;
     }
 
-    const rawToolCalls = delta["tool_calls"] as
+    const rawToolCalls = delta.tool_calls as
       | Array<Record<string, unknown>>
       | undefined;
     if (rawToolCalls) {
       result.delta.toolCalls = rawToolCalls.map((tc, index) => {
-        const fn = tc["function"] as Record<string, unknown> | undefined;
+        const fn = tc.function as Record<string, unknown> | undefined;
         return {
-          index: (tc["index"] as number) ?? index,
-          ...(tc["id"] != null ? { id: tc["id"] as string } : {}),
-          ...(fn?.["name"] != null ? { name: fn["name"] as string } : {}),
-          ...(fn?.["arguments"] != null
-            ? { arguments: fn["arguments"] as string }
+          index: (tc.index as number) ?? index,
+          ...(tc.id != null ? { id: tc.id as string } : {}),
+          ...(fn?.name != null ? { name: fn.name as string } : {}),
+          ...(fn?.arguments != null
+            ? { arguments: fn.arguments as string }
             : {}),
         };
       });
     }
 
-    if (data["usage"]) {
-      result.usage = parseUsage(data["usage"]);
+    if (data.usage) {
+      result.usage = parseUsage(data.usage);
     }
 
     return result;

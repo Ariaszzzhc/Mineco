@@ -1,6 +1,11 @@
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
 import type { DatabaseIntrospector, Dialect, Driver } from "kysely";
-import { Kysely, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from "kysely";
+import {
+  type Kysely,
+  SqliteAdapter,
+  SqliteIntrospector,
+  SqliteQueryCompiler,
+} from "kysely";
 import { SqliteDriver } from "./driver.js";
 
 export class NodeSqliteDialect implements Dialect {

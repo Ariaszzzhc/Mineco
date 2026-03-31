@@ -1,5 +1,5 @@
-import { For, Show } from "solid-js";
 import { Trash2 } from "lucide-solid";
+import { For, Show } from "solid-js";
 import type { ProviderConfig } from "../../lib/types";
 import { configStore } from "../../stores/config";
 import { Button } from "../ui/button";
@@ -68,9 +68,7 @@ export function ProviderList() {
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    handleDelete(
-                      p.type === "zhipu" ? "zhipu" : p.id,
-                    )
+                    handleDelete(p.type === "zhipu" ? "zhipu" : p.id)
                   }
                 >
                   <Trash2 size={14} />

@@ -31,7 +31,11 @@ export async function* parseSSEStream(
 
     // Process remaining buffer
     const trimmed = buffer.trim();
-    if (trimmed !== "" && trimmed !== "data: [DONE]" && trimmed.startsWith("data: ")) {
+    if (
+      trimmed !== "" &&
+      trimmed !== "data: [DONE]" &&
+      trimmed.startsWith("data: ")
+    ) {
       yield trimmed.slice(6);
     }
   } finally {

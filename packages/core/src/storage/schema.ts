@@ -1,4 +1,4 @@
-import { Kysely, sql } from "kysely";
+import { type Kysely, sql } from "kysely";
 
 export interface Database {
   workspaces: {
@@ -58,5 +58,4 @@ export async function initializeSchema(db: Kysely<Database>): Promise<void> {
     usage TEXT,
     created_at INTEGER NOT NULL
   )`.execute(db);
-
 }

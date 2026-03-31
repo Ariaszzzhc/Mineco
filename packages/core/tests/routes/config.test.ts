@@ -1,9 +1,8 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
+import type { AppConfig } from "../../src/config/schema.js";
 import { createConfigRoutes } from "../../src/routes/config.js";
 import { createMockConfigService } from "../helper/mock-config-service.js";
-import type { ConfigService } from "../../src/config/service.js";
-import type { AppConfig } from "../../src/config/schema.js";
 
 function jsonHeaders(): Headers {
   return new Headers({ "Content-Type": "application/json" });
@@ -35,7 +34,14 @@ describe("Config Routes", () => {
   describe("PUT /", () => {
     it("should replace config and return masked version", async () => {
       const newConfig: AppConfig = {
-        providers: [{ type: "zhipu", apiKey: "new-key", platform: "cn", endpoint: "general" }],
+        providers: [
+          {
+            type: "zhipu",
+            apiKey: "new-key",
+            platform: "cn",
+            endpoint: "general",
+          },
+        ],
         settings: { defaultProvider: "zhipu" },
       };
       const res = await app.request("/", {
@@ -89,7 +95,14 @@ describe("Config Routes", () => {
     it("should remove provider and return 200", async () => {
       // Setup: config has a zhipu provider (id = "zhipu")
       configService = createMockConfigService({
-        providers: [{ type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" }],
+        providers: [
+          {
+            type: "zhipu",
+            apiKey: "test-key",
+            platform: "cn",
+            endpoint: "general",
+          },
+        ],
         settings: {},
       });
       app = createConfigRoutes(configService, mockRegistryModels);
@@ -135,7 +148,13 @@ describe("Config Routes", () => {
     it("should return 400 for invalid settings", async () => {
       configService.updateConfig = vi.fn(async () => {
         throw new ZodError([
-          { code: "invalid_type", expected: "string", input: 1, path: ["defaultProvider"], message: "Expected string" },
+          {
+            code: "invalid_type",
+            expected: "string",
+            input: 1,
+            path: ["defaultProvider"],
+            message: "Expected string",
+          },
         ]);
       });
 
@@ -156,7 +175,13 @@ describe("Config Routes", () => {
     it("should return 400 when PUT / fails Zod validation", async () => {
       configService.updateConfig = vi.fn(async () => {
         throw new ZodError([
-          { code: "invalid_type", expected: "string", input: undefined, path: ["providers"], message: "Required" },
+          {
+            code: "invalid_type",
+            expected: "string",
+            input: undefined,
+            path: ["providers"],
+            message: "Required",
+          },
         ]);
       });
 
@@ -174,7 +199,13 @@ describe("Config Routes", () => {
     it("should return 400 when POST /providers fails Zod validation", async () => {
       configService.updateConfig = vi.fn(async () => {
         throw new ZodError([
-          { code: "invalid_type", expected: "string", input: undefined, path: ["type"], message: "Required" },
+          {
+            code: "invalid_type",
+            expected: "string",
+            input: undefined,
+            path: ["type"],
+            message: "Required",
+          },
         ]);
       });
 

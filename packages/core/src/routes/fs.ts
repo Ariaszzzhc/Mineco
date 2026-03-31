@@ -1,9 +1,9 @@
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { browseFsSchema } from "../config/schema.js";
 import { readdirSync, statSync } from "node:fs";
-import { join, dirname, sep } from "node:path";
 import { homedir } from "node:os";
+import { dirname, join, sep } from "node:path";
+import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
+import { browseFsSchema } from "../config/schema.js";
 
 interface DirEntry {
   name: string;
@@ -17,8 +17,10 @@ interface BrowseResult {
 }
 
 export function createFsRoutes() {
-  return new Hono()
-    .get("/browse", zValidator("query", browseFsSchema), async (c) => {
+  return new Hono().get(
+    "/browse",
+    zValidator("query", browseFsSchema),
+    async (c) => {
       const { path: rawPath } = c.req.valid("query");
       const dirPath = rawPath || homedir();
 
@@ -52,7 +54,9 @@ export function createFsRoutes() {
       }
 
       // Sort alphabetically, case-insensitive
-      directories.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      directories.sort((a, b) =>
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+      );
 
       const root = getRootPath();
       const parentPath = resolved === root ? null : dirname(resolved);
@@ -64,7 +68,8 @@ export function createFsRoutes() {
       };
 
       return c.json(result);
-    });
+    },
+  );
 }
 
 function resolveDirPath(p: string): string {
@@ -77,5 +82,7 @@ function resolveDirPath(p: string): string {
 }
 
 function getRootPath(): string {
-  return sep === "/" ? "/" : process.env.SystemDrive?.replace("\\", "/") ?? "C:/";
+  return sep === "/"
+    ? "/"
+    : (process.env.SystemDrive?.replace("\\", "/") ?? "C:/");
 }

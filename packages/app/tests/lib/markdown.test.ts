@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockParse, mockSanitize, mockCodeToHtml, mockCreateHighlighter } =
   vi.hoisted(() => ({
@@ -28,7 +28,7 @@ vi.mock("shiki", () => ({
 }));
 
 // Import after mocks
-import { renderMarkdown, initHighlighter } from "../../src/lib/markdown";
+import { initHighlighter, renderMarkdown } from "../../src/lib/markdown";
 
 describe("renderMarkdown", () => {
   beforeEach(() => {
@@ -84,6 +84,8 @@ describe("initHighlighter", () => {
     initHighlighter();
     // Should not have added more calls since promise is cached
     // (or only 1 new call if this is the first invocation)
-    expect(mockCreateHighlighter.mock.calls.length).toBeLessThanOrEqual(callCount + 1);
+    expect(mockCreateHighlighter.mock.calls.length).toBeLessThanOrEqual(
+      callCount + 1,
+    );
   });
 });

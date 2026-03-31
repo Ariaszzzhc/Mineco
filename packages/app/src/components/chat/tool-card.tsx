@@ -1,5 +1,5 @@
 import { Collapsible } from "@ark-ui/solid";
-import { ChevronRight, CheckCircle, XCircle, Loader } from "lucide-solid";
+import { CheckCircle, ChevronRight, Loader, XCircle } from "lucide-solid";
 import { Show } from "solid-js";
 import type { ToolCallEvent, ToolResultEvent } from "../../lib/types";
 
@@ -37,7 +37,9 @@ export function ToolCard(props: ToolCardProps) {
       </Collapsible.Trigger>
       <Collapsible.Content>
         <div class="mt-1 rounded-lg border border-[var(--border)] bg-[var(--code-background)] p-3 text-xs">
-          <Show when={props.call?.args && Object.keys(props.call.args).length > 0}>
+          <Show
+            when={props.call?.args && Object.keys(props.call.args).length > 0}
+          >
             <div class="mb-2">
               <div class="mb-1 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
                 Arguments

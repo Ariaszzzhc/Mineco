@@ -1,7 +1,7 @@
 import type { ChatRequest, ModelInfo } from "../types.js";
-import { OpenAICompatAdapter } from "./openai-compat.js";
-import { ZhipuSubscriptionClient } from "../usage/zhipu-subscription.js";
 import type { SubscriptionClient } from "../usage/subscription.js";
+import { ZhipuSubscriptionClient } from "../usage/zhipu-subscription.js";
+import { OpenAICompatAdapter } from "./openai-compat.js";
 
 export type ZhipuPlatform = "cn" | "intl";
 export type ZhipuEndpoint = "general" | "coding";
@@ -112,8 +112,7 @@ export class ZhipuProvider extends OpenAICompatAdapter {
   readonly subscription: SubscriptionClient | null;
 
   constructor(config: string | ZhipuConfig) {
-    const resolved =
-      typeof config === "string" ? { apiKey: config } : config;
+    const resolved = typeof config === "string" ? { apiKey: config } : config;
 
     const platform = resolved.platform ?? "cn";
     const endpoint = resolved.endpoint ?? "general";
@@ -140,11 +139,11 @@ export class ZhipuProvider extends OpenAICompatAdapter {
     const opts = req.providerOptions as Record<string, unknown> | undefined;
 
     if (opts) {
-      if (opts["thinking"]) {
-        body["thinking"] = opts["thinking"];
+      if (opts.thinking) {
+        body.thinking = opts.thinking;
       }
-      if (opts["do_sample"] !== undefined) {
-        body["do_sample"] = opts["do_sample"];
+      if (opts.do_sample !== undefined) {
+        body.do_sample = opts.do_sample;
       }
     }
 

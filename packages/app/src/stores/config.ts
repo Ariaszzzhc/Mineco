@@ -7,7 +7,11 @@ type AppSettings = AppConfig["settings"];
 interface ConfigState {
   config: AppConfig | null;
   loading: boolean;
-  providerModels: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>;
+  providerModels: Array<{
+    id: string;
+    name: string;
+    models: Array<{ id: string; name: string }>;
+  }>;
 }
 
 const [state, setState] = createStore<ConfigState>({
@@ -48,7 +52,7 @@ function activeModel(): string | null {
   if (!providerId) return null;
   const providerMeta = state.providerModels.find((p) => p.id === providerId);
   if (providerMeta && providerMeta.models.length > 0) {
-    return providerMeta.models[0]!.id;
+    return providerMeta.models[0]?.id;
   }
   return null;
 }

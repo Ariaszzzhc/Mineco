@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { UsageTracker } from "../src/usage/tracker.js";
+import type { ModelInfo } from "../src/types.js";
 import { PricingDB } from "../src/usage/pricing.js";
-import type { ModelInfo, Usage } from "../src/types.js";
+import { UsageTracker } from "../src/usage/tracker.js";
 
 describe("UsageTracker", () => {
   it("should record and aggregate usage", () => {
@@ -26,10 +26,10 @@ describe("UsageTracker", () => {
     const stats = tracker.getStats();
     expect(stats.totalTokens).toBe(525);
 
-    expect(stats.byProvider["zhipu"]!.totalTokens).toBe(525);
-    expect(stats.byProvider["zhipu"]!.byModel["glm-5"]!.requests).toBe(2);
-    expect(stats.byProvider["zhipu"]!.byModel["glm-5"]!.promptTokens).toBe(300);
-    expect(stats.byProvider["zhipu"]!.byModel["glm-4.7"]!.requests).toBe(1);
+    expect(stats.byProvider.zhipu?.totalTokens).toBe(525);
+    expect(stats.byProvider.zhipu?.byModel["glm-5"]?.requests).toBe(2);
+    expect(stats.byProvider.zhipu?.byModel["glm-5"]?.promptTokens).toBe(300);
+    expect(stats.byProvider.zhipu?.byModel["glm-4.7"]?.requests).toBe(1);
   });
 
   it("should filter by provider", () => {
@@ -48,7 +48,7 @@ describe("UsageTracker", () => {
 
     const stats = tracker.getStats({ providerId: "zhipu" });
     expect(stats.totalTokens).toBe(150);
-    expect(stats.byProvider["deepseek"]).toBeUndefined();
+    expect(stats.byProvider.deepseek).toBeUndefined();
   });
 
   it("should filter by model", () => {
@@ -81,8 +81,8 @@ describe("UsageTracker", () => {
 
     const stats = tracker.getStats();
     expect(stats.totalCost).toBe(0.05);
-    expect(stats.byProvider["zhipu"]!.totalCost).toBe(0.05);
-    expect(stats.byProvider["zhipu"]!.byModel["glm-5"]!.cost).toBe(0.05);
+    expect(stats.byProvider.zhipu?.totalCost).toBe(0.05);
+    expect(stats.byProvider.zhipu?.byModel["glm-5"]?.cost).toBe(0.05);
   });
 
   it("should reset records", () => {

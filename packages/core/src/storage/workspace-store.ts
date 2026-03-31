@@ -1,6 +1,6 @@
-import { Kysely } from "kysely";
 import { randomUUID } from "node:crypto";
 import { basename } from "node:path";
+import type { Kysely } from "kysely";
 import type { Database } from "./schema.js";
 
 export interface Workspace {
@@ -88,11 +88,15 @@ export class SqliteWorkspaceStore {
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.deleteFrom("messages")
+    await this.db
+      .deleteFrom("messages")
       .innerJoin("sessions", "messages.session_id", "sessions.id")
       .where("sessions.workspace_id", "=", id)
       .execute();
-    await this.db.deleteFrom("sessions").where("workspace_id", "=", id).execute();
+    await this.db
+      .deleteFrom("sessions")
+      .where("workspace_id", "=", id)
+      .execute();
     await this.db.deleteFrom("workspaces").where("id", "=", id).execute();
   }
 }

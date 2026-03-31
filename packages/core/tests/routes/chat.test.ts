@@ -1,8 +1,8 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { Session, SessionMessage } from "@mineco/agent";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SqliteWorkspaceStore } from "../../src/storage/workspace-store.js";
-import { createMockSessionStore } from "../helper/mock-session-store.js";
 import { createMockProviderRegistry } from "../helper/mock-provider-registry.js";
+import { createMockSessionStore } from "../helper/mock-session-store.js";
 import { collectSSEEvents } from "../helper/sse-helpers.js";
 
 // vi.hoisted runs before vi.mock factory but after module hoisting
@@ -74,7 +74,11 @@ describe("Chat Routes", () => {
     store = createMockSessionStore();
     registry = createMockProviderRegistry();
     workspaceStore = createMockWorkspaceStore();
-    app = createChatRoutes(registry, store, workspaceStore as unknown as SqliteWorkspaceStore);
+    app = createChatRoutes(
+      registry,
+      store,
+      workspaceStore as unknown as SqliteWorkspaceStore,
+    );
   });
 
   describe("validation", () => {
@@ -126,7 +130,11 @@ describe("Chat Routes", () => {
     it("should return 404 when session does not exist", async () => {
       const res = await app.request("/non-existent/chat", {
         method: "POST",
-        body: JSON.stringify({ message: "hello", providerId: "zhipu", model: "glm-4" }),
+        body: JSON.stringify({
+          message: "hello",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
         headers: jsonHeaders(),
       });
       expect(res.status).toBe(404);
@@ -136,7 +144,9 @@ describe("Chat Routes", () => {
   });
 
   describe("SSE streaming", () => {
-    async function* mockStream(events: Array<{ type: string; [key: string]: unknown }>) {
+    async function* mockStream(
+      events: Array<{ type: string; [key: string]: unknown }>,
+    ) {
       for (const event of events) {
         yield event;
       }
@@ -144,13 +154,17 @@ describe("Chat Routes", () => {
 
     it("should return 200 with text/event-stream content type", async () => {
       store.get = vi.fn(async () => createTestSession());
-      mockRun.mockReturnValue(mockStream([
-        { type: "complete", reason: "stop" },
-      ]));
+      mockRun.mockReturnValue(
+        mockStream([{ type: "complete", reason: "stop" }]),
+      );
 
       const res = await app.request("/test-session-id/chat", {
         method: "POST",
-        body: JSON.stringify({ message: "hello", providerId: "zhipu", model: "glm-4" }),
+        body: JSON.stringify({
+          message: "hello",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
         headers: jsonHeaders(),
       });
 
@@ -160,13 +174,17 @@ describe("Chat Routes", () => {
 
     it("should save user message before streaming", async () => {
       store.get = vi.fn(async () => createTestSession());
-      mockRun.mockReturnValue(mockStream([
-        { type: "complete", reason: "stop" },
-      ]));
+      mockRun.mockReturnValue(
+        mockStream([{ type: "complete", reason: "stop" }]),
+      );
 
       const res = await app.request("/test-session-id/chat", {
         method: "POST",
-        body: JSON.stringify({ message: "hello", providerId: "zhipu", model: "glm-4" }),
+        body: JSON.stringify({
+          message: "hello",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
         headers: jsonHeaders(),
       });
       // Must consume the streaming body
@@ -184,35 +202,53 @@ describe("Chat Routes", () => {
 
     it("should stream text-delta events correctly", async () => {
       store.get = vi.fn(async () => createTestSession());
-      mockRun.mockReturnValue(mockStream([
-        { type: "text-delta", delta: "Hello" },
-        { type: "text-delta", delta: " world" },
-        { type: "complete", reason: "stop" },
-      ]));
+      mockRun.mockReturnValue(
+        mockStream([
+          { type: "text-delta", delta: "Hello" },
+          { type: "text-delta", delta: " world" },
+          { type: "complete", reason: "stop" },
+        ]),
+      );
 
       const res = await app.request("/test-session-id/chat", {
         method: "POST",
-        body: JSON.stringify({ message: "hi", providerId: "zhipu", model: "glm-4" }),
+        body: JSON.stringify({
+          message: "hi",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
         headers: jsonHeaders(),
       });
 
       const events = await collectSSEEvents(res);
       const textDeltas = events.filter((e) => e.event === "text-delta");
       expect(textDeltas).toHaveLength(2);
-      expect(textDeltas[0]!.data).toEqual({ type: "text-delta", delta: "Hello" });
-      expect(textDeltas[1]!.data).toEqual({ type: "text-delta", delta: " world" });
+      expect(textDeltas[0]?.data).toEqual({
+        type: "text-delta",
+        delta: "Hello",
+      });
+      expect(textDeltas[1]?.data).toEqual({
+        type: "text-delta",
+        delta: " world",
+      });
     });
 
     it("should save assistant message on complete", async () => {
       store.get = vi.fn(async () => createTestSession());
-      mockRun.mockReturnValue(mockStream([
-        { type: "text-delta", delta: "Hello world" },
-        { type: "complete", reason: "stop" },
-      ]));
+      mockRun.mockReturnValue(
+        mockStream([
+          { type: "text-delta", delta: "Hello world" },
+          { type: "complete", reason: "stop" },
+        ]),
+      );
 
       const res = await app.request("/test-session-id/chat", {
         method: "POST",
-        body: JSON.stringify({ message: "hi", providerId: "zhipu", model: "glm-4" }),
+        body: JSON.stringify({
+          message: "hi",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
         headers: jsonHeaders(),
       });
       // Must consume the streaming body to trigger the streamSSE callback
@@ -228,21 +264,40 @@ describe("Chat Routes", () => {
         },
       );
       expect(assistantCall).toBeDefined();
-      expect((assistantCall![1] as SessionMessage).content).toBe("Hello world");
+      expect((assistantCall?.[1] as SessionMessage).content).toBe(
+        "Hello world",
+      );
     });
 
     it("should save tool messages on complete", async () => {
       store.get = vi.fn(async () => createTestSession());
-      mockRun.mockReturnValue(mockStream([
-        { type: "text-delta", delta: "" },
-        { type: "tool-call", toolCallId: "call-1", toolName: "readFile", args: { file_path: "/tmp/test" } },
-        { type: "tool-result", toolCallId: "call-1", toolName: "readFile", result: "file content", isError: false },
-        { type: "complete", reason: "stop" },
-      ]));
+      mockRun.mockReturnValue(
+        mockStream([
+          { type: "text-delta", delta: "" },
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "readFile",
+            args: { file_path: "/tmp/test" },
+          },
+          {
+            type: "tool-result",
+            toolCallId: "call-1",
+            toolName: "readFile",
+            result: "file content",
+            isError: false,
+          },
+          { type: "complete", reason: "stop" },
+        ]),
+      );
 
       const res = await app.request("/test-session-id/chat", {
         method: "POST",
-        body: JSON.stringify({ message: "read a file", providerId: "zhipu", model: "glm-4" }),
+        body: JSON.stringify({
+          message: "read a file",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
         headers: jsonHeaders(),
       });
       // Must consume the streaming body
@@ -251,26 +306,45 @@ describe("Chat Routes", () => {
       // user message + assistant text (empty, but text-delta was emitted before tool-call)
       // currentText is "" when tool-call arrives, so no assistant message for empty text
       // tool messages are saved on complete
-      const toolMsgs = (store.addMessage as ReturnType<typeof vi.fn>).mock.calls.filter(
+      const toolMsgs = (
+        store.addMessage as ReturnType<typeof vi.fn>
+      ).mock.calls.filter(
         (call: unknown[]) => (call[1] as SessionMessage).role === "tool",
       );
       expect(toolMsgs.length).toBe(1);
-      expect((toolMsgs[0]![1] as SessionMessage).toolName).toBe("readFile");
+      expect((toolMsgs[0]?.[1] as SessionMessage).toolName).toBe("readFile");
     });
 
     it("should save assistant text before tool-call event", async () => {
       store.get = vi.fn(async () => createTestSession());
-      mockRun.mockReturnValue(mockStream([
-        { type: "text-delta", delta: "Let me" },
-        { type: "text-delta", delta: " read that file" },
-        { type: "tool-call", toolCallId: "call-1", toolName: "readFile", args: { file_path: "/tmp/test" } },
-        { type: "tool-result", toolCallId: "call-1", toolName: "readFile", result: "file content", isError: false },
-        { type: "complete", reason: "stop" },
-      ]));
+      mockRun.mockReturnValue(
+        mockStream([
+          { type: "text-delta", delta: "Let me" },
+          { type: "text-delta", delta: " read that file" },
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "readFile",
+            args: { file_path: "/tmp/test" },
+          },
+          {
+            type: "tool-result",
+            toolCallId: "call-1",
+            toolName: "readFile",
+            result: "file content",
+            isError: false,
+          },
+          { type: "complete", reason: "stop" },
+        ]),
+      );
 
       const res = await app.request("/test-session-id/chat", {
         method: "POST",
-        body: JSON.stringify({ message: "hi", providerId: "zhipu", model: "glm-4" }),
+        body: JSON.stringify({
+          message: "hi",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
         headers: jsonHeaders(),
       });
       await res.text();
@@ -280,7 +354,9 @@ describe("Chat Routes", () => {
         (call: unknown[]) => (call[1] as SessionMessage).role === "assistant",
       );
       expect(assistantMsgs.length).toBe(1);
-      expect((assistantMsgs[0]![1] as SessionMessage).content).toBe("Let me read that file");
+      expect((assistantMsgs[0]?.[1] as SessionMessage).content).toBe(
+        "Let me read that file",
+      );
     });
 
     it("should send error event when agent loop throws", async () => {
@@ -291,7 +367,11 @@ describe("Chat Routes", () => {
 
       const res = await app.request("/test-session-id/chat", {
         method: "POST",
-        body: JSON.stringify({ message: "hi", providerId: "zhipu", model: "glm-4" }),
+        body: JSON.stringify({
+          message: "hi",
+          providerId: "zhipu",
+          model: "glm-4",
+        }),
         headers: jsonHeaders(),
       });
 
@@ -299,7 +379,7 @@ describe("Chat Routes", () => {
       const events = await collectSSEEvents(res);
       const errorEvent = events.find((e) => e.event === "error");
       expect(errorEvent).toBeDefined();
-      const data = errorEvent!.data as { type: string; error: string };
+      const data = errorEvent?.data as { type: string; error: string };
       expect(data.type).toBe("error");
       expect(data.error).toContain("Provider error");
     });

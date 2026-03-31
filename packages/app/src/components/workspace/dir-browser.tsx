@@ -1,4 +1,4 @@
-import { createSignal, onMount, For, Show } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
 import { api } from "../../lib/api-client";
 import { Button } from "../ui/button";
 
@@ -60,8 +60,19 @@ export function DirBrowser(props: DirBrowserProps) {
             onClick={props.onClose}
             class="rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--hover)]"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M4 4l8 8M12 4l-8 8"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
             </svg>
           </button>
         </div>
@@ -75,8 +86,20 @@ export function DirBrowser(props: DirBrowserProps) {
               class="rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--hover)]"
               aria-label="Go up"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M10 12L6 8l4-4"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
             </button>
           </Show>
@@ -91,10 +114,14 @@ export function DirBrowser(props: DirBrowserProps) {
             <div class="px-3 py-2 text-xs text-[var(--error)]">{error()}</div>
           </Show>
           <Show when={loading()}>
-            <div class="px-3 py-2 text-xs text-[var(--text-muted)]">Loading...</div>
+            <div class="px-3 py-2 text-xs text-[var(--text-muted)]">
+              Loading...
+            </div>
           </Show>
           <Show when={!loading() && directories().length === 0}>
-            <div class="px-3 py-2 text-xs text-[var(--text-muted)]">No directories found</div>
+            <div class="px-3 py-2 text-xs text-[var(--text-muted)]">
+              No directories found
+            </div>
           </Show>
           <For each={directories()}>
             {(dir) => (
@@ -103,8 +130,18 @@ export function DirBrowser(props: DirBrowserProps) {
                 onClick={() => navigateTo(dir.path)}
                 class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path d="M2 4.5A1.5 1.5 0 013.5 3h3.172a1.5 1.5 0 011.06.44l.94.94H12.5A1.5 1.5 0 0114 5.88v5.62a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 11.5V4.5z" fill="currentColor" opacity="0.4" />
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M2 4.5A1.5 1.5 0 013.5 3h3.172a1.5 1.5 0 011.06.44l.94.94H12.5A1.5 1.5 0 0114 5.88v5.62a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 11.5V4.5z"
+                    fill="currentColor"
+                    opacity="0.4"
+                  />
                 </svg>
                 <span class="truncate">{dir.name}</span>
               </button>

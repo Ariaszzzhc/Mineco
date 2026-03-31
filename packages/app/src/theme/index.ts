@@ -1,4 +1,4 @@
-import { type ThemeTokens, lightTokens } from "./tokens";
+import { lightTokens, type ThemeTokens } from "./tokens";
 
 export type { ThemeTokens };
 export { lightTokens };

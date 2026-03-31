@@ -1,7 +1,7 @@
-import { onMount, type JSX } from "solid-js";
+import { type JSX, onMount } from "solid-js";
+import { configStore } from "../../stores/config";
 import { Sidebar } from "./sidebar";
 import { StatusBar } from "./status-bar";
-import { configStore } from "../../stores/config";
 
 async function loadConfigWithRetry() {
   for (let i = 0; i < 30; i++) {

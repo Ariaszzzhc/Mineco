@@ -13,15 +13,17 @@ describe("defineTool", () => {
   });
 
   it("passes through valid arguments", async () => {
-    const result = await testTool.execute({ value: 42 }, { workingDir: "/tmp" });
+    const result = await testTool.execute(
+      { value: 42 },
+      { workingDir: "/tmp" },
+    );
     expect(result).toEqual({ output: "got 42" });
   });
 
   it("returns isError with field path on Zod validation failure", async () => {
-    const result = await testTool.execute(
-      { value: -1 } as never,
-      { workingDir: "/tmp" },
-    );
+    const result = await testTool.execute({ value: -1 } as never, {
+      workingDir: "/tmp",
+    });
     expect(result.isError).toBe(true);
     expect(result.output).toContain("value");
   });

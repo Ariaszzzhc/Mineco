@@ -35,9 +35,7 @@ describe("parseSSEStream", () => {
   });
 
   it("should stop at [DONE]", async () => {
-    const stream = toStream([
-      'data: {"content":"hi"}\n\ndata: [DONE]\n\n',
-    ]);
+    const stream = toStream(['data: {"content":"hi"}\n\ndata: [DONE]\n\n']);
     const results: string[] = [];
     for await (const chunk of parseSSEStream(stream)) {
       results.push(chunk);
@@ -46,9 +44,7 @@ describe("parseSSEStream", () => {
   });
 
   it("should skip empty lines and comments", async () => {
-    const stream = toStream([
-      ': comment\n\ndata: {"ok":true}\n\n\n',
-    ]);
+    const stream = toStream([': comment\n\ndata: {"ok":true}\n\n\n']);
     const results: string[] = [];
     for await (const chunk of parseSSEStream(stream)) {
       results.push(chunk);
@@ -57,10 +53,7 @@ describe("parseSSEStream", () => {
   });
 
   it("should handle split chunks", async () => {
-    const stream = toStream([
-      'data: {"con',
-      'tent":"split"}\n\n',
-    ]);
+    const stream = toStream(['data: {"con', 'tent":"split"}\n\n']);
     const results: string[] = [];
     for await (const chunk of parseSSEStream(stream)) {
       results.push(chunk);

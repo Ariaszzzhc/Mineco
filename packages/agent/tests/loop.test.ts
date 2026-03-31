@@ -1,15 +1,15 @@
+import type { ProviderRegistry } from "@mineco/provider";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { ProviderRegistry } from "@mineco/provider";
-import { ToolRegistry } from "../src/tools/registry.js";
 import { AgentLoop } from "../src/loop.js";
-import type { AgentConfig } from "../src/types.js";
 import type { Session } from "../src/session/types.js";
+import { ToolRegistry } from "../src/tools/registry.js";
+import type { AgentConfig } from "../src/types.js";
 import {
+  finishChunk,
   mockProvider,
   textChunk,
   toolCallDelta,
-  finishChunk,
 } from "./helper/mock-provider.js";
 
 function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
@@ -84,7 +84,10 @@ describe("AgentLoop", () => {
           { type: "step", step: 1, maxSteps: 5 },
           { type: "text-delta", delta: "Hello" },
           { type: "text-delta", delta: " world" },
-          { type: "usage", usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 } },
+          {
+            type: "usage",
+            usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+          },
           { type: "complete", reason: "stop" },
         ]),
       );
@@ -111,13 +114,14 @@ describe("AgentLoop", () => {
     it("executes tool and continues the loop", async () => {
       const provider = mockProvider(
         [
-          toolCallDelta(0, { id: "tc1", name: "echo", arguments: '{"input":"x"}' }),
+          toolCallDelta(0, {
+            id: "tc1",
+            name: "echo",
+            arguments: '{"input":"x"}',
+          }),
           finishChunk("tool_calls"),
         ],
-        [
-          textChunk("Done"),
-          finishChunk("stop"),
-        ],
+        [textChunk("Done"), finishChunk("stop")],
       );
 
       const toolReg = new ToolRegistry();
@@ -128,18 +132,27 @@ describe("AgentLoop", () => {
 
       const types = events.map((e) => e.type);
       expect(types).toEqual([
-        "step", "tool-call", "tool-result",
-        "step", "text-delta", "complete",
+        "step",
+        "tool-call",
+        "tool-result",
+        "step",
+        "text-delta",
+        "complete",
       ]);
     });
 
     it("yields tool-call and tool-result events with correct data", async () => {
-      const provider = mockProvider([
-        toolCallDelta(0, { id: "tc1", name: "echo", arguments: '{"input":"hi"}' }),
-        finishChunk("tool_calls"),
-      ], [
-        finishChunk("stop"),
-      ]);
+      const provider = mockProvider(
+        [
+          toolCallDelta(0, {
+            id: "tc1",
+            name: "echo",
+            arguments: '{"input":"hi"}',
+          }),
+          finishChunk("tool_calls"),
+        ],
+        [finishChunk("stop")],
+      );
 
       const toolReg = new ToolRegistry();
       registerEcho(toolReg);
@@ -166,13 +179,14 @@ describe("AgentLoop", () => {
     });
 
     it("handles multiple tool calls in one step", async () => {
-      const provider = mockProvider([
-        toolCallDelta(0, { id: "tc1", name: "a", arguments: '{}' }),
-        toolCallDelta(1, { id: "tc2", name: "b", arguments: '{}' }),
-        finishChunk("tool_calls"),
-      ], [
-        finishChunk("stop"),
-      ]);
+      const provider = mockProvider(
+        [
+          toolCallDelta(0, { id: "tc1", name: "a", arguments: "{}" }),
+          toolCallDelta(1, { id: "tc2", name: "b", arguments: "{}" }),
+          finishChunk("tool_calls"),
+        ],
+        [finishChunk("stop")],
+      );
 
       const toolReg = new ToolRegistry();
       registerEcho(toolReg, "a");
@@ -190,14 +204,15 @@ describe("AgentLoop", () => {
 
   describe("partial tool call assembly", () => {
     it("accumulates arguments across multiple chunks by index", async () => {
-      const provider = mockProvider([
-        toolCallDelta(0, { id: "tc1", name: "echo" }),
-        toolCallDelta(0, { arguments: '{"in' }),
-        toolCallDelta(0, { arguments: 'put":"x"}' }),
-        finishChunk("tool_calls"),
-      ], [
-        finishChunk("stop"),
-      ]);
+      const provider = mockProvider(
+        [
+          toolCallDelta(0, { id: "tc1", name: "echo" }),
+          toolCallDelta(0, { arguments: '{"in' }),
+          toolCallDelta(0, { arguments: 'put":"x"}' }),
+          finishChunk("tool_calls"),
+        ],
+        [finishChunk("stop")],
+      );
 
       const toolReg = new ToolRegistry();
       registerEcho(toolReg);
@@ -213,9 +228,18 @@ describe("AgentLoop", () => {
   describe("max steps", () => {
     it("stops at maxSteps with complete:max-steps", async () => {
       const provider = mockProvider(
-        [toolCallDelta(0, { id: "tc1", name: "echo", arguments: '{}' }), finishChunk("tool_calls")],
-        [toolCallDelta(0, { id: "tc2", name: "echo", arguments: '{}' }), finishChunk("tool_calls")],
-        [toolCallDelta(0, { id: "tc3", name: "echo", arguments: '{}' }), finishChunk("tool_calls")],
+        [
+          toolCallDelta(0, { id: "tc1", name: "echo", arguments: "{}" }),
+          finishChunk("tool_calls"),
+        ],
+        [
+          toolCallDelta(0, { id: "tc2", name: "echo", arguments: "{}" }),
+          finishChunk("tool_calls"),
+        ],
+        [
+          toolCallDelta(0, { id: "tc3", name: "echo", arguments: "{}" }),
+          finishChunk("tool_calls"),
+        ],
       );
 
       const toolReg = new ToolRegistry();
@@ -238,7 +262,8 @@ describe("AgentLoop", () => {
       const provider: ReturnType<typeof mockProvider> = {
         id: "test",
         name: "test",
-        chatStream: async function* () {
+        // biome-ignore lint/correctness/useYield: intentionally throws before yielding
+        chatStream: async function* (_req) {
           throw new Error("stream failed");
         },
         chat: () => {

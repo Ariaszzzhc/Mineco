@@ -4,15 +4,9 @@
     "noEmit": true,
     "target": "ESNext",
     "module": "NodeNext",
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx"
   },
-  "include": [
-    "src",
-    "tests",
-    "vitest.config.ts"
-  ]
+  "include": ["src", "tests", "vitest.config.ts"]
 }

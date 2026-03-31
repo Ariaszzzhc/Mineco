@@ -1,8 +1,8 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { Kysely } from "kysely";
 import type { SessionMessage } from "@mineco/agent";
-import { SqliteSessionStore } from "../../src/storage/session-store.js";
+import type { Kysely } from "kysely";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../../src/storage/schema.js";
+import { SqliteSessionStore } from "../../src/storage/session-store.js";
 import { createTestDb } from "../helper/test-db.js";
 
 const TEST_WORKSPACE_ID = "test-workspace";
@@ -19,13 +19,16 @@ describe("SqliteSessionStore", () => {
     store = new SqliteSessionStore(db);
 
     // Create a workspace for foreign key constraint
-    await db.insertInto("workspaces").values({
-      id: TEST_WORKSPACE_ID,
-      path: "/test/workspace",
-      name: "test-workspace",
-      last_opened_at: Date.now(),
-      created_at: Date.now(),
-    }).execute();
+    await db
+      .insertInto("workspaces")
+      .values({
+        id: TEST_WORKSPACE_ID,
+        path: "/test/workspace",
+        name: "test-workspace",
+        last_opened_at: Date.now(),
+        created_at: Date.now(),
+      })
+      .execute();
   });
 
   afterEach(async () => {
@@ -46,7 +49,7 @@ describe("SqliteSessionStore", () => {
       const created = await store.create(TEST_WORKSPACE_ID);
       const fetched = await store.get(created.id);
       expect(fetched).toBeDefined();
-      expect(fetched!.id).toBe(created.id);
+      expect(fetched?.id).toBe(created.id);
     });
   });
 
@@ -75,9 +78,9 @@ describe("SqliteSessionStore", () => {
 
       const result = await store.get(session.id);
       expect(result).toBeDefined();
-      expect(result!.messages).toHaveLength(2);
-      expect(result!.messages[0]!.id).toBe("msg-1");
-      expect(result!.messages[1]!.id).toBe("msg-2");
+      expect(result?.messages).toHaveLength(2);
+      expect(result?.messages[0]?.id).toBe("msg-1");
+      expect(result?.messages[1]?.id).toBe("msg-2");
     });
 
     it("should map tool_calls from JSON", async () => {
@@ -99,8 +102,12 @@ describe("SqliteSessionStore", () => {
       await store.addMessage(session.id, msg);
 
       const result = await store.get(session.id);
-      expect(result!.messages[0]!.toolCalls).toEqual([
-        { id: "call-1", name: "readFile", arguments: JSON.stringify({ file_path: "/tmp/test.txt" }) },
+      expect(result?.messages[0]?.toolCalls).toEqual([
+        {
+          id: "call-1",
+          name: "readFile",
+          arguments: JSON.stringify({ file_path: "/tmp/test.txt" }),
+        },
       ]);
     });
 
@@ -116,7 +123,7 @@ describe("SqliteSessionStore", () => {
       await store.addMessage(session.id, errMsg);
 
       const result = await store.get(session.id);
-      expect(result!.messages[0]!.isError).toBe(true);
+      expect(result?.messages[0]?.isError).toBe(true);
     });
 
     it("should not set isError when is_error is 0", async () => {
@@ -130,7 +137,7 @@ describe("SqliteSessionStore", () => {
       await store.addMessage(session.id, msg);
 
       const result = await store.get(session.id);
-      expect(result!.messages[0]!.isError).toBeUndefined();
+      expect(result?.messages[0]?.isError).toBeUndefined();
     });
 
     it("should map usage from JSON", async () => {
@@ -145,7 +152,7 @@ describe("SqliteSessionStore", () => {
       await store.addMessage(session.id, msg);
 
       const result = await store.get(session.id);
-      expect(result!.messages[0]!.usage).toEqual({
+      expect(result?.messages[0]?.usage).toEqual({
         promptTokens: 100,
         completionTokens: 50,
         totalTokens: 150,
@@ -175,8 +182,8 @@ describe("SqliteSessionStore", () => {
       expect(sessions).toHaveLength(2);
       // s2 was created later but s1 has been updated via addMessage
       // s2's updated_at >= s1's createdAt + addMessage update
-      expect(sessions[0]!.id).toBe(s2.id);
-      expect(sessions[1]!.id).toBe(s1.id);
+      expect(sessions[0]?.id).toBe(s2.id);
+      expect(sessions[1]?.id).toBe(s1.id);
     });
 
     it("should not include messages in listed sessions", async () => {
@@ -189,7 +196,7 @@ describe("SqliteSessionStore", () => {
       });
 
       const sessions = await store.list();
-      expect(sessions[0]!.messages).toEqual([]);
+      expect(sessions[0]?.messages).toEqual([]);
     });
   });
 
@@ -209,8 +216,8 @@ describe("SqliteSessionStore", () => {
       });
 
       const result = await store.get(session.id);
-      expect(result!.messages).toHaveLength(1);
-      expect(result!.updatedAt).toBeGreaterThanOrEqual(originalUpdatedAt);
+      expect(result?.messages).toHaveLength(1);
+      expect(result?.updatedAt).toBeGreaterThanOrEqual(originalUpdatedAt);
     });
 
     it("should store tool_call_id and tool_name", async () => {
@@ -226,8 +233,8 @@ describe("SqliteSessionStore", () => {
       await store.addMessage(session.id, msg);
 
       const result = await store.get(session.id);
-      expect(result!.messages[0]!.toolCallId).toBe("call-123");
-      expect(result!.messages[0]!.toolName).toBe("readFile");
+      expect(result?.messages[0]?.toolCallId).toBe("call-123");
+      expect(result?.messages[0]?.toolName).toBe("readFile");
     });
 
     it("should store usage as JSON", async () => {
@@ -242,7 +249,7 @@ describe("SqliteSessionStore", () => {
       await store.addMessage(session.id, msg);
 
       const result = await store.get(session.id);
-      expect(result!.messages[0]!.usage).toEqual({
+      expect(result?.messages[0]?.usage).toEqual({
         promptTokens: 200,
         completionTokens: 100,
         totalTokens: 300,
@@ -262,14 +269,19 @@ describe("SqliteSessionStore", () => {
 
       const newMessages: SessionMessage[] = [
         { id: "new-1", role: "user", content: "new msg 1", createdAt: 2000 },
-        { id: "new-2", role: "assistant", content: "new msg 2", createdAt: 3000 },
+        {
+          id: "new-2",
+          role: "assistant",
+          content: "new msg 2",
+          createdAt: 3000,
+        },
       ];
       await store.updateMessages(session.id, newMessages);
 
       const result = await store.get(session.id);
-      expect(result!.messages).toHaveLength(2);
-      expect(result!.messages[0]!.id).toBe("new-1");
-      expect(result!.messages[1]!.id).toBe("new-2");
+      expect(result?.messages).toHaveLength(2);
+      expect(result?.messages[0]?.id).toBe("new-1");
+      expect(result?.messages[1]?.id).toBe("new-2");
     });
 
     it("should delete all messages when empty array", async () => {
@@ -284,7 +296,7 @@ describe("SqliteSessionStore", () => {
       await store.updateMessages(session.id, []);
 
       const result = await store.get(session.id);
-      expect(result!.messages).toEqual([]);
+      expect(result?.messages).toEqual([]);
     });
 
     it("should update session updated_at", async () => {
@@ -294,11 +306,16 @@ describe("SqliteSessionStore", () => {
       await new Promise((r) => setTimeout(r, 10));
 
       await store.updateMessages(session.id, [
-        { id: "new-1", role: "user", content: "updated", createdAt: Date.now() },
+        {
+          id: "new-1",
+          role: "user",
+          content: "updated",
+          createdAt: Date.now(),
+        },
       ]);
 
       const result = await store.get(session.id);
-      expect(result!.updatedAt).toBeGreaterThanOrEqual(originalUpdatedAt);
+      expect(result?.updatedAt).toBeGreaterThanOrEqual(originalUpdatedAt);
     });
   });
 

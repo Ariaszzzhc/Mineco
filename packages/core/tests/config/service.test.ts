@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { ConfigService } from "../../src/config/service.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppConfig } from "../../src/config/schema.js";
+import { ConfigService } from "../../src/config/service.js";
 import { createMockProviderRegistry } from "../helper/mock-provider-registry.js";
 
 // Mock loader to avoid filesystem writes
@@ -28,7 +28,12 @@ describe("ConfigService", () => {
     it("should use provided config", () => {
       const config: AppConfig = {
         providers: [
-          { type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" },
+          {
+            type: "zhipu",
+            apiKey: "test-key",
+            platform: "cn",
+            endpoint: "general",
+          },
         ],
         settings: { defaultProvider: "zhipu" },
       };
@@ -40,7 +45,14 @@ describe("ConfigService", () => {
   describe("getMaskedConfig()", () => {
     it("should mask API keys in zhipu providers", () => {
       const config: AppConfig = {
-        providers: [{ type: "zhipu", apiKey: "sk-proj-abcdef123456", platform: "cn", endpoint: "general" }],
+        providers: [
+          {
+            type: "zhipu",
+            apiKey: "sk-proj-abcdef123456",
+            platform: "cn",
+            endpoint: "general",
+          },
+        ],
         settings: {},
       };
       const service = new ConfigService(registry, config);
@@ -53,21 +65,36 @@ describe("ConfigService", () => {
 
     it("should not mutate the original config", () => {
       const config: AppConfig = {
-        providers: [{ type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" }],
+        providers: [
+          {
+            type: "zhipu",
+            apiKey: "test-key",
+            platform: "cn",
+            endpoint: "general",
+          },
+        ],
         settings: {},
       };
       const service = new ConfigService(registry, config);
       service.getMaskedConfig();
-      expect(service.getConfig().providers[0]!.type === "zhipu" && service.getConfig().providers[0]!.apiKey).toBe(
-        "test-key",
-      );
+      expect(
+        service.getConfig().providers[0]?.type === "zhipu" &&
+          service.getConfig().providers[0]?.apiKey,
+      ).toBe("test-key");
     });
   });
 
   describe("getConfig()", () => {
     it("should return raw (unmasked) config", () => {
       const config: AppConfig = {
-        providers: [{ type: "zhipu", apiKey: "raw-api-key", platform: "cn", endpoint: "general" }],
+        providers: [
+          {
+            type: "zhipu",
+            apiKey: "raw-api-key",
+            platform: "cn",
+            endpoint: "general",
+          },
+        ],
         settings: {},
       };
       const service = new ConfigService(registry, config);
@@ -83,7 +110,14 @@ describe("ConfigService", () => {
     it("should validate, save and return masked config", async () => {
       const service = new ConfigService(registry);
       const updated = await service.updateConfig({
-        providers: [{ type: "zhipu", apiKey: "new-key", platform: "cn", endpoint: "general" }],
+        providers: [
+          {
+            type: "zhipu",
+            apiKey: "new-key",
+            platform: "cn",
+            endpoint: "general",
+          },
+        ],
         settings: { defaultProvider: "zhipu" },
       });
 
@@ -104,7 +138,12 @@ describe("ConfigService", () => {
       const service = new ConfigService(registry);
       await service.updateConfig({
         providers: [
-          { type: "zhipu", apiKey: "key1", platform: "cn", endpoint: "general" },
+          {
+            type: "zhipu",
+            apiKey: "key1",
+            platform: "cn",
+            endpoint: "general",
+          },
           {
             type: "openai-compatible",
             id: "ollama",

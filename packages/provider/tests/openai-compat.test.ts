@@ -45,10 +45,10 @@ describe("OpenAICompatAdapter", () => {
     ).transformRequest(req);
 
     const body = transformed as Record<string, unknown>;
-    expect(body["model"]).toBe("test-model");
-    expect(body["temperature"]).toBe(0.7);
-    expect(body["stream"]).toBeUndefined();
-    expect(body["messages"]).toEqual([{ role: "user", content: "Hello" }]);
+    expect(body.model).toBe("test-model");
+    expect(body.temperature).toBe(0.7);
+    expect(body.stream).toBeUndefined();
+    expect(body.messages).toEqual([{ role: "user", content: "Hello" }]);
   });
 
   it("should transform response correctly", () => {

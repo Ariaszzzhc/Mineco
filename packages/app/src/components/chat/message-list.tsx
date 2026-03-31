@@ -1,9 +1,9 @@
-import { For, Show, createEffect, on } from "solid-js";
-import type { SessionMessage } from "../../lib/types";
+import { createEffect, For, on, Show } from "solid-js";
 import { renderMarkdown } from "../../lib/markdown";
+import type { SessionMessage } from "../../lib/types";
+import { chatStore } from "../../stores/chat";
 import { MessageItem } from "./message-item";
 import { ToolCard } from "./tool-card";
-import { chatStore } from "../../stores/chat";
 
 interface MessageListProps {
   messages: SessionMessage[];
@@ -59,9 +59,7 @@ export function MessageList(props: MessageListProps) {
               />
             </Show>
             <For each={streamingTools()}>
-              {(item) => (
-                <ToolCard call={item.call} result={item.result} />
-              )}
+              {(item) => <ToolCard call={item.call} result={item.result} />}
             </For>
           </div>
         </Show>

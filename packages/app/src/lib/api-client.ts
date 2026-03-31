@@ -1,5 +1,5 @@
-import { hc } from "hono/client";
 import type { AppType } from "@mineco/core";
+import { hc } from "hono/client";
 import { getApiBaseUrl } from "./api-base";
 import { getPlatform } from "./platform";
 
@@ -45,7 +45,9 @@ export const api = {
 
   async openWorkspace(id: string) {
     const client = getClient();
-    const res = await client.api.workspaces[":id"].open.$post({ param: { id } });
+    const res = await client.api.workspaces[":id"].open.$post({
+      param: { id },
+    });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
@@ -59,7 +61,9 @@ export const api = {
   // Filesystem browsing
   async browseFs(path?: string) {
     const client = getClient();
-    const res = await client.api.fs.browse.$get({ query: { path: path ?? undefined } });
+    const res = await client.api.fs.browse.$get({
+      query: { path: path ?? undefined },
+    });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
@@ -103,7 +107,9 @@ export const api = {
 
   async updateConfig(config: unknown) {
     const client = getClient();
-    const res = await client.api.config.$put({ json: config as Record<string, unknown> });
+    const res = await client.api.config.$put({
+      json: config as Record<string, unknown>,
+    });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
@@ -125,14 +131,18 @@ export const api = {
 
   async addProvider(provider: unknown) {
     const client = getClient();
-    const res = await client.api.config.providers.$post({ json: provider as Record<string, unknown> });
+    const res = await client.api.config.providers.$post({
+      json: provider as Record<string, unknown>,
+    });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async deleteProvider(id: string) {
     const client = getClient();
-    const res = await client.api.config.providers[":id"].$delete({ param: { id } });
+    const res = await client.api.config.providers[":id"].$delete({
+      param: { id },
+    });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
@@ -147,7 +157,9 @@ export const api = {
 
   async updateSettings(settings: Record<string, unknown>) {
     const client = getClient();
-    const res = await client.api.config.settings.$patch({ json: settings as Record<string, unknown> });
+    const res = await client.api.config.settings.$patch({
+      json: settings as Record<string, unknown>,
+    });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
@@ -155,7 +167,7 @@ export const api = {
 
 async function extractError(res: Response): Promise<string> {
   try {
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     return (body.error as string) ?? res.statusText ?? `HTTP ${res.status}`;
   } catch {
     return res.statusText ?? `HTTP ${res.status}`;

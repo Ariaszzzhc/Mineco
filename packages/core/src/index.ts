@@ -1,25 +1,29 @@
-import { serve } from "@hono/node-server";
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { configure, getConsoleSink } from "@logtape/logtape";
-import { honoLogger } from "@logtape/hono";
-import { contextStorage } from "hono/context-storage";
-import { requestId, type RequestIdVariables } from "hono/request-id";
-import { trimTrailingSlash } from "hono/trailing-slash";
-import { Kysely } from "kysely";
-import { ProviderRegistry } from "@mineco/provider";
-import { ConfigService } from "./config/service.js";
-import { createConfigRoutes } from "./routes/config.js";
-import { createSessionRoutes } from "./routes/session.js";
-import { createChatRoutes } from "./routes/chat.js";
-import { createWorkspaceRoutes } from "./routes/workspace.js";
-import { createFsRoutes } from "./routes/fs.js";
-import { NodeSqliteDialect, SqliteSessionStore, SqliteWorkspaceStore } from "./storage/index.js";
-import { initializeSchema, type Database } from "./storage/schema.js";
-import { tokenAuth } from "./middleware/auth.js";
+import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { mkdirSync, readFileSync, statSync } from "node:fs";
+import { serve } from "@hono/node-server";
+import { honoLogger } from "@logtape/hono";
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { ProviderRegistry } from "@mineco/provider";
+import { Hono } from "hono";
+import { contextStorage } from "hono/context-storage";
+import { cors } from "hono/cors";
+import { type RequestIdVariables, requestId } from "hono/request-id";
+import { trimTrailingSlash } from "hono/trailing-slash";
+import { Kysely } from "kysely";
+import { ConfigService } from "./config/service.js";
+import { tokenAuth } from "./middleware/auth.js";
+import { createChatRoutes } from "./routes/chat.js";
+import { createConfigRoutes } from "./routes/config.js";
+import { createFsRoutes } from "./routes/fs.js";
+import { createSessionRoutes } from "./routes/session.js";
+import { createWorkspaceRoutes } from "./routes/workspace.js";
+import {
+  NodeSqliteDialect,
+  SqliteSessionStore,
+  SqliteWorkspaceStore,
+} from "./storage/index.js";
+import { type Database, initializeSchema } from "./storage/schema.js";
 
 type Env = {
   Variables: RequestIdVariables;
@@ -30,7 +34,11 @@ type Env = {
  */
 function buildRoutes(deps: {
   configService: ConfigService;
-  getRegistryModels: () => Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>;
+  getRegistryModels: () => Array<{
+    id: string;
+    name: string;
+    models: Array<{ id: string; name: string }>;
+  }>;
   sessionStore: SqliteSessionStore;
   workspaceStore: SqliteWorkspaceStore;
   registry: ProviderRegistry;
@@ -46,11 +54,17 @@ function buildRoutes(deps: {
 
   const routes = app
     .get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }))
-    .route("/api/config", createConfigRoutes(deps.configService, deps.getRegistryModels))
+    .route(
+      "/api/config",
+      createConfigRoutes(deps.configService, deps.getRegistryModels),
+    )
     .route("/api/workspaces", createWorkspaceRoutes(deps.workspaceStore))
     .route("/api/fs", createFsRoutes())
     .route("/api/sessions", createSessionRoutes(deps.sessionStore))
-    .route("/api/sessions", createChatRoutes(deps.registry, deps.sessionStore, deps.workspaceStore));
+    .route(
+      "/api/sessions",
+      createChatRoutes(deps.registry, deps.sessionStore, deps.workspaceStore),
+    );
 
   return routes;
 }
@@ -119,7 +133,10 @@ async function main() {
             woff2: "font/woff2",
             ttf: "font/ttf",
           };
-          c.header("Content-Type", mimeTypes[ext] ?? "application/octet-stream");
+          c.header(
+            "Content-Type",
+            mimeTypes[ext] ?? "application/octet-stream",
+          );
           return c.body(content);
         }
       } catch {

@@ -1,7 +1,7 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import type { Session } from "@mineco/agent";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSessionRoutes } from "../../src/routes/session.js";
 import { createMockSessionStore } from "../helper/mock-session-store.js";
-import type { Session } from "@mineco/agent";
 
 describe("Session Routes", () => {
   let store: ReturnType<typeof createMockSessionStore>;

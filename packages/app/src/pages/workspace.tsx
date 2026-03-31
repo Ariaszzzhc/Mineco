@@ -1,9 +1,9 @@
-import { useParams, useNavigate } from "@solidjs/router";
-import { onMount, Show, For } from "solid-js";
-import { Plus, Trash2, ArrowLeft } from "lucide-solid";
-import { workspaceStore } from "../stores/workspace";
-import { sessionStore } from "../stores/session";
+import { useNavigate, useParams } from "@solidjs/router";
+import { ArrowLeft, Plus, Trash2 } from "lucide-solid";
+import { For, onMount, Show } from "solid-js";
 import { api } from "../lib/api-client";
+import { sessionStore } from "../stores/session";
+import { workspaceStore } from "../stores/workspace";
 
 export function WorkspacePage() {
   const params = useParams();
@@ -100,10 +100,13 @@ export function WorkspacePage() {
         <div class="space-y-1">
           <For each={sessions()}>
             {(session) => (
-              <div
-                class="group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-[var(--hover)]"
+              <button
+                type="button"
+                class="group flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--hover)]"
                 onClick={() =>
-                  navigate(`/workspaces/${session.workspaceId}/sessions/${session.id}`)
+                  navigate(
+                    `/workspaces/${session.workspaceId}/sessions/${session.id}`,
+                  )
                 }
               >
                 <div class="min-w-0 flex-1">
@@ -122,7 +125,7 @@ export function WorkspacePage() {
                 >
                   <Trash2 size={14} />
                 </button>
-              </div>
+              </button>
             )}
           </For>
         </div>
