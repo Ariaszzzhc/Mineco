@@ -26,6 +26,9 @@
       "icons/icon.ico"
     ],
     "externalBin": ["binaries/mineco-core"],
-    "createUpdaterArtifacts": true
+    "resources": {
+      "../../app/dist/**/*": "web/"
+    },
+    "createUpdaterArtifacts": false
   }
 }

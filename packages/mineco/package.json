@@ -1,20 +1,22 @@
 {
-  "name": "@mineco/desktop",
+  "name": "@mineco/mineco",
   "version": "0.2.0",
+  "type": "module",
   "scripts": {
     "dev": "tauri dev",
-    "build:desktop": "tsx scripts/build.ts",
+    "build": "tsx scripts/build.ts",
     "build:tauri": "tauri build",
     "tauri": "tauri"
   },
   "license": "MIT",
   "packageManager": "pnpm@10.29.3",
   "devDependencies": {
+    "@mineco/core": "workspace:*",
+    "@mineco/app": "workspace:*",
     "@tauri-apps/cli": "^2.10.1",
     "tsx": "^4.21.0"
   },
   "dependencies": {
-    "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-updater": "^2.10.0"
+    "@tauri-apps/plugin-process": "^2.3.1"
   }
 }

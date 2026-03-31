@@ -1,6 +1,7 @@
 import { hc } from "hono/client";
 import type { AppType } from "@mineco/core";
 import { getApiBaseUrl } from "./api-base";
+import { getPlatform } from "./platform";
 
 class ApiError extends Error {
   constructor(
@@ -17,7 +18,11 @@ let _client: Client | null = null;
 
 function getClient(): Client {
   if (!_client) {
-    _client = hc<AppType>(getApiBaseUrl());
+    const platform = getPlatform();
+    const options = platform.token
+      ? { headers: { Authorization: `Bearer ${platform.token}` } }
+      : {};
+    _client = hc<AppType>(getApiBaseUrl(), options);
   }
   return _client;
 }
