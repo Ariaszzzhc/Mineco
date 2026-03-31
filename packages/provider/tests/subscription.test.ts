@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ZhipuProvider } from "../src/adapters/zhipu";
-import type { Provider } from "../src/provider";
-import { hasSubscription } from "../src/provider";
-import { OpenAICompatAdapter } from "../src/adapters/openai-compat";
+import { ZhipuProvider } from "../src/adapters/zhipu.js";
+import type { Provider } from "../src/provider.js";
+import { hasSubscription } from "../src/provider.js";
+import { OpenAICompatAdapter } from "../src/adapters/openai-compat.js";
 
 describe("hasSubscription", () => {
   it("should return true for provider with subscription", () => {
@@ -23,6 +23,7 @@ describe("hasSubscription", () => {
       id: "test",
       name: "Test",
       baseURL: "https://api.test.com/v1",
+      headers: {},
       models: [],
     });
     expect(hasSubscription(provider)).toBe(false);

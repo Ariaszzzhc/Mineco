@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { Session, SessionMessage } from "@mineco/agent";
+import type { SqliteWorkspaceStore } from "../../src/storage/workspace-store.js";
 import { createMockSessionStore } from "../helper/mock-session-store.js";
 import { createMockProviderRegistry } from "../helper/mock-provider-registry.js";
 import { collectSSEEvents } from "../helper/sse-helpers.js";
@@ -73,7 +74,7 @@ describe("Chat Routes", () => {
     store = createMockSessionStore();
     registry = createMockProviderRegistry();
     workspaceStore = createMockWorkspaceStore();
-    app = createChatRoutes(registry, store, workspaceStore);
+    app = createChatRoutes(registry, store, workspaceStore as unknown as SqliteWorkspaceStore);
   });
 
   describe("validation", () => {

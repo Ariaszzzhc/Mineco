@@ -16,3 +16,4 @@ is `app`). `packages/core` is the core server. All frontend is thin wrapper.
 # Rules
 
 do not run dev server. if you want to test, you should use unit test
+always run `pnpm test` in root package for unit test

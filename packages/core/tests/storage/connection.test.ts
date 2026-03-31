@@ -38,7 +38,7 @@ describe("SqliteConnection", () => {
     it("should return rows for INSERT with RETURNING", async () => {
       const result = await sql`INSERT INTO items (id, name) VALUES ('a', 'test') RETURNING *`.execute(db);
       expect(result.rows).toHaveLength(1);
-      expect(result.rows[0]!.name).toBe("test");
+      expect((result.rows[0] as { name: string }).name).toBe("test");
     });
 
     it("should return rows for INSERT ... RETURNING via Kysely builder", async () => {
@@ -55,7 +55,7 @@ describe("SqliteConnection", () => {
       await sql`INSERT INTO items (id, name) VALUES ('a', 'test')`.execute(db);
       const result = await sql`DELETE FROM items WHERE id = 'a' RETURNING *`.execute(db);
       expect(result.rows).toHaveLength(1);
-      expect(result.rows[0]!.id).toBe("a");
+      expect((result.rows[0] as { id: string }).id).toBe("a");
     });
   });
 
@@ -71,19 +71,13 @@ describe("SqliteConnection", () => {
       const conn = new SqliteConnection(":memory:");
       await conn.executeQuery(CompiledQuery.raw(
         "CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT NOT NULL)",
-        [],
-        { kind: "RawNode" },
       ));
       await conn.executeQuery(CompiledQuery.raw(
         "INSERT INTO items (id, name) VALUES ('a', 'first'), ('b', 'second')",
-        [],
-        { kind: "RawNode" },
       ));
 
       const compiledQuery = CompiledQuery.raw(
         "SELECT * FROM items ORDER BY id",
-        [],
-        { kind: "SelectQueryNode" },
       );
 
       const rows: Array<{ id: string; name: string }> = [];
