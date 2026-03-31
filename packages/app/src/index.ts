@@ -3,6 +3,8 @@ export {
   PlatformProvider,
   usePlatform,
   createWebPlatform,
+  createDesktopPlatform,
+  createPlatform,
   getPlatform,
   setPlatform,
 } from "./lib/platform";

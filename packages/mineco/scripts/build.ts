@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { copyFileSync, cpSync, mkdirSync, renameSync, readdirSync, statSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, renameSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 
 /**
@@ -64,6 +64,10 @@ run("pnpm --filter @mineco/mineco tauri build");
 
 const appDir = join(OUT_DIR, "app");
 const installersDir = join(OUT_DIR, "installers");
+
+// Clean previous output to avoid stale artifacts
+rmSync(OUT_DIR, { recursive: true, force: true });
+
 mkdirSync(appDir, { recursive: true });
 mkdirSync(installersDir, { recursive: true });
 
@@ -78,7 +82,7 @@ if (statSync(releaseBin, { throwIfNoEntry: false })?.isFile()) {
   console.log(`  app/${productName}`);
 }
 
-// 4b: Move sidecar binary (strip target triple — Tauri runtime expects bare name)
+// 4b: Move sidecar binary (strip target triple for runtime)
 const sidecarBuildName = `mineco-core-${targetTriple}${ext}`;
 const sidecarRuntimeName = `mineco-core${ext}`;
 const sidecarSrc = join(binariesDir, sidecarBuildName);

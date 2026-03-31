@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { configure, getConsoleSink } from "@logtape/logtape";
 import { honoLogger } from "@logtape/hono";
 import { contextStorage } from "hono/context-storage";
@@ -40,10 +41,10 @@ function buildRoutes(deps: {
   app.use(requestId());
   app.use(honoLogger());
   app.use(trimTrailingSlash());
+  app.use("*", cors({ origin: "*" }));
   app.use("/api/*", tokenAuth());
 
   const routes = app
-    .get("/", (c) => c.text("Mineco server is running"))
     .get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }))
     .route("/api/config", createConfigRoutes(deps.configService, deps.getRegistryModels))
     .route("/api/workspaces", createWorkspaceRoutes(deps.workspaceStore))
