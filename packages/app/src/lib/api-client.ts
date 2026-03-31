@@ -15,10 +15,9 @@ class ApiError extends Error {
 type Client = ReturnType<typeof hc<AppType>>;
 let _client: Client | null = null;
 
-async function getClient(): Promise<Client> {
+function getClient(): Client {
   if (!_client) {
-    const baseUrl = await getApiBaseUrl();
-    _client = hc<AppType>(baseUrl);
+    _client = hc<AppType>(getApiBaseUrl());
   }
   return _client;
 }
@@ -26,35 +25,35 @@ async function getClient(): Promise<Client> {
 export const api = {
   // Workspaces
   async listWorkspaces() {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.workspaces.$get();
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async createWorkspace(path: string) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.workspaces.$post({ json: { path } });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async openWorkspace(id: string) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.workspaces[":id"].open.$post({ param: { id } });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async deleteWorkspace(id: string) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.workspaces[":id"].$delete({ param: { id } });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
   },
 
   // Filesystem browsing
   async browseFs(path?: string) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.fs.browse.$get({ query: { path: path ?? undefined } });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
@@ -62,14 +61,14 @@ export const api = {
 
   // Sessions
   async createSession(workspaceId: string) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.sessions.$post({ json: { workspaceId } });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async listSessions(workspaceId?: string) {
-    const client = await getClient();
+    const client = getClient();
     const query = workspaceId ? { workspaceId } : undefined;
     const res = await client.api.sessions.$get({ query });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
@@ -77,28 +76,28 @@ export const api = {
   },
 
   async getSession(id: string) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.sessions[":id"].$get({ param: { id } });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async deleteSession(id: string) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.sessions[":id"].$delete({ param: { id } });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
   },
 
   // Config
   async getConfig() {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.config.$get();
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async updateConfig(config: unknown) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.config.$put({ json: config as Record<string, unknown> });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
@@ -106,28 +105,28 @@ export const api = {
 
   // Providers
   async getProviders() {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.config.providers.$get();
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async getProviderModels() {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.config.providers.models.$get();
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async addProvider(provider: unknown) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.config.providers.$post({ json: provider as Record<string, unknown> });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async deleteProvider(id: string) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.config.providers[":id"].$delete({ param: { id } });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
@@ -135,14 +134,14 @@ export const api = {
 
   // Settings
   async getSettings() {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.config.settings.$get();
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
 
   async updateSettings(settings: Record<string, unknown>) {
-    const client = await getClient();
+    const client = getClient();
     const res = await client.api.config.settings.$patch({ json: settings as Record<string, unknown> });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
@@ -152,9 +151,9 @@ export const api = {
 async function extractError(res: Response): Promise<string> {
   try {
     const body = await res.json() as Record<string, unknown>;
-    return (body.error as string) ?? `HTTP ${res.status}`;
+    return (body.error as string) ?? res.statusText ?? `HTTP ${res.status}`;
   } catch {
-    return `HTTP ${res.status}`;
+    return res.statusText ?? `HTTP ${res.status}`;
   }
 }
 

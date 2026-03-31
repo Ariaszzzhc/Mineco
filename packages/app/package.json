@@ -2,9 +2,16 @@
   "name": "@mineco/app",
   "version": "0.2.0",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.build.json && vite build",
+    "check": "tsc -p .",
     "preview": "vite preview"
   },
   "dependencies": {

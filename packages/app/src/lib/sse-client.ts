@@ -12,11 +12,12 @@ export function streamChat(
   providerId: string,
   model: string,
   onEvent: (event: AgentEvent) => void,
+  baseUrlOverride?: string,
 ): StreamHandle {
   const controller = new AbortController();
 
   const promise = (async () => {
-    const baseUrl = await getApiBaseUrl();
+    const baseUrl = baseUrlOverride ?? getApiBaseUrl();
     const res = await fetch(`${baseUrl}/api/sessions/${sessionId}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

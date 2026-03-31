@@ -1,20 +1,11 @@
 /**
- * Returns the base URL for API requests.
- * - Desktop (Tauri): reads from window.__MINECO_API_URL__ injected at runtime by Rust
- * - Web browser: returns "" (relative URLs, Vite proxy handles it)
+ * Returns the API base URL from the current Platform.
  *
- * No Tauri dependency — the desktop shell injects the URL before the webview loads.
+ * Use getApiBaseUrl() in non-reactive contexts (utilities, stores).
+ * Use usePlatform() from lib/platform for reactive component access.
  */
-let _cachedBaseUrl: string | null = null;
+import { getPlatform } from "./platform";
 
-export async function getApiBaseUrl(): Promise<string> {
-  if (_cachedBaseUrl !== null) return _cachedBaseUrl;
-
-  if (typeof window !== "undefined" && "__MINECO_API_URL__" in window) {
-    _cachedBaseUrl = (window as unknown as { __MINECO_API_URL__: string }).__MINECO_API_URL__;
-  } else {
-    _cachedBaseUrl = "";
-  }
-
-  return _cachedBaseUrl;
+export function getApiBaseUrl(): string {
+  return getPlatform().apiBaseUrl;
 }

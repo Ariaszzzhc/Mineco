@@ -26,6 +26,6 @@
     "dev": "turbo run dev --filter=@mineco/core --filter=@mineco/app",
     "dev:app": "turbo run dev --filter=@mineco/app",
     "dev:core": "turbo run dev --filter=@mineco/core",
-    "test": "turbo run test"
+    "test": "vitest run"
   }
 }

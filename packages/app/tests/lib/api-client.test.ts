@@ -33,17 +33,17 @@ describe("request", () => {
     mockFetch.mockReset();
   });
 
-  it("should send with Content-Type header", async () => {
+  it("should send request via Hono client", async () => {
     mockFetch.mockResolvedValue(mockResponse({ data: "ok" }));
     await api.listWorkspaces();
-    expect(mockFetch).toHaveBeenCalledWith("/api/workspaces", {
-      headers: { "Content-Type": "application/json" },
-    });
+    expect(mockFetch).toHaveBeenCalledWith("/api/workspaces", expect.objectContaining({
+      method: "GET",
+    }));
   });
 
-  it("should unwrap { data: T } response", async () => {
+  it("should return raw JSON response", async () => {
     const session = { id: "1", title: "Test" };
-    mockFetch.mockResolvedValue(mockResponse({ data: session }));
+    mockFetch.mockResolvedValue(mockResponse(session));
     const result = await api.createSession();
     expect(result).toEqual(session);
   });
