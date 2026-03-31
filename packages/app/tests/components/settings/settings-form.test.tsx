@@ -133,7 +133,7 @@ describe("SettingsForm", () => {
       createTestConfig({ providers: [createZhipuProvider()] });
     const { container } = render(() => <SettingsForm />);
     const options = container.querySelectorAll("select option");
-    const zhipuOption = Array.from(options).find((o) => o.value === "zhipu");
+    const zhipuOption = Array.from(options).find((o) => (o as HTMLOptionElement).value === "zhipu");
     expect(zhipuOption?.textContent).toBe("Zhipu");
   });
 
@@ -142,7 +142,7 @@ describe("SettingsForm", () => {
       createTestConfig({ providers: [createOpenAIProvider()] });
     const { container } = render(() => <SettingsForm />);
     const options = container.querySelectorAll("select option");
-    const compatOption = Array.from(options).find((o) => o.value === "test-provider");
+    const compatOption = Array.from(options).find((o) => (o as HTMLOptionElement).value === "test-provider");
     expect(compatOption?.textContent).toBe("test-provider");
   });
 });

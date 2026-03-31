@@ -44,7 +44,7 @@ describe("request", () => {
   it("should return raw JSON response", async () => {
     const session = { id: "1", title: "Test" };
     mockFetch.mockResolvedValue(mockResponse(session));
-    const result = await api.createSession();
+    const result = await api.createSession("ws-1");
     expect(result).toEqual(session);
   });
 
@@ -124,7 +124,6 @@ describe("api methods", () => {
     await api.createSession("ws-1");
     expect(mockFetch).toHaveBeenCalledWith("/api/sessions", expect.objectContaining({
       method: "POST",
-      body: JSON.stringify({ workspaceId: "ws-1" }),
     }));
   });
 

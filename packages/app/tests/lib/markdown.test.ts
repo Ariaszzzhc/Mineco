@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { mockParse, mockSanitize, mockCodeToHtml, mockCreateHighlighter } =
   vi.hoisted(() => ({
-    mockParse: vi.fn(() => "<p>rendered</p>"),
+    mockParse: vi.fn<() => string | Promise<string>>(() => "<p>rendered</p>"),
     mockSanitize: vi.fn((s: string) => s),
     mockCodeToHtml: vi.fn(() => "<pre>highlighted</pre>"),
     mockCreateHighlighter: vi.fn(async () => ({
