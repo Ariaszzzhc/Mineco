@@ -3,8 +3,8 @@ import type { AgentEvent } from "../../src/lib/types";
 
 const mockStreamChat = vi.hoisted(() => vi.fn());
 const mockConfigStore = vi.hoisted(() => ({
-  activeProviderId: vi.fn(() => "zhipu"),
-  activeModel: vi.fn(() => "glm-4"),
+  activeProviderId: vi.fn<() => string | null>(() => "zhipu"),
+  activeModel: vi.fn<() => string | null>(() => "glm-4"),
 }));
 const mockSessionStore = vi.hoisted(() => ({
   refreshCurrentSession: vi.fn(async () => {}),

@@ -11,6 +11,7 @@ export function createTestSession(overrides?: Partial<Session>): Session {
   return {
     id: "test-session-id",
     title: "Test Session",
+    workspaceId: "test-workspace-id",
     messages: [],
     createdAt: 1000,
     updatedAt: 2000,
