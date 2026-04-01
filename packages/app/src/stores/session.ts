@@ -62,6 +62,16 @@ async function refreshCurrentSession() {
   }
 }
 
+function updateTitle(id: string, title: string) {
+  const idx = state.sessions.findIndex((s) => s.id === id);
+  if (idx !== -1) {
+    setState("sessions", idx, "title", title);
+  }
+  if (state.currentSession?.id === id) {
+    setState("currentSession", "title", title);
+  }
+}
+
 export const sessionStore = {
   sessions: () => state.sessions,
   currentSession: () => state.currentSession,
@@ -71,4 +81,5 @@ export const sessionStore = {
   addSession,
   removeSession,
   refreshCurrentSession,
+  updateTitle,
 };

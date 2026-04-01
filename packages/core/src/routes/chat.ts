@@ -19,6 +19,37 @@ export function createChatRoutes(
   const tools = createDefaultToolRegistry();
   const loop = new AgentLoop(providerRegistry, tools);
 
+  async function generateTitle(
+    providerId: string,
+    model: string,
+    userMessage: string,
+    sessionId: string,
+  ): Promise<string | null> {
+    try {
+      const provider = providerRegistry.get(providerId);
+      const response = await provider.chat({
+        model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Generate a concise title (max 20 chars) for a coding session. Reply with ONLY the title, no quotes or extra punctuation.",
+          },
+          { role: "user", content: userMessage },
+        ],
+      });
+      const title = response.message.content;
+      if (typeof title === "string" && title.trim()) {
+        const cleaned = title.trim().replace(/^["']|["']$/g, "");
+        await store.updateTitle(sessionId, cleaned);
+        return cleaned;
+      }
+    } catch (err) {
+      console.error("[title-gen] Failed to generate title:", err);
+    }
+    return null;
+  }
+
   return new Hono().post("/:id/chat", async (c) => {
     const sessionId = c.req.param("id");
     const body = await c.req.json<{
@@ -59,10 +90,22 @@ export function createChatRoutes(
       model: body.model!,
     });
 
+    const isFirstMessage = session.messages.length === 1;
+
     return streamSSE(c, async (stream) => {
       let currentText = "";
       let currentThinking = "";
       const toolMessages: SessionMessage[] = [];
+
+      // Start title generation concurrently with agent loop
+      const titlePromise = isFirstMessage
+        ? generateTitle(
+            body.providerId!,
+            body.model!,
+            body.message!,
+            sessionId,
+          )
+        : null;
 
       try {
         for await (const event of loop.run(session, {
@@ -129,6 +172,17 @@ export function createChatRoutes(
             error: error instanceof Error ? error.message : "Unknown error",
           }),
         });
+      }
+
+      // Await title generation result and send via SSE
+      if (titlePromise) {
+        const title = await titlePromise;
+        if (title) {
+          await stream.writeSSE({
+            event: "title-generated",
+            data: JSON.stringify({ type: "title-generated", title }),
+          });
+        }
       }
     });
   });

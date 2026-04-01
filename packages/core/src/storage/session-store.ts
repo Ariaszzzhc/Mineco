@@ -154,6 +154,14 @@ export class SqliteSessionStore implements SessionStore {
       .execute();
   }
 
+  async updateTitle(id: string, title: string): Promise<void> {
+    await this.db
+      .updateTable("sessions")
+      .set({ title, updated_at: Date.now() })
+      .where("id", "=", id)
+      .execute();
+  }
+
   async delete(id: string): Promise<void> {
     await this.db.deleteFrom("messages").where("session_id", "=", id).execute();
     await this.db.deleteFrom("sessions").where("id", "=", id).execute();

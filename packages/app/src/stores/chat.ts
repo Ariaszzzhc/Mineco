@@ -110,6 +110,9 @@ async function startStream(sessionId: string, message: string) {
         case "step":
           archiveCurrentSegment();
           break;
+        case "title-generated":
+          sessionStore.updateTitle(sessionId, event.title);
+          break;
         case "error":
           setState("error", event.error);
           break;
