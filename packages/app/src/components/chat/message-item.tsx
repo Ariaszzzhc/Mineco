@@ -1,6 +1,8 @@
 import { Show } from "solid-js";
 import { renderMarkdown } from "../../lib/markdown";
 import type { SessionMessage } from "../../lib/types";
+import { chatStore } from "../../stores/chat";
+import { SubagentCard } from "./subagent-card";
 import { ThinkingBlock } from "./thinking-block";
 import { ToolCard } from "./tool-card";
 
@@ -38,24 +40,62 @@ export function MessageItem(props: MessageItemProps) {
       </Show>
 
       <Show when={props.message.role === "tool"}>
-        <ToolCard
-          call={
-            props.streamingCalls?.find(
-              (c) => c.call?.toolCallId === props.message.toolCallId,
-            )?.call
+        <Show
+          when={props.message.toolName === "agent"}
+          fallback={
+            <ToolCard
+              call={
+                props.streamingCalls?.find(
+                  (c) => c.call?.toolCallId === props.message.toolCallId,
+                )?.call
+              }
+              result={
+                props.message.toolName
+                  ? {
+                      type: "tool-result" as const,
+                      toolCallId: props.message.toolCallId ?? "",
+                      toolName: props.message.toolName,
+                      result: props.message.content,
+                      isError: props.message.isError ?? false,
+                    }
+                  : undefined
+              }
+            />
           }
-          result={
-            props.message.toolName
-              ? {
+        >
+          {(() => {
+            // For persisted agent tool messages, find the matching subagent run
+            const runs = chatStore.subagentRuns();
+            const matchingRun = Object.values(runs).find(
+              (r) => r.agentType === props.message.content,
+            );
+            if (matchingRun) {
+              return (
+                <SubagentCard
+                  run={matchingRun}
+                  onClick={() => chatStore.viewSubagent(matchingRun.runId)}
+                />
+              );
+            }
+            // Fallback: show as regular tool card if no run found
+            return (
+              <ToolCard
+                call={
+                  props.streamingCalls?.find(
+                    (c) => c.call?.toolCallId === props.message.toolCallId,
+                  )?.call
+                }
+                result={{
                   type: "tool-result" as const,
                   toolCallId: props.message.toolCallId ?? "",
-                  toolName: props.message.toolName,
+                  toolName: props.message.toolName ?? "agent",
                   result: props.message.content,
                   isError: props.message.isError ?? false,
-                }
-              : undefined
-          }
-        />
+                }}
+              />
+            );
+          })()}
+        </Show>
       </Show>
     </div>
   );

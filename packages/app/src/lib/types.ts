@@ -98,6 +98,22 @@ export type CompleteEvent = {
 export type ErrorEvent = { type: "error"; error: string };
 export type TitleGeneratedEvent = { type: "title-generated"; title: string };
 
+export type SubagentStartEvent = {
+  type: "subagent-start";
+  runId: string;
+  agentType: string;
+};
+export type SubagentEventEvent = {
+  type: "subagent-event";
+  runId: string;
+  event: AgentEvent;
+};
+export type SubagentEndEvent = {
+  type: "subagent-end";
+  runId: string;
+  summary: string;
+};
+
 export type AgentEvent =
   | TextDeltaEvent
   | ThinkingDeltaEvent
@@ -107,4 +123,7 @@ export type AgentEvent =
   | StepEvent
   | CompleteEvent
   | ErrorEvent
-  | TitleGeneratedEvent;
+  | TitleGeneratedEvent
+  | SubagentStartEvent
+  | SubagentEventEvent
+  | SubagentEndEvent;
