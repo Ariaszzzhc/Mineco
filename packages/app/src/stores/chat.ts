@@ -12,6 +12,18 @@ export interface StreamingSegment {
   toolResults: ToolResultEvent[];
 }
 
+export interface SubagentRunState {
+  runId: string;
+  agentType: string;
+  status: "running" | "completed" | "error";
+  summary: string | null;
+  streamingText: string;
+  streamingThinking: string;
+  streamingToolCalls: ToolCallEvent[];
+  streamingToolResults: ToolResultEvent[];
+  streamingSegments: StreamingSegment[];
+}
+
 interface ChatState {
   isStreaming: boolean;
   pendingUserMessage: string;
@@ -21,6 +33,8 @@ interface ChatState {
   streamingToolResults: ToolResultEvent[];
   streamingMessages: StreamingSegment[];
   error: string | null;
+  subagentRuns: Record<string, SubagentRunState>;
+  activeSubagentRunId: string | null;
 }
 
 const initialState: ChatState = {
@@ -32,6 +46,8 @@ const initialState: ChatState = {
   streamingToolResults: [],
   streamingMessages: [],
   error: null,
+  subagentRuns: {},
+  activeSubagentRunId: null,
 };
 
 const [state, setState] = createStore<ChatState>({ ...initialState });
@@ -63,6 +79,59 @@ function archiveCurrentSegment() {
   });
 }
 
+function archiveSubagentSegment(runId: string) {
+  const run = state.subagentRuns[runId];
+  if (!run) return;
+  if (
+    !run.streamingText &&
+    !run.streamingThinking &&
+    run.streamingToolCalls.length === 0
+  ) {
+    return;
+  }
+  setState("subagentRuns", runId, "streamingSegments", (prev) => [
+    ...prev,
+    {
+      text: run.streamingText,
+      thinking: run.streamingThinking,
+      toolCalls: [...run.streamingToolCalls],
+      toolResults: [...run.streamingToolResults],
+    },
+  ]);
+  batch(() => {
+    setState("subagentRuns", runId, "streamingText", "");
+    setState("subagentRuns", runId, "streamingThinking", "");
+    setState("subagentRuns", runId, "streamingToolCalls", []);
+    setState("subagentRuns", runId, "streamingToolResults", []);
+  });
+}
+
+function processSubagentEvent(runId: string, event: AgentEvent) {
+  switch (event.type) {
+    case "text-delta":
+      setState("subagentRuns", runId, "streamingText", (prev: string) => prev + event.delta);
+      break;
+    case "thinking-delta":
+      setState("subagentRuns", runId, "streamingThinking", (prev: string) => prev + event.delta);
+      break;
+    case "tool-call":
+      setState("subagentRuns", runId, "streamingToolCalls", (prev: ToolCallEvent[]) => [...prev, event]);
+      break;
+    case "tool-result":
+      setState("subagentRuns", runId, "streamingToolResults", (prev: ToolResultEvent[]) => [...prev, event]);
+      break;
+    case "step":
+      archiveSubagentSegment(runId);
+      break;
+    case "error":
+      setState("subagentRuns", runId, {
+        status: "error",
+        summary: event.error,
+      });
+      break;
+  }
+}
+
 async function startStream(sessionId: string, message: string) {
   // Guard against concurrent streams
   if (currentAbort) return;
@@ -85,6 +154,8 @@ async function startStream(sessionId: string, message: string) {
       streamingToolResults: [],
       streamingMessages: [],
       error: null,
+      subagentRuns: {},
+      activeSubagentRunId: null,
     });
   });
 
@@ -116,6 +187,30 @@ async function startStream(sessionId: string, message: string) {
         case "error":
           setState("error", event.error);
           break;
+        case "subagent-start":
+          setState("subagentRuns", event.runId, {
+            runId: event.runId,
+            agentType: event.agentType,
+            status: "running",
+            summary: null,
+            streamingText: "",
+            streamingThinking: "",
+            streamingToolCalls: [],
+            streamingToolResults: [],
+            streamingSegments: [],
+          });
+          break;
+        case "subagent-event":
+          processSubagentEvent(event.runId, event.event);
+          break;
+        case "subagent-end":
+          // Archive any remaining segment before marking complete
+          archiveSubagentSegment(event.runId);
+          setState("subagentRuns", event.runId, {
+            status: "completed",
+            summary: event.summary,
+          });
+          break;
       }
     },
   );
@@ -137,6 +232,7 @@ async function startStream(sessionId: string, message: string) {
         streamingToolCalls: [],
         streamingToolResults: [],
         streamingMessages: [],
+        activeSubagentRunId: null,
       });
       currentAbort = null;
     });
@@ -163,9 +259,19 @@ function resetStreamState() {
       streamingToolResults: [],
       streamingMessages: [],
       error: null,
+      subagentRuns: {},
+      activeSubagentRunId: null,
     });
     currentAbort = null;
   });
+}
+
+function viewSubagent(runId: string) {
+  setState("activeSubagentRunId", runId);
+}
+
+function exitSubagentView() {
+  setState("activeSubagentRunId", null);
 }
 
 export const chatStore = {
@@ -177,7 +283,11 @@ export const chatStore = {
   streamingToolResults: () => state.streamingToolResults,
   streamingMessages: () => state.streamingMessages,
   error: () => state.error,
+  subagentRuns: () => state.subagentRuns,
+  activeSubagentRunId: () => state.activeSubagentRunId,
   startStream,
   stopStream,
   resetStreamState,
+  viewSubagent,
+  exitSubagentView,
 };

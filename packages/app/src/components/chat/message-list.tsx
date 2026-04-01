@@ -3,6 +3,7 @@ import { renderMarkdown } from "../../lib/markdown";
 import type { SessionMessage } from "../../lib/types";
 import { chatStore, type StreamingSegment } from "../../stores/chat";
 import { MessageItem } from "./message-item";
+import { SubagentCard } from "./subagent-card";
 import { ThinkingBlock } from "./thinking-block";
 import { ToolCard } from "./tool-card";
 
@@ -41,11 +42,39 @@ function StreamingSegmentView(props: { segment: StreamingSegment; isStreaming: b
       </Show>
       {/* Tool cards without border, matching MessageItem role=tool */}
       <For each={tools()}>
-        {(item) => (
-          <div class="py-3">
-            <ToolCard call={item.call} result={item.result} />
-          </div>
-        )}
+        {(item) => {
+          const isAgent = () => item.call.toolName === "agent";
+          const subagentRun = () => {
+            if (!isAgent()) return null;
+            const args = item.call.args as { agent_type?: string };
+            // Find the subagent run that matches this tool call
+            const runs = chatStore.subagentRuns();
+            const matchingRun = Object.values(runs).find(
+              (r) => r.agentType === (args.agent_type ?? ""),
+            );
+            return matchingRun ?? null;
+          };
+
+          return (
+            <Show
+              when={isAgent() && subagentRun()}
+              fallback={
+                <div class="py-3">
+                  <ToolCard call={item.call} result={item.result} />
+                </div>
+              }
+            >
+              {(run) => (
+                <div class="py-3">
+                  <SubagentCard
+                    run={run()}
+                    onClick={() => chatStore.viewSubagent(run().runId)}
+                  />
+                </div>
+              )}
+            </Show>
+          );
+        }}
       </For>
     </>
   );
