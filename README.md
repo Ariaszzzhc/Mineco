@@ -1,56 +1,44 @@
-<p align="center"><strong>Mineco</strong></p>
-<p align="center">An AI coding agent that lives in your project.</p>
+<p align="center">
+  <img src="mineco.png" alt="Mineco" width="128" height="128">
+</p>
+<h1 align="center">Mineco</h1>
+<p align="center">A native desktop AI coding agent.</p>
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a> ·
-  <a href="#getting-started">Getting Started</a> ·
-  <a href="#features">Features</a>
+  <a href="#getting-started">Getting Started</a>
 </p>
 
 ---
 
-> **Warning:** This project is under rapid development. APIs, tool names, and internal structures may change without notice. **Not recommended for production use.**
-
-<!-- TODO: replace with actual screenshot -->
-<!-- ![Mineco screenshot](docs/screenshot.png) -->
+> **Warning:** This project is under rapid development. APIs and internal structures may change without notice.
 
 ## What is Mineco?
 
-Mineco is a native desktop app that gives you an AI coding agent with full access to your project. It reads your files, edits your code, runs your commands, and tracks tasks — all from a single window.
+Mineco is a native desktop app that puts an AI coding agent directly in your project. It reads your files, writes code, runs commands — all from a single window.
 
-No browser tabs. No copy-paste. Open a folder and start building.
+Open a folder. Start building.
 
 ## Features
 
-- **Direct file operations** — The agent reads, writes, searches, and edits files in your workspace. Not suggestions — actual changes.
-- **Shell execution** — Run commands, see output, diagnose errors, fix them in the same conversation.
+- **File operations** — The agent reads and writes files in your workspace directly. Not suggestions — actual changes.
+- **Shell execution** — Run commands, see output, diagnose errors, and fix them in the same conversation.
 - **Extended thinking** — Watch the agent reason step-by-step before making changes.
-- **Plan mode** — Read-only analysis mode where the agent explores your codebase and produces actionable plans without making changes. Toggle in the UI or let the agent enter it when planning is needed.
-- **Subagents** — Spawn child agents to handle subtasks in parallel. Each subagent runs independently with its own tool set and step limit.
-- **Context compaction** — Automatic context management for long conversations. Prunes old tool results, summarizes history, and saves full transcripts to `.mineco/transcripts/`.
-- **Auto session titles** — AI-generated session titles based on the first message.
-- **Tool permissions** — Control what the agent can do. Review file edits with inline diff previews before approving. Choose between default, accept-edits, or full-bypass modes.
-- **Image support** — Attach images to your messages for visual context.
-- **MCP support** — Plug in any [Model Context Protocol](https://modelcontextprotocol.io) server for extra capabilities. Global + per-project config.
-- **LSP support** — Built-in Language Server Protocol integration for code intelligence.
-- **Custom skills** — Reusable markdown prompt templates. Drop into `.mineco/skills/` or `~/.config/mineco/skills/`, trigger with slash commands in the chat input.
-- **Rich rendering** — Syntax highlighting, LaTeX math, Mermaid diagrams, inline diffs.
-- **Task tracking** — Built-in todo lists for multi-step work.
-- **Keyboard shortcuts** — Navigate views, toggle sidebar, manage sessions without touching the mouse.
-- **i18n** — English and Chinese UI with automatic locale detection.
-- **Workspace-centric** — Sessions, configs, and skills are all scoped to your project directory.
-
-## How is this different?
-
-| | Mineco | Browser-based tools | Terminal agents |
-|---|---|---|---|
-| Runs on | Native desktop app | Browser tab | Terminal |
-| File access | Direct, in your workspace | Copy-paste | Direct |
-| UI | Full GUI with rich rendering | Web UI | TUI |
-| Extensibility | MCP + Skills | Varies | Varies |
-
-Mineco combines the power of a terminal agent with the usability of a desktop app.
+- **Subagents** — Spawn child agents to handle subtasks in parallel. Each subagent runs independently with its own context and step limit.
+- **Streaming responses** — Real-time streaming with SSE. See text, tool calls, and results as they happen.
+- **Auto session titles** — AI-generated session titles based on your first message.
+- **Rich rendering** — Markdown with syntax highlighting (Shiki), collapsible thinking blocks, and tool call cards.
+- **Provider system** — Supports any OpenAI-compatible API. Built-in support for Zhipu AI. Add custom providers with your own endpoints and models.
+- **Workspace-centric** — Sessions and configs are scoped to your project directory.
+- **Desktop + Web** — Run as a native Tauri desktop app, or launch in web mode and access from any browser.
 
 ## Getting Started
+
+### Prerequisites
+
+- Node.js >= 25
+- pnpm 10.29
+
+### Install & Run
 
 ```bash
 pnpm install && pnpm start
