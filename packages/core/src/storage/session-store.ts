@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { Session, SessionMessage, SessionStore } from "@mineco/agent";
+import type {
+  Session,
+  SessionMessage,
+  SessionStore,
+  SubagentRun,
+} from "@mineco/agent";
 import type { ToolCall, Usage } from "@mineco/provider";
 import type { Kysely } from "kysely";
 import type { Database } from "./schema.js";
@@ -107,6 +112,7 @@ export class SqliteSessionStore implements SessionStore {
         tool_name: msg.toolName ?? null,
         is_error: msg.isError ? 1 : 0,
         usage: msg.usage ? JSON.stringify(msg.usage) : null,
+        run_id: msg.runId ?? null,
         created_at: msg.createdAt,
       })
       .execute();
@@ -141,6 +147,7 @@ export class SqliteSessionStore implements SessionStore {
             tool_name: msg.toolName ?? null,
             is_error: msg.isError ? 1 : 0,
             usage: msg.usage ? JSON.stringify(msg.usage) : null,
+            run_id: msg.runId ?? null,
             created_at: msg.createdAt,
           })),
         )
@@ -166,6 +173,63 @@ export class SqliteSessionStore implements SessionStore {
     await this.db.deleteFrom("messages").where("session_id", "=", id).execute();
     await this.db.deleteFrom("sessions").where("id", "=", id).execute();
   }
+
+  async createRun(run: SubagentRun): Promise<void> {
+    await this.db
+      .insertInto("runs")
+      .values({
+        id: run.id,
+        session_id: run.sessionId,
+        parent_tool_call_id: run.parentToolCallId,
+        agent_type: run.agentType,
+        status: run.status,
+        summary: run.summary ?? null,
+        created_at: run.createdAt,
+        completed_at: run.completedAt ?? null,
+      })
+      .execute();
+  }
+
+  async updateRun(
+    runId: string,
+    updates: Partial<Pick<SubagentRun, "status" | "summary" | "completedAt">>,
+  ): Promise<void> {
+    await this.db
+      .updateTable("runs")
+      .set({
+        ...(updates.status !== undefined ? { status: updates.status } : {}),
+        ...(updates.summary !== undefined ? { summary: updates.summary } : {}),
+        ...(updates.completedAt !== undefined
+          ? { completed_at: updates.completedAt }
+          : {}),
+      })
+      .where("id", "=", runId)
+      .execute();
+  }
+
+  async getRunsBySession(sessionId: string): Promise<SubagentRun[]> {
+    const rows = await this.db
+      .selectFrom("runs")
+      .selectAll()
+      .where("session_id", "=", sessionId)
+      .orderBy("created_at", "asc")
+      .execute();
+
+    return rows.map(rowToRun);
+  }
+}
+
+function rowToRun(row: Database["runs"]): SubagentRun {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    parentToolCallId: row.parent_tool_call_id,
+    agentType: row.agent_type,
+    status: row.status as SubagentRun["status"],
+    summary: row.summary,
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
+  };
 }
 
 function rowToMessage(row: Database["messages"]): SessionMessage {
@@ -181,6 +245,7 @@ function rowToMessage(row: Database["messages"]): SessionMessage {
     ...(row.tool_name ? { toolName: row.tool_name as string } : {}),
     ...(row.is_error ? { isError: true } : {}),
     ...(row.usage ? { usage: JSON.parse(row.usage as string) as Usage } : {}),
+    ...(row.run_id ? { runId: row.run_id } : {}),
     createdAt: row.created_at as number,
   };
 }
