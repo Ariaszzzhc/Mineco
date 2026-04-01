@@ -18,57 +18,50 @@ jobs:
           - os: windows-latest
             platform: win32
             arch: x64
-            artifact: out/make/squirrel.windows/x64/
           - os: macos-latest
             platform: darwin
             arch: arm64
-            artifact: out/make/zip/darwin/arm64/
           - os: ubuntu-latest
             platform: linux
             arch: x64
-            artifact: out/make/deb/x64/
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '25'
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build (Windows)
-        if: matrix.platform == 'win32'
-        run: pnpm run make --platform=win32
-
-      - name: Build (macOS)
-        if: matrix.platform == 'darwin'
-        run: pnpm run make --platform=darwin
-
-      - name: Build (Linux)
-        if: matrix.platform == 'linux'
-        run: pnpm run make --platform=linux
-        env:
-          DISPLAY: ':99.0'
+      - name: Build
+        run: pnpm build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mineco-${{ matrix.platform }}-${{ matrix.arch }}
-          path: ${{ matrix.artifact }}
+          path: out/installers/
           if-no-files-found: warn
           retention-days: 1
 
@@ -82,8 +75,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -94,7 +85,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release
-          find artifacts -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.deb" \) -exec cp {} release/ \;
+          find artifacts -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" \) -exec cp {} release/ \;
           ls -la release/
 
       - name: Get version & date
@@ -125,9 +116,9 @@ jobs:
 
             | 平台 | 文件 |
             |------|------|
-            | 🪟 Windows | `Mineco-${{ steps.info.outputs.VERSION }} Setup.exe` |
-            | 🍎 macOS | `Mineco-${{ steps.info.outputs.VERSION }}-darwin-arm64.zip` |
-            | 🐧 Linux | `mineco_${{ steps.info.outputs.VERSION }}_amd64.deb` |
+            | 🪟 Windows | `.exe` / `.msi` |
+            | 🍎 macOS | `.dmg` |
+            | 🐧 Linux | `.deb` / `.AppImage` |
 
             ---
             > ⚠️ 这是自动构建的 nightly 版本，仅供测试使用。
