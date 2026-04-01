@@ -97,6 +97,16 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
   },
 
+  async updateSessionTitle(id: string, title: string) {
+    const client = getClient();
+    const res = await client.api.sessions[":id"].$patch({
+      param: { id },
+      json: { title },
+    });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
+  },
+
   // Config
   async getConfig() {
     const client = getClient();

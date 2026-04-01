@@ -45,6 +45,10 @@ export const createSessionSchema = z.object({
   workspaceId: z.string().min(1),
 });
 
+export const updateSessionSchema = z.object({
+  title: z.string().min(1).max(100),
+});
+
 export const chatRequestSchema = z.object({
   message: z.string().min(1),
   providerId: z.string().min(1),

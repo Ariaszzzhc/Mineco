@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import type { SessionStore } from "@mineco/agent";
 import { Hono } from "hono";
-import { createSessionSchema } from "../config/schema.js";
+import { createSessionSchema, updateSessionSchema } from "../config/schema.js";
 
 export function createSessionRoutes(store: SessionStore) {
   return new Hono()
@@ -23,6 +23,11 @@ export function createSessionRoutes(store: SessionStore) {
       const session = await store.get(c.req.param("id"));
       if (!session) return c.json({ error: "Session not found" }, 404);
       return c.json(session);
+    })
+    .patch("/:id", zValidator("json", updateSessionSchema), async (c) => {
+      const { title } = c.req.valid("json");
+      await store.updateTitle(c.req.param("id"), title);
+      return c.json({ ok: true });
     })
     .delete("/:id", async (c) => {
       await store.delete(c.req.param("id"));

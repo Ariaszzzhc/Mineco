@@ -96,6 +96,7 @@ export type CompleteEvent = {
   reason: "stop" | "max-steps" | "aborted";
 };
 export type ErrorEvent = { type: "error"; error: string };
+export type TitleGeneratedEvent = { type: "title-generated"; title: string };
 
 export type AgentEvent =
   | TextDeltaEvent
@@ -105,4 +106,5 @@ export type AgentEvent =
   | UsageEvent
   | StepEvent
   | CompleteEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | TitleGeneratedEvent;

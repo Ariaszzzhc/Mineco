@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import { ArrowLeft, Plus, Settings, Trash2 } from "lucide-solid";
-import { createEffect, For, on, Show } from "solid-js";
+import { createEffect, createSignal, For, on, Show } from "solid-js";
 import { api } from "../../lib/api-client";
 import type { Session } from "../../lib/types";
 import { sessionStore } from "../../stores/session";
@@ -9,6 +9,8 @@ import { workspaceStore } from "../../stores/workspace";
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [editingId, setEditingId] = createSignal<string | null>(null);
+  const [editingTitle, setEditingTitle] = createSignal("");
 
   // Extract workspace ID from route
   const workspaceId = () => {
@@ -58,6 +60,33 @@ export function Sidebar() {
       }
     } catch (err) {
       console.error("Failed to delete session:", err);
+    }
+  }
+
+  function startEditing(e: Event, session: Session) {
+    e.stopPropagation();
+    setEditingId(session.id);
+    setEditingTitle(session.title);
+  }
+
+  async function saveTitle(id: string) {
+    const title = editingTitle().trim();
+    setEditingId(null);
+    if (!title) return;
+    try {
+      await api.updateSessionTitle(id, title);
+      sessionStore.updateTitle(id, title);
+    } catch (err) {
+      console.error("Failed to update session title:", err);
+    }
+  }
+
+  function handleEditKeyDown(e: KeyboardEvent, id: string) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveTitle(id);
+    } else if (e.key === "Escape") {
+      setEditingId(null);
     }
   }
 
@@ -122,7 +151,27 @@ export function Sidebar() {
                 )
               }
             >
-              <span class="flex-1 truncate">{session.title}</span>
+              <Show
+                when={editingId() === session.id}
+                fallback={
+                  <span
+                    class="flex-1 truncate"
+                    onDblClick={(e) => startEditing(e, session)}
+                  >
+                    {session.title}
+                  </span>
+                }
+              >
+                <input
+                  class="flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-0.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={editingTitle()}
+                  onInput={(e) => setEditingTitle(e.currentTarget.value)}
+                  onKeyDown={(e) => handleEditKeyDown(e, session.id)}
+                  onBlur={() => saveTitle(session.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  ref={(el) => setTimeout(() => el.focus(), 0)}
+                />
+              </Show>
               <button
                 type="button"
                 onClick={(e) => handleDelete(e, session.id)}
