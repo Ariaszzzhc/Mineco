@@ -91,7 +91,7 @@ typings/
 # Electron-Forge
 out/
 .claude/*.local.json
-backup/
+backup
 dist
 .idea
 .turbo

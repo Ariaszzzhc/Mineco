@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { ArrowLeft, Plus, Trash2 } from "lucide-solid";
-import { For, onMount, Show } from "solid-js";
+import { createEffect, For, on, Show } from "solid-js";
 import { api } from "../lib/api-client";
 import { sessionStore } from "../stores/session";
 import { workspaceStore } from "../stores/workspace";
@@ -9,22 +9,28 @@ export function WorkspacePage() {
   const params = useParams();
   const navigate = useNavigate();
 
-  onMount(async () => {
-    const id = params.id;
-    if (!id) {
-      navigate("/", { replace: true });
-      return;
-    }
+  createEffect(
+    on(
+      () => params.id,
+      async (id) => {
+        if (!id) {
+          navigate("/", { replace: true });
+          return;
+        }
 
-    await workspaceStore.selectWorkspace(id);
-    const ws = workspaceStore.currentWorkspace();
-    if (!ws) {
-      navigate("/", { replace: true });
-      return;
-    }
+        // Load workspace and sessions in parallel
+        await Promise.all([
+          workspaceStore.selectWorkspace(id),
+          sessionStore.loadSessions(id),
+        ]);
 
-    await sessionStore.loadSessions(id);
-  });
+        if (!workspaceStore.currentWorkspace()) {
+          navigate("/", { replace: true });
+          return;
+        }
+      },
+    ),
+  );
 
   const workspace = () => workspaceStore.currentWorkspace();
   const sessions = () => sessionStore.sessions();
@@ -100,8 +106,9 @@ export function WorkspacePage() {
         <div class="space-y-1">
           <For each={sessions()}>
             {(session) => (
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 class="group flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--hover)]"
                 onClick={() =>
                   navigate(
@@ -125,7 +132,7 @@ export function WorkspacePage() {
                 >
                   <Trash2 size={14} />
                 </button>
-              </button>
+              </div>
             )}
           </For>
         </div>

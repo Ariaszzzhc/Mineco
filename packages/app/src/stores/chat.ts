@@ -5,25 +5,63 @@ import type { AgentEvent, ToolCallEvent, ToolResultEvent } from "../lib/types";
 import { configStore } from "./config";
 import { sessionStore } from "./session";
 
+export interface StreamingSegment {
+  text: string;
+  thinking: string;
+  toolCalls: ToolCallEvent[];
+  toolResults: ToolResultEvent[];
+}
+
 interface ChatState {
   isStreaming: boolean;
+  pendingUserMessage: string;
   streamingText: string;
   streamingThinking: string;
   streamingToolCalls: ToolCallEvent[];
   streamingToolResults: ToolResultEvent[];
+  streamingMessages: StreamingSegment[];
   error: string | null;
 }
 
-const [state, setState] = createStore<ChatState>({
+const initialState: ChatState = {
   isStreaming: false,
+  pendingUserMessage: "",
   streamingText: "",
   streamingThinking: "",
   streamingToolCalls: [],
   streamingToolResults: [],
+  streamingMessages: [],
   error: null,
-});
+};
+
+const [state, setState] = createStore<ChatState>({ ...initialState });
 
 let currentAbort: (() => void) | null = null;
+
+function archiveCurrentSegment() {
+  if (
+    !state.streamingText &&
+    !state.streamingThinking &&
+    state.streamingToolCalls.length === 0
+  ) {
+    return;
+  }
+  setState("streamingMessages", (prev) => [
+    ...prev,
+    {
+      text: state.streamingText,
+      thinking: state.streamingThinking,
+      toolCalls: [...state.streamingToolCalls],
+      toolResults: [...state.streamingToolResults],
+    },
+  ]);
+  batch(() => {
+    setState("streamingText", "");
+    setState("streamingThinking", "");
+    setState("streamingToolCalls", []);
+    setState("streamingToolResults", []);
+  });
+}
 
 async function startStream(sessionId: string, message: string) {
   // Guard against concurrent streams
@@ -40,10 +78,12 @@ async function startStream(sessionId: string, message: string) {
   batch(() => {
     setState({
       isStreaming: true,
+      pendingUserMessage: message,
       streamingText: "",
       streamingThinking: "",
       streamingToolCalls: [],
       streamingToolResults: [],
+      streamingMessages: [],
       error: null,
     });
   });
@@ -67,6 +107,9 @@ async function startStream(sessionId: string, message: string) {
         case "tool-result":
           setState("streamingToolResults", (prev) => [...prev, event]);
           break;
+        case "step":
+          archiveCurrentSegment();
+          break;
         case "error":
           setState("error", event.error);
           break;
@@ -85,10 +128,12 @@ async function startStream(sessionId: string, message: string) {
     batch(() => {
       setState({
         isStreaming: false,
+        pendingUserMessage: "",
         streamingText: "",
         streamingThinking: "",
         streamingToolCalls: [],
         streamingToolResults: [],
+        streamingMessages: [],
       });
       currentAbort = null;
     });
@@ -101,13 +146,35 @@ function stopStream() {
   currentAbort?.();
 }
 
+function resetStreamState() {
+  if (currentAbort) {
+    currentAbort();
+  }
+  batch(() => {
+    setState({
+      isStreaming: false,
+      pendingUserMessage: "",
+      streamingText: "",
+      streamingThinking: "",
+      streamingToolCalls: [],
+      streamingToolResults: [],
+      streamingMessages: [],
+      error: null,
+    });
+    currentAbort = null;
+  });
+}
+
 export const chatStore = {
   isStreaming: () => state.isStreaming,
+  pendingUserMessage: () => state.pendingUserMessage,
   streamingText: () => state.streamingText,
   streamingThinking: () => state.streamingThinking,
   streamingToolCalls: () => state.streamingToolCalls,
   streamingToolResults: () => state.streamingToolResults,
+  streamingMessages: () => state.streamingMessages,
   error: () => state.error,
   startStream,
   stopStream,
+  resetStreamState,
 };

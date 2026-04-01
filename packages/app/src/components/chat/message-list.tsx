@@ -1,7 +1,7 @@
 import { createEffect, For, on, Show } from "solid-js";
 import { renderMarkdown } from "../../lib/markdown";
 import type { SessionMessage } from "../../lib/types";
-import { chatStore } from "../../stores/chat";
+import { chatStore, type StreamingSegment } from "../../stores/chat";
 import { MessageItem } from "./message-item";
 import { ThinkingBlock } from "./thinking-block";
 import { ToolCard } from "./tool-card";
@@ -10,16 +10,57 @@ interface MessageListProps {
   messages: SessionMessage[];
 }
 
-export function MessageList(props: MessageListProps) {
-  let scrollRef!: HTMLDivElement;
-
-  const streamingTools = () => {
-    const calls = chatStore.streamingToolCalls();
-    const results = chatStore.streamingToolResults();
+function StreamingSegmentView(props: { segment: StreamingSegment; isStreaming: boolean }) {
+  const tools = () => {
+    const calls = props.segment.toolCalls;
+    const results = props.segment.toolResults;
     return calls.map((call) => ({
       call,
       result: results.find((r) => r.toolCallId === call.toolCallId),
     }));
+  };
+
+  return (
+    <>
+      {/* Assistant content (thinking + text) with blue border, matching MessageItem role=assistant */}
+      <Show when={props.segment.thinking || props.segment.text}>
+        <div class="space-y-2 border-l-2 border-[var(--primary)] py-3 pl-4">
+          <Show when={props.segment.thinking}>
+            <ThinkingBlock
+              text={props.segment.thinking}
+              isStreaming={props.isStreaming}
+            />
+          </Show>
+          <Show when={props.segment.text}>
+            <div
+              class="prose max-w-none text-sm text-[var(--text-primary)]"
+              innerHTML={renderMarkdown(props.segment.text)}
+            />
+          </Show>
+        </div>
+      </Show>
+      {/* Tool cards without border, matching MessageItem role=tool */}
+      <For each={tools()}>
+        {(item) => (
+          <div class="py-3">
+            <ToolCard call={item.call} result={item.result} />
+          </div>
+        )}
+      </For>
+    </>
+  );
+}
+
+export function MessageList(props: MessageListProps) {
+  let scrollRef!: HTMLDivElement;
+
+  const currentSegment = (): StreamingSegment | null => {
+    const text = chatStore.streamingText();
+    const thinking = chatStore.streamingThinking();
+    const calls = chatStore.streamingToolCalls();
+    const results = chatStore.streamingToolResults();
+    if (!text && !thinking && calls.length === 0) return null;
+    return { text, thinking, toolCalls: calls, toolResults: results };
   };
 
   createEffect(
@@ -29,6 +70,7 @@ export function MessageList(props: MessageListProps) {
         chatStore.streamingThinking(),
         chatStore.streamingText(),
         chatStore.streamingToolCalls().length,
+        chatStore.streamingMessages().length,
       ],
       () => {
         requestAnimationFrame(() => {
@@ -47,30 +89,23 @@ export function MessageList(props: MessageListProps) {
           {(msg) => <MessageItem message={msg} />}
         </For>
 
-        <Show
-          when={
-            chatStore.streamingThinking() ||
-            chatStore.streamingText() ||
-            chatStore.streamingToolCalls().length > 0
-          }
-        >
-          <div class="border-l-2 border-[var(--primary)] py-3 pl-4">
-            <Show when={chatStore.streamingThinking()}>
-              <ThinkingBlock
-                text={chatStore.streamingThinking()}
-                isStreaming={true}
-              />
-            </Show>
-            <Show when={chatStore.streamingText()}>
-              <div
-                class="prose max-w-none text-sm text-[var(--text-primary)]"
-                innerHTML={renderMarkdown(chatStore.streamingText())}
-              />
-            </Show>
-            <For each={streamingTools()}>
-              {(item) => <ToolCard call={item.call} result={item.result} />}
-            </For>
+        {/* Optimistic user message shown during streaming */}
+        <Show when={chatStore.pendingUserMessage()}>
+          <div class="py-3">
+            <div class="rounded-xl bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--text-primary)]">
+              {chatStore.pendingUserMessage()}
+            </div>
           </div>
+        </Show>
+
+        {/* Completed streaming segments */}
+        <For each={chatStore.streamingMessages()}>
+          {(seg) => <StreamingSegmentView segment={seg} isStreaming={false} />}
+        </For>
+
+        {/* Current streaming segment */}
+        <Show when={currentSegment()}>
+          {(seg) => <StreamingSegmentView segment={seg()} isStreaming={true} />}
         </Show>
       </div>
     </div>
