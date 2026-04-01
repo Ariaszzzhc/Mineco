@@ -15,7 +15,20 @@ vi.mock("@mineco/agent", () => ({
     run = mockRun;
   },
   buildSystemPrompt: vi.fn(() => "system prompt"),
-  createDefaultToolRegistry: vi.fn(() => ({})),
+  createDefaultToolRegistry: vi.fn(() => ({
+    register: vi.fn(),
+    getAll: vi.fn(() => []),
+    toApiTools: vi.fn(() => []),
+    execute: vi.fn(),
+    get: vi.fn(),
+  })),
+  createAgentTool: vi.fn(() => ({
+    name: "agent",
+    description: "mock agent tool",
+    parameters: {},
+    execute: vi.fn(),
+  })),
+  agentDefinitions: new Map(),
 }));
 
 // Mock node:crypto for deterministic UUIDs

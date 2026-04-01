@@ -10,6 +10,7 @@ export interface SessionMessage {
   toolName?: string;
   isError?: boolean;
   usage?: Usage;
+  runId?: string;
   createdAt: number;
 }
 
@@ -22,6 +23,17 @@ export interface Session {
   updatedAt: number;
 }
 
+export interface SubagentRun {
+  id: string;
+  sessionId: string;
+  parentToolCallId: string;
+  agentType: string;
+  status: "running" | "completed" | "error";
+  summary: string | null;
+  createdAt: number;
+  completedAt: number | null;
+}
+
 export interface SessionStore {
   create(workspaceId: string): Promise<Session>;
   get(id: string): Promise<Session | undefined>;
@@ -31,4 +43,10 @@ export interface SessionStore {
   updateMessages(sessionId: string, messages: SessionMessage[]): Promise<void>;
   updateTitle(id: string, title: string): Promise<void>;
   delete(id: string): Promise<void>;
+  createRun(run: SubagentRun): Promise<void>;
+  updateRun(
+    runId: string,
+    updates: Partial<Pick<SubagentRun, "status" | "summary" | "completedAt">>,
+  ): Promise<void>;
+  getRunsBySession(sessionId: string): Promise<SubagentRun[]>;
 }

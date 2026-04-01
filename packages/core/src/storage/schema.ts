@@ -26,7 +26,18 @@ export interface Database {
     tool_name: string | null;
     is_error: number;
     usage: string | null;
+    run_id: string | null;
     created_at: number;
+  };
+  runs: {
+    id: string;
+    session_id: string;
+    parent_tool_call_id: string;
+    agent_type: string;
+    status: string;
+    summary: string | null;
+    created_at: number;
+    completed_at: number | null;
   };
 }
 
@@ -47,6 +58,17 @@ export async function initializeSchema(db: Kysely<Database>): Promise<void> {
     updated_at INTEGER NOT NULL
   )`.execute(db);
 
+  await sql`CREATE TABLE IF NOT EXISTS runs (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    parent_tool_call_id TEXT NOT NULL,
+    agent_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    summary TEXT,
+    created_at INTEGER NOT NULL,
+    completed_at INTEGER
+  )`.execute(db);
+
   await sql`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -58,13 +80,7 @@ export async function initializeSchema(db: Kysely<Database>): Promise<void> {
     tool_name TEXT,
     is_error INTEGER DEFAULT 0,
     usage TEXT,
+    run_id TEXT REFERENCES runs(id) ON DELETE CASCADE,
     created_at INTEGER NOT NULL
   )`.execute(db);
-
-  // Migrate existing databases: add thinking column if missing
-  try {
-    await sql`ALTER TABLE messages ADD COLUMN thinking TEXT`.execute(db);
-  } catch {
-    // Column already exists — ignore
-  }
 }

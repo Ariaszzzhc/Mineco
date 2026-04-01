@@ -207,6 +207,8 @@ describe("SqliteSessionStore", () => {
         createdAt: Date.now(),
       });
 
+      // Ensure s2's created_at > s1's updated_at (from addMessage)
+      await new Promise((r) => setTimeout(r, 2));
       const s2 = await store.create(TEST_WORKSPACE_ID);
 
       const sessions = await store.list();

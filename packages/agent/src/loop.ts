@@ -113,6 +113,10 @@ export class AgentLoop {
 
         const result = await this.toolRegistry.execute(tc.name, tc.arguments, {
           workingDir: config.workingDir,
+          sessionId: session.id,
+          providerId: config.providerId,
+          model: config.model,
+          ...(config.emitEvent ? { emitEvent: config.emitEvent } : {}),
         });
 
         yield {

@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
-import type { SessionStore } from "@mineco/agent";
 import {
   AgentLoop,
+  agentDefinitions,
   buildSystemPrompt,
+  createAgentTool,
   createDefaultToolRegistry,
+  type AgentEvent,
   type SessionMessage,
+  type SessionStore,
 } from "@mineco/agent";
 import type { ProviderRegistry } from "@mineco/provider";
 import { Hono } from "hono";
@@ -17,6 +20,13 @@ export function createChatRoutes(
   workspaceStore: SqliteWorkspaceStore,
 ) {
   const tools = createDefaultToolRegistry();
+  tools.register(
+    createAgentTool({
+      providerRegistry,
+      definitions: agentDefinitions,
+      sessionStore: store,
+    }),
+  );
   const loop = new AgentLoop(providerRegistry, tools);
 
   async function generateTitle(
@@ -97,6 +107,13 @@ export function createChatRoutes(
       let currentThinking = "";
       const toolMessages: SessionMessage[] = [];
 
+      const emitEvent = async (event: AgentEvent) => {
+        await stream.writeSSE({
+          event: event.type,
+          data: JSON.stringify(event),
+        });
+      };
+
       // Start title generation concurrently with agent loop
       const titlePromise = isFirstMessage
         ? generateTitle(
@@ -114,7 +131,18 @@ export function createChatRoutes(
           systemPrompt,
           workingDir,
           maxSteps: 50,
+          emitEvent,
         })) {
+          // Subagent events are emitted directly via emitEvent callback;
+          // skip them in the main loop to avoid double-write
+          if (
+            event.type === "subagent-start" ||
+            event.type === "subagent-event" ||
+            event.type === "subagent-end"
+          ) {
+            continue;
+          }
+
           await stream.writeSSE({
             event: event.type,
             data: JSON.stringify(event),

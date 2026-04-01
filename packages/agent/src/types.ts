@@ -6,6 +6,8 @@ export interface AgentConfig {
   systemPrompt: string;
   workingDir: string;
   maxSteps: number;
+  signal?: AbortSignal;
+  emitEvent?: (event: AgentEvent) => Promise<void>;
 }
 
 export type AgentEvent =
@@ -27,4 +29,7 @@ export type AgentEvent =
   | { type: "usage"; usage: Usage }
   | { type: "step"; step: number; maxSteps: number }
   | { type: "complete"; reason: "stop" | "max-steps" | "aborted" }
-  | { type: "error"; error: string };
+  | { type: "error"; error: string }
+  | { type: "subagent-start"; runId: string; agentType: string }
+  | { type: "subagent-event"; runId: string; event: AgentEvent }
+  | { type: "subagent-end"; runId: string; summary: string };
