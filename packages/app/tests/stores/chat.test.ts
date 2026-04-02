@@ -59,6 +59,11 @@ describe("chatStore", () => {
     expect(chatStore.streamingToolCalls()).toEqual([]);
     expect(chatStore.streamingToolResults()).toEqual([]);
     expect(chatStore.error()).toBeNull();
+    expect(chatStore.sessionUsage()).toEqual({
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    });
   });
 
   describe("startStream", () => {
@@ -267,6 +272,89 @@ describe("chatStore", () => {
       // Should be able to start another stream
       await chatStore.startStream("s1", "hello again");
       expect(mockStreamChat).toHaveBeenCalledTimes(2);
+    });
+
+    it("should accumulate usage events", async () => {
+      let resolveStream: () => void = () => {};
+      mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
+        capturedOnEvent = onEvent;
+        return {
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
+          abort: mockAbort,
+        };
+      });
+
+      const p = chatStore.startStream("s1", "hello");
+      capturedOnEvent({
+        type: "usage",
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+      });
+      expect(chatStore.sessionUsage()).toEqual({
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      });
+
+      capturedOnEvent({
+        type: "usage",
+        usage: { promptTokens: 200, completionTokens: 100, totalTokens: 300 },
+      });
+      expect(chatStore.sessionUsage()).toEqual({
+        promptTokens: 300,
+        completionTokens: 150,
+        totalTokens: 450,
+      });
+
+      resolveStream?.();
+      await p;
+    });
+
+    it("should reset sessionUsage on new stream", async () => {
+      // First stream with usage
+      let resolveStream1: () => void = () => {};
+      mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
+        capturedOnEvent = onEvent;
+        return {
+          promise: new Promise<void>((r) => {
+            resolveStream1 = r;
+          }),
+          abort: mockAbort,
+        };
+      });
+
+      const p1 = chatStore.startStream("s1", "hello");
+      capturedOnEvent({
+        type: "usage",
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+      });
+      expect(chatStore.sessionUsage().totalTokens).toBe(150);
+
+      resolveStream1?.();
+      await p1;
+
+      // Second stream should reset usage
+      let resolveStream2: () => void = () => {};
+      mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
+        capturedOnEvent = onEvent;
+        return {
+          promise: new Promise<void>((r) => {
+            resolveStream2 = r;
+          }),
+          abort: mockAbort,
+        };
+      });
+
+      const p2 = chatStore.startStream("s1", "new message");
+      expect(chatStore.sessionUsage()).toEqual({
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+      });
+
+      resolveStream2?.();
+      await p2;
     });
   });
 

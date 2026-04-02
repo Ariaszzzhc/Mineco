@@ -35,10 +35,10 @@ async function loadConfig() {
 
 function activeProviderId(): string | null {
   const config = state.config;
-  if (!config || config.providers.length === 0) return null;
-  const defaultId = config.settings.defaultProvider;
-  if (defaultId) return defaultId;
-  // Default to first provider
+  if (!config) return null;
+  // Same logic as resolveProviderId in @mineco/provider — kept local since app
+  // doesn't depend on the provider package directly.
+  if (config.settings.defaultProvider) return config.settings.defaultProvider;
   const first = config.providers[0];
   if (!first) return null;
   return first.type === "zhipu" ? "zhipu" : first.id;
