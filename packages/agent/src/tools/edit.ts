@@ -25,6 +25,7 @@ export const editTool = defineTool({
   description:
     "Edit an existing file by replacing specific text. More precise than write_file for modifying existing code.",
   parameters: EditSchema,
+  isConcurrencySafe: () => false,
   execute: async (params, ctx): Promise<ToolResult> => {
     if (!params.file_path?.trim()) {
       return { output: "Error: No file path provided.", isError: true };

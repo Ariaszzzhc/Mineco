@@ -16,6 +16,10 @@ afterEach(async () => {
 });
 
 describe("editTool", () => {
+  it("isConcurrencySafe returns false", () => {
+    expect(editTool.isConcurrencySafe?.({ file_path: "x", old_string: "a", new_string: "b" })).toBe(false);
+  });
+
   it("replaces unique string in file", async () => {
     const filePath = join(testDir, "a.ts");
     await writeFile(filePath, "const old = 'value';", "utf-8");

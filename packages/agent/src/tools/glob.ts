@@ -24,6 +24,7 @@ export const globTool = defineTool({
   description:
     "Find files matching a glob pattern. Returns file paths sorted by modification time.",
   parameters: GlobSchema,
+  isConcurrencySafe: () => true,
   execute: async (params, ctx): Promise<ToolResult> => {
     if (!params.pattern?.trim()) {
       return { output: "Error: No glob pattern provided.", isError: true };

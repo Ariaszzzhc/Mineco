@@ -31,6 +31,7 @@ export const grepTool = defineTool({
   description:
     "Search file contents using a regex pattern. Returns matching lines with file paths and line numbers.",
   parameters: GrepSchema,
+  isConcurrencySafe: () => true,
   execute: async (params, ctx): Promise<ToolResult> => {
     if (!params.pattern?.trim()) {
       return { output: "Error: No search pattern provided.", isError: true };

@@ -43,6 +43,7 @@ export const lsTool = defineTool({
   description:
     "List directory contents in a tree-like structure. Automatically ignores common directories like node_modules, .git, etc.",
   parameters: LsSchema,
+  isConcurrencySafe: () => true,
   execute: async (params, ctx): Promise<ToolResult> => {
     const dirPath = params.path
       ? path.isAbsolute(params.path)
