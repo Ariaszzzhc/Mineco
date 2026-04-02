@@ -26,6 +26,11 @@ export class AgentLoop {
     let step = 0;
 
     while (step < config.maxSteps) {
+      if (config.signal?.aborted) {
+        yield { type: "complete", reason: "aborted" as const };
+        return;
+      }
+
       step++;
       yield { type: "step", step, maxSteps: config.maxSteps };
 
@@ -43,6 +48,8 @@ export class AgentLoop {
       let usage: Usage | undefined;
 
       try {
+        await this.providerRegistry.acquireRateLimit();
+
         for await (const chunk of provider.chatStream(request)) {
           const delta = chunk.delta;
 
@@ -103,6 +110,7 @@ export class AgentLoop {
         providerId: config.providerId,
         model: config.model,
         ...(config.emitEvent ? { emitEvent: config.emitEvent } : {}),
+        ...(config.signal ? { signal: config.signal } : {}),
       });
 
       for (const tc of collectedCalls) {
@@ -137,6 +145,12 @@ export class AgentLoop {
           content: result.output,
           ...(result.toolCallId ? { toolCallId: result.toolCallId } : {}),
         });
+      }
+
+      // Check signal after tool execution
+ if (config.signal?.aborted) {
+        yield { type: "complete", reason: "aborted" };
+        return;
       }
     }
 

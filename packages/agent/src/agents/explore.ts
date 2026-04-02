@@ -24,6 +24,6 @@ export const exploreAgent: AgentDefinition = {
 ## Output
 
 Provide a clear, well-organized summary of what you found. Include file paths and line numbers for key findings.`,
-  toolNames: ["read_file", "bash"],
+  toolNames: ["read_file", "grep", "glob", "bash"],
   maxSteps: 20,
 };

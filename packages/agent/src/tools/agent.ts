@@ -34,6 +34,10 @@ export function createAgentTool(deps: {
     parameters: AgentToolSchema,
     isConcurrencySafe: () => true,
     execute: async (params, ctx) => {
+      if (ctx.signal?.aborted) {
+        return { output: "Aborted before execution started", isError: true };
+      }
+
       const definition = deps.definitions.get(params.agent_type);
       if (!definition) {
         return {
@@ -90,9 +94,11 @@ export function createAgentTool(deps: {
         systemPrompt: definition.systemPrompt,
         workingDir: ctx.workingDir,
         maxSteps: definition.maxSteps,
+        ...(ctx.signal ? { signal: ctx.signal } : {}),
       };
 
       let summary = "";
+      let innerError: string | null = null;
       const innerLoop = new AgentLoop(
         deps.providerRegistry,
         filteredRegistry,
@@ -113,6 +119,10 @@ export function createAgentTool(deps: {
             summary += innerEvent.delta;
           }
 
+          if (innerEvent.type === "error") {
+            innerError = innerEvent.error;
+          }
+
           if (innerEvent.type === "complete") {
             break;
           }
@@ -120,20 +130,23 @@ export function createAgentTool(deps: {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unknown error";
+        innerError = message;
+      }
 
-        await emit(ctx, { type: "subagent-end", runId, summary: message });
+      if (innerError) {
+        await emit(ctx, { type: "subagent-end", runId, summary: innerError });
 
         try {
           await deps.sessionStore.updateRun(runId, {
             status: "error",
-            summary: message,
+            summary: innerError,
             completedAt: Date.now(),
           });
         } catch {
           // Best-effort
         }
 
-        return { output: message, isError: true };
+        return { output: innerError, isError: true };
       }
 
       if (!summary.trim()) {

@@ -1,5 +1,8 @@
 // Types
 
+// Rate limiting
+export type { RateLimitConfig } from "./rate-limit.js";
+
 // Adapters
 export { OpenAICompatAdapter } from "./adapters/openai-compat.js";
 export type {
