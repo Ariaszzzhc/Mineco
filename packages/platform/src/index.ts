@@ -64,7 +64,11 @@ export class NoOpNotificationAdapter implements NotificationAdapter {
   async requestPermission(): Promise<NotificationPermission> {
     return "denied";
   }
-  async notify(): Promise<string> {
+  async notify(
+    _title?: string,
+    _body?: string,
+    _options?: NotifyOptions,
+  ): Promise<string> {
     return "";
   }
   close(_id: string): void {}
