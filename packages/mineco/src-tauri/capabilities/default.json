@@ -16,6 +16,7 @@
       ]
     },
     "shell:allow-kill",
-    "core:event:default"
+    "core:event:default",
+    "notifications:default"
   ]
 }

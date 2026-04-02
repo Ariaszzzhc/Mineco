@@ -1,12 +1,9 @@
+import type { Platform } from "@mineco/platform";
 import { createContext, type JSX, useContext } from "solid-js";
 
-export interface Platform {
-  readonly name: "web" | "desktop";
-  readonly apiBaseUrl: string;
-  readonly token?: string;
-}
-
-// --- Module-level singleton (for non-reactive use in utilities/stores) ---
+// ---------------------------------------------------------------------------
+// Module-level singleton (for non-reactive use in utilities/stores)
+// ---------------------------------------------------------------------------
 
 let _platform: Platform;
 
@@ -18,7 +15,9 @@ export function setPlatform(platform: Platform): void {
   _platform = platform;
 }
 
-// --- SolidJS context (for reactive use in components) ---
+// ---------------------------------------------------------------------------
+// SolidJS context (for reactive use in components)
+// ---------------------------------------------------------------------------
 
 const PlatformContext = createContext<Platform>();
 
@@ -40,36 +39,4 @@ export function PlatformProvider(props: {
       {props.children}
     </PlatformContext.Provider>
   );
-}
-
-// --- Factory functions ---
-
-export function createWebPlatform(): Platform {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get("token");
-
-  if (token) {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("token");
-    window.history.replaceState({}, "", url.toString());
-    return { name: "web", apiBaseUrl: "", token };
-  }
-
-  return { name: "web", apiBaseUrl: "" };
-}
-
-export function createDesktopPlatform(): Platform {
-  const apiUrl = (window as unknown as Record<string, unknown>)
-    .__MINECO_API_URL__;
-  if (typeof apiUrl !== "string" || !apiUrl) {
-    throw new Error("Desktop platform initialized without __MINECO_API_URL__");
-  }
-  return { name: "desktop", apiBaseUrl: apiUrl };
-}
-
-export function createPlatform(): Platform {
-  if ((window as unknown as Record<string, unknown>).__MINECO_API_URL__) {
-    return createDesktopPlatform();
-  }
-  return createWebPlatform();
 }

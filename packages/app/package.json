@@ -6,35 +6,33 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./index.css": "./src/index.css"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -p tsconfig.build.json && vite build",
-    "check": "tsc -p .",
-    "preview": "vite preview"
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc -p ."
   },
   "dependencies": {
     "@ark-ui/solid": "^5.35.0",
     "@fontsource/dm-sans": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "@mineco/core": "workspace:*",
+    "@mineco/platform": "workspace:*",
+    "@mineco/provider": "workspace:*",
     "@solidjs/router": "^0.16.1",
     "dompurify": "^3.3.3",
     "lucide-solid": "^1.7.0",
     "marked": "^17.0.5",
     "shiki": "^4.0.2",
-    "solid-js": "^1.9.11",
-    "@mineco/core": "workspace:*",
-    "@mineco/provider": "workspace:*"
+    "solid-js": "^1.9.11"
   },
   "devDependencies": {
     "@solidjs/testing-library": "^0.8.10",
-    "@tailwindcss/vite": "^4.2.2",
     "@types/dompurify": "^3.2.0",
     "happy-dom": "^20.8.9",
     "hono": "^4.12.9",
     "tailwindcss": "^4.2.2",
-    "vite": "^8.0.1",
     "vite-plugin-solid": "^2.11.11"
   }
 }

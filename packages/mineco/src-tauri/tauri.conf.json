@@ -4,10 +4,10 @@
   "version": "0.2.0",
   "identifier": "com.hiarias.mineco",
   "build": {
-    "frontendDist": "../../app/dist",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "pnpm --filter @mineco/app dev",
-    "beforeBuildCommand": "pnpm --filter @mineco/app build"
+    "beforeDevCommand": "pnpm --filter @mineco/mineco dev",
+    "beforeBuildCommand": "pnpm --filter @mineco/mineco build"
   },
   "app": {
     "windows": [],
@@ -27,7 +27,7 @@
     ],
     "externalBin": ["binaries/mineco-core"],
     "resources": {
-      "../../app/dist/**/*": "web/"
+      "../dist/**/*": "web/"
     },
     "createUpdaterArtifacts": false
   }
