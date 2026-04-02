@@ -13,6 +13,7 @@ import type {
  */
 export class TauriNotificationAdapter implements NotificationAdapter {
   private clickHandlers: NotificationClickHandler[] = [];
+  private listenerCleanup: (() => void) | null = null;
 
   isSupported(): boolean {
     return true;
@@ -28,8 +29,8 @@ export class TauriNotificationAdapter implements NotificationAdapter {
       if (mod.requestPermission) {
         await mod.requestPermission();
       }
-    } catch {
-      // Plugin not available (e.g. in tests)
+    } catch (error) {
+      console.warn("[TauriNotification] requestPermission failed:", error);
     }
     return "granted";
   }
@@ -45,8 +46,8 @@ export class TauriNotificationAdapter implements NotificationAdapter {
         mod.sendNotification({ title, body });
         return `tauri-${Date.now()}`;
       }
-    } catch {
-      // Plugin not available
+    } catch (error) {
+      console.warn("[TauriNotification] sendNotification failed:", error);
     }
     return "";
   }
@@ -57,11 +58,34 @@ export class TauriNotificationAdapter implements NotificationAdapter {
 
   onClick(handler: NotificationClickHandler): () => void {
     this.clickHandlers.push(handler);
+    this.ensureClickListener();
+
     return () => {
       const idx = this.clickHandlers.indexOf(handler);
       if (idx !== -1) {
         this.clickHandlers.splice(idx, 1);
       }
     };
+  }
+
+  private ensureClickListener(): void {
+    if (this.listenerCleanup) return;
+
+    import("@tauri-apps/plugin-notification")
+      .then((mod) => {
+        if (mod.onNotificationActionPerformed && !this.listenerCleanup) {
+          mod.onNotificationActionPerformed((event) => {
+            const id = String(event.notification.id ?? "");
+            for (const handler of this.clickHandlers) {
+              handler(id);
+            }
+          }).then((unlisten) => {
+            this.listenerCleanup = unlisten;
+          });
+        }
+      })
+      .catch(() => {
+        // Plugin not available (e.g. in tests)
+      });
   }
 }
