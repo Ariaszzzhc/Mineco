@@ -74,14 +74,16 @@ export class TauriNotificationAdapter implements NotificationAdapter {
     import("@tauri-apps/plugin-notification")
       .then((mod) => {
         if (mod.onNotificationActionPerformed && !this.listenerCleanup) {
-          mod.onNotificationActionPerformed((event) => {
-            const id = String(event.notification.id ?? "");
-            for (const handler of this.clickHandlers) {
-              handler(id);
-            }
-          }).then((unlisten) => {
-            this.listenerCleanup = unlisten;
-          });
+          mod
+            .onNotificationActionPerformed((event) => {
+              const id = String(event.notification.id ?? "");
+              for (const handler of this.clickHandlers) {
+                handler(id);
+              }
+            })
+            .then((unlisten) => {
+              this.listenerCleanup = unlisten;
+            });
         }
       })
       .catch(() => {

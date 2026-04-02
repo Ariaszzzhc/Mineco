@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
 import { NoOpNotificationAdapter, type Platform } from "@mineco/platform";
-import { getPlatform } from "../src/lib/platform";
+import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/create-app";
+import { getPlatform } from "../src/lib/platform";
 
 // Mock solid-js/web render to avoid DOM requirement
 vi.mock(import("solid-js/web"), async (importOriginal) => {

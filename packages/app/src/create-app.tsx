@@ -1,9 +1,9 @@
 import type { Platform } from "@mineco/platform";
 import type { JSX } from "solid-js";
-import { PlatformProvider, setPlatform } from "./lib/platform";
-import { initHighlighter } from "./lib/markdown";
-import { applyTheme, lightTokens } from "./theme";
 import App from "./App";
+import { initHighlighter } from "./lib/markdown";
+import { PlatformProvider, setPlatform } from "./lib/platform";
+import { applyTheme, lightTokens } from "./theme";
 
 /**
  * Create the application root component with the given platform.
