@@ -77,6 +77,16 @@ export interface ModelInfo {
   pricing?: ModelPricing;
 }
 
+export interface UsageRecorder {
+  record(
+    providerId: string,
+    model: string,
+    usage: Usage,
+    sessionId?: string,
+    messageId?: string,
+  ): void;
+}
+
 export interface UserProviderConfig {
   id: string;
   type: "openai-compatible";

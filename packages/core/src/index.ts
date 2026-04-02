@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { honoLogger } from "@logtape/hono";
 import { configure, getConsoleSink } from "@logtape/logtape";
-import { ProviderRegistry } from "@mineco/provider";
+import { PricingDB, ProviderRegistry } from "@mineco/provider";
 import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
 import { cors } from "hono/cors";
@@ -17,10 +17,12 @@ import { createChatRoutes } from "./routes/chat.js";
 import { createConfigRoutes } from "./routes/config.js";
 import { createFsRoutes } from "./routes/fs.js";
 import { createSessionRoutes } from "./routes/session.js";
+import { createStatsRoutes } from "./routes/stats.js";
 import { createWorkspaceRoutes } from "./routes/workspace.js";
 import {
   NodeSqliteDialect,
   SqliteSessionStore,
+  SqliteUsageStore,
   SqliteWorkspaceStore,
 } from "./storage/index.js";
 import { type Database, initializeSchema } from "./storage/schema.js";
@@ -42,6 +44,7 @@ function buildRoutes(deps: {
   sessionStore: SqliteSessionStore;
   workspaceStore: SqliteWorkspaceStore;
   registry: ProviderRegistry;
+  usageStore: SqliteUsageStore;
 }) {
   const app = new Hono<Env>();
 
@@ -68,7 +71,8 @@ function buildRoutes(deps: {
     .route(
       "/api/sessions",
       createChatRoutes(deps.registry, deps.sessionStore, deps.workspaceStore),
-    );
+    )
+    .route("/api/stats", createStatsRoutes(deps.usageStore));
 
   return routes;
 }
@@ -95,9 +99,25 @@ async function main() {
   const workspaceStore = new SqliteWorkspaceStore(db);
 
   // --- Config system ---
+  const pricingDB = new PricingDB();
   const registry = new ProviderRegistry();
   const configService = new ConfigService(registry);
   await configService.initialize();
+
+  // --- Usage tracking ---
+  const usageStore = new SqliteUsageStore(db, pricingDB);
+  registry.setRecorder({
+    record: (providerId, model, usage, sessionId) => {
+      usageStore
+        .record({
+          providerId,
+          model,
+          usage,
+          ...(sessionId ? { sessionId } : {}),
+        })
+        .catch(() => {});
+    },
+  });
 
   // --- Routes ---
   const app = buildRoutes({
@@ -106,6 +126,7 @@ async function main() {
     sessionStore,
     workspaceStore,
     registry,
+    usageStore,
   });
 
   const port = parseInt(process.env.MINECO_PORT ?? "3000", 10);

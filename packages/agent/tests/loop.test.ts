@@ -54,6 +54,7 @@ function makeRegistry(provider: ReturnType<typeof mockProvider>) {
   return {
     get: () => provider,
     acquireRateLimit: async () => {},
+    recordUsage: () => {},
   } as unknown as ProviderRegistry;
 }
 

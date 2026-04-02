@@ -35,6 +35,7 @@ export type {
   Tool,
   ToolCall,
   Usage,
+  UsageRecorder,
   UserProviderConfig,
 } from "./types.js";
 export type { CostEstimate } from "./usage/pricing.js";

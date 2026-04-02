@@ -95,7 +95,15 @@ export class AgentLoop {
         ...(collectedCalls.length > 0 ? { toolCalls: collectedCalls } : {}),
       });
 
-      if (usage) yield { type: "usage", usage };
+      if (usage) {
+        this.providerRegistry.recordUsage(
+          config.providerId,
+          config.model,
+          usage,
+          session.id,
+        );
+        yield { type: "usage", usage };
+      }
 
       if (finishReason !== "tool_calls" || toolCallMap.size === 0) {
         yield { type: "complete", reason: "stop" };
