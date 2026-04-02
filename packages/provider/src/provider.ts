@@ -24,3 +24,24 @@ export function hasSubscription(
     (provider as Record<string, unknown>).subscription !== null
   );
 }
+
+export interface ProviderListEntry {
+  type: string;
+  id?: string;
+}
+
+export interface ProviderResolvableConfig {
+  providers: ProviderListEntry[];
+  settings: { defaultProvider?: string };
+}
+
+/** Resolve the active provider ID from config: explicit default → first provider → null */
+export function resolveProviderId(
+  config: ProviderResolvableConfig,
+): string | null {
+  const { defaultProvider } = config.settings;
+  if (defaultProvider) return defaultProvider;
+  const first = config.providers[0];
+  if (!first) return null;
+  return first.type === "zhipu" ? "zhipu" : (first.id ?? null);
+}

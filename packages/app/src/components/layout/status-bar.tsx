@@ -1,9 +1,25 @@
 import { useNavigate } from "@solidjs/router";
-import { Show } from "solid-js";
+import { Cpu } from "lucide-solid";
+import { createMemo, onCleanup, onMount, Show } from "solid-js";
+import { chatStore } from "../../stores/chat";
 import { configStore } from "../../stores/config";
+import { subscriptionStore } from "../../stores/subscription";
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
 
 export function StatusBar() {
   const navigate = useNavigate();
+
+  onMount(() => {
+    subscriptionStore.startAutoRefresh();
+  });
+  onCleanup(() => {
+    subscriptionStore.stopAutoRefresh();
+  });
 
   const providerName = () => {
     const config = configStore.config();
@@ -24,9 +40,44 @@ export function StatusBar() {
 
   const modelName = () => configStore.config()?.settings.defaultModel ?? "";
 
+  const contextWindow = createMemo(() => {
+    const providerId = configStore.activeProviderId();
+    const modelId = configStore.activeModel();
+    if (!providerId || !modelId) return null;
+
+    const providerMeta = configStore
+      .providerModels()
+      .find((p) => p.id === providerId);
+    if (!providerMeta) return null;
+
+    const model = providerMeta.models.find((m) => m.id === modelId);
+    return model?.contextWindow ?? null;
+  });
+
+  const usagePercent = createMemo(() => {
+    const cw = contextWindow();
+    const usage = chatStore.sessionUsage();
+    if (!cw || cw === 0) return 0;
+    return Math.min((usage.totalTokens / cw) * 100, 100);
+  });
+
+  const progressColor = createMemo(() => {
+    const pct = usagePercent();
+    if (pct >= 90) return "var(--error)";
+    if (pct >= 70) return "var(--warning)";
+    return "var(--success)";
+  });
+
+  const primaryQuota = createMemo(() => {
+    const info = subscriptionStore.info();
+    if (!info || info.quotas.length === 0) return null;
+    return info.quotas[0];
+  });
+
   return (
     <div class="flex h-7 items-center justify-between border-t border-[var(--border)] bg-[var(--surface)] px-3 text-[11px] text-[var(--text-muted)]">
-      <div class="flex items-center gap-2">
+      {/* Left: Provider / Model */}
+      <div class="flex items-center gap-2 min-w-0 shrink-0">
         <Show
           when={providerName()}
           fallback={
@@ -39,13 +90,67 @@ export function StatusBar() {
             </button>
           }
         >
-          <span>{providerName()}</span>
+          <span class="truncate">{providerName()}</span>
           <Show when={modelName()}>
             <span class="text-[var(--text-muted)]">/ {modelName()}</span>
           </Show>
         </Show>
       </div>
-      <div class="flex items-center gap-1.5" />
+
+      {/* Center: Context window progress */}
+      <Show when={contextWindow()}>
+        {(cw) => (
+          <div class="flex items-center gap-2 min-w-0 shrink">
+            <Cpu size={12} class="shrink-0 text-[var(--text-muted)]" />
+            <div class="flex items-center gap-1.5">
+              <span class="whitespace-nowrap tabular-nums">
+                {formatTokens(chatStore.sessionUsage().totalTokens)}
+              </span>
+              <span class="text-[var(--text-muted)]">/</span>
+              <span class="whitespace-nowrap tabular-nums">
+                {formatTokens(cw())}
+              </span>
+            </div>
+            <div class="h-1.5 w-20 rounded-full bg-[var(--surface-elevated)]">
+              <div
+                class="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${usagePercent()}%`,
+                  "background-color": progressColor(),
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </Show>
+
+      {/* Right: Subscription / Token info */}
+      <div class="flex items-center gap-2 min-w-0 shrink-0">
+        <Show
+          when={subscriptionStore.info()}
+          fallback={
+            <Show when={chatStore.sessionUsage().totalTokens > 0}>
+              <span class="tabular-nums">
+                {formatTokens(chatStore.sessionUsage().promptTokens)} in +{" "}
+                {formatTokens(chatStore.sessionUsage().completionTokens)} out
+              </span>
+            </Show>
+          }
+        >
+          {(info) => (
+            <>
+              <span class="font-medium text-[var(--text-secondary)]">
+                {info().planName}
+              </span>
+              <Show when={primaryQuota()}>
+                {(q) => (
+                  <span class="tabular-nums">{q().percentage.toFixed(0)}%</span>
+                )}
+              </Show>
+            </>
+          )}
+        </Show>
+      </div>
     </div>
   );
 }

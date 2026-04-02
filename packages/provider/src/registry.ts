@@ -7,7 +7,7 @@ import { UsageTracker } from "./usage/tracker.js";
 export interface ProviderMeta {
   id: string;
   name: string;
-  models: Array<{ id: string; name: string }>;
+  models: Array<{ id: string; name: string; contextWindow?: number }>;
 }
 
 export class ProviderRegistry {
@@ -38,6 +38,7 @@ export class ProviderRegistry {
         id: m.id,
         name: m.name,
         maxOutputTokens: m.maxOutputTokens ?? 4096,
+        ...(m.contextWindow ? { contextWindow: m.contextWindow } : {}),
         supportsVision: m.supportsVision ?? false,
         supportsToolCalling: m.supportsToolCalling ?? true,
         supportsStreaming: true,
@@ -64,7 +65,12 @@ export class ProviderRegistry {
     return Array.from(this.providers.values()).map((p) => ({
       id: p.id,
       name: p.name,
-      models: p.listModels().map((m) => ({ id: m.id, name: m.name })),
+      models: p.listModels().map((m) => {
+        const base = { id: m.id, name: m.name };
+        return m.contextWindow
+          ? { ...base, contextWindow: m.contextWindow }
+          : base;
+      }),
     }));
   }
 

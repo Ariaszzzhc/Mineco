@@ -1,3 +1,5 @@
+import type { ProviderRegistry } from "@mineco/provider";
+import { hasSubscription, resolveProviderId } from "@mineco/provider";
 import { Hono } from "hono";
 import { ZodError } from "zod";
 import type { ProviderConfig } from "../config/schema.js";
@@ -8,8 +10,9 @@ export function createConfigRoutes(
   getRegistryModels: () => Array<{
     id: string;
     name: string;
-    models: Array<{ id: string; name: string }>;
+    models: Array<{ id: string; name: string; contextWindow?: number }>;
   }>,
+  registry: ProviderRegistry,
 ) {
   return (
     new Hono()
@@ -107,6 +110,28 @@ export function createConfigRoutes(
             );
           }
           throw error;
+        }
+      })
+
+      // GET /subscription — query subscription info from active provider
+      .get("/subscription", async (c) => {
+        const config = configService.getConfig();
+        const providerId = resolveProviderId(config);
+
+        if (!providerId) {
+          return c.json({ subscription: null });
+        }
+
+        try {
+          const provider = registry.get(providerId);
+          if (!provider || !hasSubscription(provider)) {
+            return c.json({ subscription: null });
+          }
+          const info = await provider.subscription.getSubscriptionInfo();
+          return c.json({ subscription: info });
+        } catch (err) {
+          console.error("Failed to fetch subscription info:", err);
+          return c.json({ subscription: null });
         }
       })
   );
