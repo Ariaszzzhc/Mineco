@@ -26,6 +26,16 @@ export class SqliteSessionNotesStore {
     return rows.map(rowToNote);
   }
 
+  async getNote(id: string): Promise<SessionNote | null> {
+    const row = await this.db
+      .selectFrom("session_notes")
+      .selectAll()
+      .where("id", "=", id)
+      .executeTakeFirst();
+
+    return row ? rowToNote(row) : null;
+  }
+
   async upsertAutoNote(
     sessionId: string,
     content: string,

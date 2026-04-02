@@ -48,14 +48,20 @@ export function createSessionRoutes(
       zValidator("json", z.object({ content: z.string() })),
       async (c) => {
         if (!notesStore) return c.json({ error: "Notes not available" }, 503);
+        const noteId = c.req.param("noteId");
+        const existing = await notesStore.getNote(noteId);
+        if (!existing) return c.json({ error: "Note not found" }, 404);
         const { content } = c.req.valid("json");
-        await notesStore.updateNoteContent(c.req.param("noteId"), content);
+        await notesStore.updateNoteContent(noteId, content);
         return c.json({ ok: true });
       },
     )
     .delete("/:id/notes/:noteId", async (c) => {
       if (!notesStore) return c.json({ error: "Notes not available" }, 503);
-      await notesStore.deleteNote(c.req.param("noteId"));
+      const noteId = c.req.param("noteId");
+      const existing = await notesStore.getNote(noteId);
+      if (!existing) return c.json({ error: "Note not found" }, 404);
+      await notesStore.deleteNote(noteId);
       return c.json({ ok: true });
     });
 }

@@ -15,10 +15,10 @@ vi.mock("@mineco/agent", () => ({
     run = mockRun;
   },
   ContextManager: class {
-    prepareContext = vi.fn(async (messages: unknown, systemPrompt: string) => ({
+    prepareContext = vi.fn(async (_sessionId: string, _messages: unknown, systemPrompt: string) => ({
       messages: [],
       systemPrompt,
-      stats: { microCompacted: false, memoryExtracted: false },
+      stats: { originalTokenEstimate: 0, finalTokenEstimate: 0, microCompacted: false, memoryExtracted: false, toolOutputsTruncated: 0, messagesRemoved: 0 },
     }));
   },
   buildSystemPrompt: vi.fn(() => "system prompt"),
@@ -87,6 +87,7 @@ describe("Chat Routes", () => {
   let store: ReturnType<typeof createMockSessionStore>;
   let registry: ReturnType<typeof createMockProviderRegistry>;
   let workspaceStore: ReturnType<typeof createMockWorkspaceStore>;
+  let notesStore: { upsertAutoNote: ReturnType<typeof vi.fn>; getNotes: ReturnType<typeof vi.fn>; updateNoteContent: ReturnType<typeof vi.fn>; deleteNote: ReturnType<typeof vi.fn> };
   let app: ReturnType<typeof createChatRoutes>;
 
   beforeEach(() => {
@@ -94,10 +95,17 @@ describe("Chat Routes", () => {
     store = createMockSessionStore();
     registry = createMockProviderRegistry();
     workspaceStore = createMockWorkspaceStore();
+    notesStore = {
+      upsertAutoNote: vi.fn(async () => ({})),
+      getNotes: vi.fn(async () => []),
+      updateNoteContent: vi.fn(async () => {}),
+      deleteNote: vi.fn(async () => {}),
+    };
     app = createChatRoutes(
       registry,
       store,
       workspaceStore as unknown as SqliteWorkspaceStore,
+      notesStore as never,
     );
   });
 

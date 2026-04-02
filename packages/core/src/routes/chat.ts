@@ -13,12 +13,14 @@ import {
 import type { ProviderRegistry } from "@mineco/provider";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import type { SqliteSessionNotesStore } from "../storage/session-notes-store.js";
 import type { SqliteWorkspaceStore } from "../storage/workspace-store.js";
 
 export function createChatRoutes(
   providerRegistry: ProviderRegistry,
   store: SessionStore,
   workspaceStore: SqliteWorkspaceStore,
+  notesStore: SqliteSessionNotesStore,
 ) {
   const tools = createDefaultToolRegistry();
   tools.register(
@@ -182,6 +184,19 @@ export function createChatRoutes(
               isError: event.isError,
               createdAt: Date.now(),
             });
+          } else if (event.type === "context-compressed") {
+            // Persist extracted notes to SQLite
+            if (event.notes) {
+              try {
+                await notesStore.upsertAutoNote(
+                  sessionId,
+                  JSON.stringify(event.notes),
+                  event.stats.finalTokenEstimate,
+                );
+              } catch (err) {
+                console.error("[context] Failed to persist session notes:", err);
+              }
+            }
           } else if (event.type === "complete") {
             // Save any remaining tool messages
             for (const msg of toolMessages) {
