@@ -182,6 +182,37 @@ export const api = {
     const data = await res.json();
     return data.subscription;
   },
+  // Stats
+  async getStatsSummary() {
+    const client = getClient();
+    const res = await client.api.stats.summary.$get();
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
+  },
+
+  async getStatsDaily(from: string, to: string) {
+    const client = getClient();
+    const res = await client.api.stats.daily.$get({ query: { from, to } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
+  },
+
+  async getStatsByModel(from?: string, to?: string) {
+    const client = getClient();
+    const query = from && to ? { from, to } : undefined;
+    const res = await client.api.stats["by-model"].$get({ query });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
+  },
+
+  async getSessionStats(sessionId: string) {
+    const client = getClient();
+    const res = await client.api.stats.sessions[":id"].$get({
+      param: { id: sessionId },
+    });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
+  },
 };
 
 async function extractError(res: Response): Promise<string> {

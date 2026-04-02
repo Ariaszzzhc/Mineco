@@ -219,4 +219,45 @@ describe("api methods", () => {
       expect.objectContaining({ method: "PATCH" }),
     );
   });
+
+  // Stats
+  it("getStatsSummary should GET /api/stats/summary", async () => {
+    await api.getStatsSummary();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/stats/summary",
+      expect.any(Object),
+    );
+  });
+
+  it("getStatsDaily should GET /api/stats/daily with query params", async () => {
+    await api.getStatsDaily("2026-01-01", "2026-04-01");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/stats/daily?from=2026-01-01&to=2026-04-01",
+      expect.any(Object),
+    );
+  });
+
+  it("getStatsByModel should GET /api/stats/by-model with query params", async () => {
+    await api.getStatsByModel("2026-01-01", "2026-04-01");
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/stats/by-model"),
+      expect.any(Object),
+    );
+  });
+
+  it("getStatsByModel should GET /api/stats/by-model without query params", async () => {
+    await api.getStatsByModel();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/stats/by-model",
+      expect.any(Object),
+    );
+  });
+
+  it("getSessionStats should GET /api/stats/sessions/:id", async () => {
+    await api.getSessionStats("session-1");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/stats/sessions/session-1",
+      expect.any(Object),
+    );
+  });
 });
