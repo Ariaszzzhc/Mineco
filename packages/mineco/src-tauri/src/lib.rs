@@ -94,7 +94,7 @@ pub fn run() {
                 }));
 
                 let init_script = format!(
-                    "Object.defineProperty(window,'__MINECO_API_URL__',{{value:'http://localhost:{}',writable:false}});",
+                    "Object.defineProperty(window,'__MINECO_API_URL__',{{value:'http://127.0.0.1:{}',writable:false}});",
                     port
                 );
 
@@ -130,8 +130,8 @@ pub fn run() {
                     for _ in 0..60 {
                         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                         if is_port_ready(port) {
-                            log::info!("Sidecar ready at http://localhost:{}", port);
-                            let _ = handle.emit("sidecar-ready", format!("http://localhost:{}", port));
+                            log::info!("Sidecar ready at http://127.0.0.1:{}", port);
+                            let _ = handle.emit("sidecar-ready", format!("http://127.0.0.1:{}", port));
                             return;
                         }
                     }
