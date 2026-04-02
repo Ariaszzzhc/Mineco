@@ -1,9 +1,9 @@
 export { NodeSqliteDialect } from "./dialect.js";
 export type { Database } from "./schema.js";
 export { initializeSchema } from "./schema.js";
-export { SqliteSessionStore } from "./session-store.js";
 export type { SessionNote } from "./session-notes-store.js";
 export { SqliteSessionNotesStore } from "./session-notes-store.js";
+export { SqliteSessionStore } from "./session-store.js";
 export type {
   DailyStats,
   GlobalStats,

@@ -1,12 +1,11 @@
 import type { ChatRequest, ProviderRegistry } from "@mineco/provider";
+
 export type { CompressionStats } from "../types.js";
-import type { CompressionStats } from "../types.js";
+
 import type { SessionMessage } from "../session/types.js";
+import type { CompressionStats } from "../types.js";
 import { microCompact } from "./micro-compact.js";
-import {
-  extractSessionNotes,
-  type ExtractedNotes,
-} from "./session-memory.js";
+import { type ExtractedNotes, extractSessionNotes } from "./session-memory.js";
 import { estimateMessagesTokens } from "./token-estimator.js";
 
 export interface ContextManagerConfig {
@@ -42,9 +41,7 @@ interface SessionState {
 export class ContextManager {
   private sessionStates = new Map<string, SessionState>();
 
-  constructor(
-    private config: ContextManagerConfig = DEFAULT_CONFIG,
-  ) {}
+  constructor(private config: ContextManagerConfig = DEFAULT_CONFIG) {}
 
   private getState(sessionId: string): SessionState {
     let state = this.sessionStates.get(sessionId);

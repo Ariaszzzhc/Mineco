@@ -194,7 +194,10 @@ export function createChatRoutes(
                   event.stats.finalTokenEstimate,
                 );
               } catch (err) {
-                console.error("[context] Failed to persist session notes:", err);
+                console.error(
+                  "[context] Failed to persist session notes:",
+                  err,
+                );
               }
             }
           } else if (event.type === "complete") {

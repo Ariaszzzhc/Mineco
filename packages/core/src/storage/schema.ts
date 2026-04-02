@@ -157,5 +157,7 @@ export async function initializeSchema(db: Kysely<Database>): Promise<void> {
     updated_at INTEGER NOT NULL
   )`.execute(db);
 
-  await sql`CREATE INDEX IF NOT EXISTS idx_session_notes_session ON session_notes(session_id)`.execute(db);
+  await sql`CREATE INDEX IF NOT EXISTS idx_session_notes_session ON session_notes(session_id)`.execute(
+    db,
+  );
 }

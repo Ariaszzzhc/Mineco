@@ -4,7 +4,11 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { honoLogger } from "@logtape/hono";
 import { configure, getConsoleSink } from "@logtape/logtape";
-import { PricingDB, ProviderRegistry, type ProviderMeta } from "@mineco/provider";
+import {
+  PricingDB,
+  type ProviderMeta,
+  ProviderRegistry,
+} from "@mineco/provider";
 import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
 import { cors } from "hono/cors";
@@ -65,10 +69,18 @@ function buildRoutes(deps: {
     )
     .route("/api/workspaces", createWorkspaceRoutes(deps.workspaceStore))
     .route("/api/fs", createFsRoutes())
-    .route("/api/sessions", createSessionRoutes(deps.sessionStore, deps.sessionNotesStore))
     .route(
       "/api/sessions",
-      createChatRoutes(deps.registry, deps.sessionStore, deps.workspaceStore, deps.sessionNotesStore),
+      createSessionRoutes(deps.sessionStore, deps.sessionNotesStore),
+    )
+    .route(
+      "/api/sessions",
+      createChatRoutes(
+        deps.registry,
+        deps.sessionStore,
+        deps.workspaceStore,
+        deps.sessionNotesStore,
+      ),
     )
     .route("/api/stats", createStatsRoutes(deps.usageStore));
 

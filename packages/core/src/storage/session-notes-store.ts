@@ -97,10 +97,7 @@ export class SqliteSessionNotesStore {
     };
   }
 
-  async updateNoteContent(
-    id: string,
-    content: string,
-  ): Promise<void> {
+  async updateNoteContent(id: string, content: string): Promise<void> {
     await this.db
       .updateTable("session_notes")
       .set({
