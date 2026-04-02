@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { ToolDefinition } from "../../src/tools/types.js";
 import { ToolRegistry } from "../../src/tools/registry.js";
 import { StreamingToolExecutor } from "../../src/tools/streaming-executor.js";
+import type { ToolDefinition } from "../../src/tools/types.js";
 
 function delayTool(
   name: string,

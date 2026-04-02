@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { hasSubscription, resolveProviderId } from "../src/provider.js";
 import type { Provider } from "../src/provider.js";
+import { hasSubscription, resolveProviderId } from "../src/provider.js";
 import type { SubscriptionClient } from "../src/usage/subscription.js";
 
 describe("resolveProviderId", () => {

@@ -11,7 +11,10 @@ interface MessageListProps {
   messages: SessionMessage[];
 }
 
-function StreamingSegmentView(props: { segment: StreamingSegment; isStreaming: boolean }) {
+function StreamingSegmentView(props: {
+  segment: StreamingSegment;
+  isStreaming: boolean;
+}) {
   const tools = () => {
     const calls = props.segment.toolCalls;
     const results = props.segment.toolResults;

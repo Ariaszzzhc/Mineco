@@ -71,18 +71,13 @@ async function grepWithRg(
   args.push(searchPath);
 
   const output = await new Promise<string>((resolve) => {
-    execFile(
-      "rg",
-      args,
-      { maxBuffer: 10 * 1024 * 1024 },
-      (error, stdout) => {
-        if (error && error.code === 1) {
-          resolve("");
-          return;
-        }
-        resolve(stdout ?? "");
-      },
-    );
+    execFile("rg", args, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
+      if (error && error.code === 1) {
+        resolve("");
+        return;
+      }
+      resolve(stdout ?? "");
+    });
   });
 
   const lines = output.trim().split(/\r?\n/).filter(Boolean);
@@ -213,7 +208,7 @@ function formatMatches(matches: MatchEntry[]): ToolResult {
     }
     const text =
       match.lineText.length > MAX_LINE_LENGTH
-        ? match.lineText.substring(0, MAX_LINE_LENGTH) + "..."
+        ? `${match.lineText.substring(0, MAX_LINE_LENGTH)}...`
         : match.lineText;
     outputLines.push(`  Line ${match.lineNum}: ${text}`);
   }

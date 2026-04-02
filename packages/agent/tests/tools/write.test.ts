@@ -17,7 +17,9 @@ afterEach(async () => {
 
 describe("writeFileTool", () => {
   it("isConcurrencySafe returns false", () => {
-    expect(writeFileTool.isConcurrencySafe?.({ file_path: "x", content: "" })).toBe(false);
+    expect(
+      writeFileTool.isConcurrencySafe?.({ file_path: "x", content: "" }),
+    ).toBe(false);
   });
 
   it("creates a new file", async () => {

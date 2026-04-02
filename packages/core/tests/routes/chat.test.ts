@@ -394,9 +394,7 @@ describe("Chat Routes", () => {
       });
 
       const events = await collectSSEEvents(res);
-      const thinkingDeltas = events.filter(
-        (e) => e.event === "thinking-delta",
-      );
+      const thinkingDeltas = events.filter((e) => e.event === "thinking-delta");
       expect(thinkingDeltas).toHaveLength(2);
       expect(thinkingDeltas[0]?.data).toEqual({
         type: "thinking-delta",
@@ -505,7 +503,9 @@ describe("Chat Routes", () => {
         (call: unknown[]) => (call[1] as SessionMessage).role === "assistant",
       );
       expect(assistantMsgs.length).toBe(1);
-      expect((assistantMsgs[0]?.[1] as SessionMessage).thinking).toBeUndefined();
+      expect(
+        (assistantMsgs[0]?.[1] as SessionMessage).thinking,
+      ).toBeUndefined();
     });
 
     it("should send error event when agent loop throws", async () => {

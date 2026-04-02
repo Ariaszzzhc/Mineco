@@ -25,10 +25,7 @@ describe("lsTool", () => {
     await writeFile(join(testDir, "src", "index.ts"), "content", "utf-8");
     await writeFile(join(testDir, "package.json"), "{}", "utf-8");
 
-    const result = await lsTool.execute(
-      {},
-      { workingDir: testDir },
-    );
+    const result = await lsTool.execute({}, { workingDir: testDir });
     expect(result.isError).toBeUndefined();
     expect(result.output).toContain("src/");
     expect(result.output).toContain("index.ts");
@@ -37,13 +34,14 @@ describe("lsTool", () => {
 
   it("shows nested directories", async () => {
     await mkdir(join(testDir, "src", "components"), { recursive: true });
-    await writeFile(join(testDir, "src", "components", "Button.tsx"), "export {}", "utf-8");
+    await writeFile(
+      join(testDir, "src", "components", "Button.tsx"),
+      "export {}",
+      "utf-8",
+    );
     await writeFile(join(testDir, "src", "index.ts"), "content", "utf-8");
 
-    const result = await lsTool.execute(
-      {},
-      { workingDir: testDir },
-    );
+    const result = await lsTool.execute({}, { workingDir: testDir });
     expect(result.output).toContain("components/");
     expect(result.output).toContain("Button.tsx");
     expect(result.output).toContain("index.ts");
@@ -52,13 +50,14 @@ describe("lsTool", () => {
   it("ignores node_modules and .git", async () => {
     await mkdir(join(testDir, "node_modules", "pkg"), { recursive: true });
     await mkdir(join(testDir, ".git"), { recursive: true });
-    await writeFile(join(testDir, "node_modules", "pkg", "index.js"), "code", "utf-8");
+    await writeFile(
+      join(testDir, "node_modules", "pkg", "index.js"),
+      "code",
+      "utf-8",
+    );
     await writeFile(join(testDir, "visible.ts"), "content", "utf-8");
 
-    const result = await lsTool.execute(
-      {},
-      { workingDir: testDir },
-    );
+    const result = await lsTool.execute({}, { workingDir: testDir });
     expect(result.output).toContain("visible.ts");
     expect(result.output).not.toContain("node_modules");
     expect(result.output).not.toContain(".git");

@@ -1,4 +1,8 @@
 // Agent loop
+
+// Agents
+export { agentDefinitions } from "./agents/index.js";
+export type { AgentDefinition } from "./agents/types.js";
 export { AgentLoop } from "./loop.js";
 // Prompt
 export { buildSystemPrompt } from "./prompt.js";
@@ -9,9 +13,6 @@ export type {
   SessionStore,
   SubagentRun,
 } from "./session/types.js";
-// Agents
-export { agentDefinitions } from "./agents/index.js";
-export type { AgentDefinition } from "./agents/types.js";
 // Tools
 export { createAgentTool } from "./tools/agent.js";
 export type { ToolContext, ToolDefinition, ToolResult } from "./tools/index.js";

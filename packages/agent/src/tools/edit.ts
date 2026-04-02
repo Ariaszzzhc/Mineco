@@ -8,12 +8,12 @@ const EditSchema = z.object({
   file_path: z
     .string()
     .describe("Absolute or relative path to the file to modify"),
-  old_string: z
-    .string()
-    .describe("The text to find and replace"),
+  old_string: z.string().describe("The text to find and replace"),
   new_string: z
     .string()
-    .describe("The text to replace it with (must be different from old_string)"),
+    .describe(
+      "The text to replace it with (must be different from old_string)",
+    ),
   replace_all: z
     .boolean()
     .optional()
