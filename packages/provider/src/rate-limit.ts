@@ -39,7 +39,7 @@ export class TokenBucketRateLimiter {
     });
   }
 
-  /** Stop the internal timer and reject all pending waiters. */
+  /** Stop the internal timer and resolve all pending waiters. */
   destroy(): void {
     clearInterval(this.timer);
     for (const waiter of this.waiters) {

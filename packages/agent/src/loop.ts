@@ -42,7 +42,6 @@ export class AgentLoop {
       };
 
       let text = "";
-      let _thinking = "";
       const toolCallMap = new Map<number, ToolCall>();
       let finishReason: FinishReason | null = null;
       let usage: Usage | undefined;
@@ -59,7 +58,6 @@ export class AgentLoop {
           }
 
           if (delta.thinking) {
-            _thinking += delta.thinking;
             yield { type: "thinking-delta", delta: delta.thinking };
           }
 
