@@ -24,10 +24,12 @@ describe("ZhipuProvider", () => {
   it("should list all models", () => {
     const provider = new ZhipuProvider("test-key");
     const models = provider.listModels();
-    expect(models.length).toBe(9);
+    expect(models.length).toBe(16);
     expect(models.map((m) => m.id)).toContain("glm-5");
     expect(models.map((m) => m.id)).toContain("glm-4.7");
     expect(models.map((m) => m.id)).toContain("glm-4.6v");
+    expect(models.map((m) => m.id)).toContain("glm-5v-turbo");
+    expect(models.map((m) => m.id)).toContain("glm-4-long");
   });
 
   it("should have subscription for coding endpoint", () => {
