@@ -45,10 +45,13 @@ export function ChatView() {
         setSessionUsage(null);
         return;
       }
+      const id = s.id;
       try {
-        const stats = await api.getSessionStats(s.id);
+        const stats = await api.getSessionStats(id);
+        if (session()?.id !== id) return;
         setSessionUsage(stats);
       } catch {
+        if (session()?.id !== id) return;
         setSessionUsage(null);
       }
     }),
@@ -61,8 +64,10 @@ export function ChatView() {
       async (streaming, prev) => {
         const s = session();
         if (prev === true && streaming === false && s) {
+          const id = s.id;
           try {
-            const stats = await api.getSessionStats(s.id);
+            const stats = await api.getSessionStats(id);
+            if (session()?.id !== id) return;
             setSessionUsage(stats);
           } catch {
             /* ignore */
