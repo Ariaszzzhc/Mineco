@@ -12,7 +12,11 @@ describe("Config Routes", () => {
   let configService: ReturnType<typeof createMockConfigService>;
   let app: ReturnType<typeof createConfigRoutes>;
   const mockRegistryModels = () => [
-    { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5", contextWindow: 131072 }] },
+    {
+      id: "zhipu",
+      name: "Zhipu",
+      models: [{ id: "glm-5", name: "GLM-5", contextWindow: 131072 }],
+    },
   ];
 
   const mockRegistry = {
@@ -185,7 +189,14 @@ describe("Config Routes", () => {
 
     it("should return null subscription when provider has no subscription support", async () => {
       configService = createMockConfigService({
-        providers: [{ type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" }],
+        providers: [
+          {
+            type: "zhipu",
+            apiKey: "test-key",
+            platform: "cn",
+            endpoint: "general",
+          },
+        ],
         settings: { defaultProvider: "zhipu" },
       });
       // mockRegistry.get returns null by default (no subscription)
@@ -199,13 +210,29 @@ describe("Config Routes", () => {
 
     it("should return subscription info when provider supports it", async () => {
       configService = createMockConfigService({
-        providers: [{ type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" }],
+        providers: [
+          {
+            type: "zhipu",
+            apiKey: "test-key",
+            platform: "cn",
+            endpoint: "general",
+          },
+        ],
         settings: { defaultProvider: "zhipu" },
       });
 
       const mockSubscriptionInfo = {
         planName: "Pro",
-        quotas: [{ label: "Token", used: 100, limit: 1000, percentage: 10, window: "5h", resetAt: null }],
+        quotas: [
+          {
+            label: "Token",
+            used: 100,
+            limit: 1000,
+            percentage: 10,
+            window: "5h",
+            resetAt: null,
+          },
+        ],
         expiresAt: null,
       };
 
@@ -227,13 +254,24 @@ describe("Config Routes", () => {
 
     it("should return null subscription when subscription fetch throws", async () => {
       configService = createMockConfigService({
-        providers: [{ type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" }],
+        providers: [
+          {
+            type: "zhipu",
+            apiKey: "test-key",
+            platform: "cn",
+            endpoint: "general",
+          },
+        ],
         settings: { defaultProvider: "zhipu" },
       });
 
       const providerMock = {
         id: "zhipu",
-        subscription: { getSubscriptionInfo: async () => { throw new Error("API error"); } },
+        subscription: {
+          getSubscriptionInfo: async () => {
+            throw new Error("API error");
+          },
+        },
       };
       const registryMock = {
         get: vi.fn().mockReturnValue(providerMock),

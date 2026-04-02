@@ -116,12 +116,15 @@ export function createConfigRoutes(
       // GET /subscription — query subscription info from active provider
       .get("/subscription", async (c) => {
         const defaultId = configService.getConfig().settings.defaultProvider;
-        const providerId = defaultId ?? (() => {
-          const providers = configService.getConfig().providers;
-          if (providers.length === 0) return null;
-          const first = providers[0]!;
-          return first.type === "zhipu" ? "zhipu" : first.id;
-        })();
+        const providerId =
+          defaultId ??
+          (() => {
+            const providers = configService.getConfig().providers;
+            if (providers.length === 0) return null;
+            const first = providers[0];
+            if (!first) return null;
+            return first.type === "zhipu" ? "zhipu" : first.id;
+          })();
 
         if (!providerId) {
           return c.json({ subscription: null });

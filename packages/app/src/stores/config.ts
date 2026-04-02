@@ -39,7 +39,8 @@ function activeProviderId(): string | null {
   const defaultId = config.settings.defaultProvider;
   if (defaultId) return defaultId;
   // Default to first provider
-  const first = config.providers[0]!;
+  const first = config.providers[0];
+  if (!first) return null;
   return first.type === "zhipu" ? "zhipu" : first.id;
 }
 

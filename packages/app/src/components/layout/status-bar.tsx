@@ -1,6 +1,6 @@
 import { useNavigate } from "@solidjs/router";
-import { Show, createMemo, onMount, onCleanup } from "solid-js";
 import { Cpu } from "lucide-solid";
+import { createMemo, onCleanup, onMount, Show } from "solid-js";
 import { chatStore } from "../../stores/chat";
 import { configStore } from "../../stores/config";
 import { subscriptionStore } from "../../stores/subscription";
@@ -71,7 +71,7 @@ export function StatusBar() {
   const primaryQuota = createMemo(() => {
     const info = subscriptionStore.info();
     if (!info || info.quotas.length === 0) return null;
-    return info.quotas[0]!;
+    return info.quotas[0];
   });
 
   return (
@@ -99,27 +99,29 @@ export function StatusBar() {
 
       {/* Center: Context window progress */}
       <Show when={contextWindow()}>
-        <div class="flex items-center gap-2 min-w-0 shrink">
-          <Cpu size={12} class="shrink-0 text-[var(--text-muted)]" />
-          <div class="flex items-center gap-1.5">
-            <span class="whitespace-nowrap tabular-nums">
-              {formatTokens(chatStore.sessionUsage().totalTokens)}
-            </span>
-            <span class="text-[var(--text-muted)]">/</span>
-            <span class="whitespace-nowrap tabular-nums">
-              {formatTokens(contextWindow()!)}
-            </span>
+        {(cw) => (
+          <div class="flex items-center gap-2 min-w-0 shrink">
+            <Cpu size={12} class="shrink-0 text-[var(--text-muted)]" />
+            <div class="flex items-center gap-1.5">
+              <span class="whitespace-nowrap tabular-nums">
+                {formatTokens(chatStore.sessionUsage().totalTokens)}
+              </span>
+              <span class="text-[var(--text-muted)]">/</span>
+              <span class="whitespace-nowrap tabular-nums">
+                {formatTokens(cw())}
+              </span>
+            </div>
+            <div class="h-1.5 w-20 rounded-full bg-[var(--surface-elevated)]">
+              <div
+                class="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${usagePercent()}%`,
+                  "background-color": progressColor(),
+                }}
+              />
+            </div>
           </div>
-          <div class="h-1.5 w-20 rounded-full bg-[var(--surface-elevated)]">
-            <div
-              class="h-full rounded-full transition-all duration-300"
-              style={{
-                width: `${usagePercent()}%`,
-                "background-color": progressColor(),
-              }}
-            />
-          </div>
-        </div>
+        )}
       </Show>
 
       {/* Right: Subscription / Token info */}
@@ -135,14 +137,18 @@ export function StatusBar() {
             </Show>
           }
         >
-          <span class="font-medium text-[var(--text-secondary)]">
-            {subscriptionStore.info()!.planName}
-          </span>
-          <Show when={primaryQuota()}>
-            <span class="tabular-nums">
-              {primaryQuota()!.percentage.toFixed(0)}%
-            </span>
-          </Show>
+          {(info) => (
+            <>
+              <span class="font-medium text-[var(--text-secondary)]">
+                {info().planName}
+              </span>
+              <Show when={primaryQuota()}>
+                {(q) => (
+                  <span class="tabular-nums">{q().percentage.toFixed(0)}%</span>
+                )}
+              </Show>
+            </>
+          )}
         </Show>
       </div>
     </div>

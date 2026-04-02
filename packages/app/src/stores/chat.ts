@@ -115,16 +115,36 @@ function archiveSubagentSegment(runId: string) {
 function processSubagentEvent(runId: string, event: AgentEvent) {
   switch (event.type) {
     case "text-delta":
-      setState("subagentRuns", runId, "streamingText", (prev: string) => prev + event.delta);
+      setState(
+        "subagentRuns",
+        runId,
+        "streamingText",
+        (prev: string) => prev + event.delta,
+      );
       break;
     case "thinking-delta":
-      setState("subagentRuns", runId, "streamingThinking", (prev: string) => prev + event.delta);
+      setState(
+        "subagentRuns",
+        runId,
+        "streamingThinking",
+        (prev: string) => prev + event.delta,
+      );
       break;
     case "tool-call":
-      setState("subagentRuns", runId, "streamingToolCalls", (prev: ToolCallEvent[]) => [...prev, event]);
+      setState(
+        "subagentRuns",
+        runId,
+        "streamingToolCalls",
+        (prev: ToolCallEvent[]) => [...prev, event],
+      );
       break;
     case "tool-result":
-      setState("subagentRuns", runId, "streamingToolResults", (prev: ToolResultEvent[]) => [...prev, event]);
+      setState(
+        "subagentRuns",
+        runId,
+        "streamingToolResults",
+        (prev: ToolResultEvent[]) => [...prev, event],
+      );
       break;
     case "step":
       archiveSubagentSegment(runId);
@@ -191,7 +211,8 @@ async function startStream(sessionId: string, message: string) {
         case "usage":
           setState("sessionUsage", (prev) => ({
             promptTokens: prev.promptTokens + event.usage.promptTokens,
-            completionTokens: prev.completionTokens + event.usage.completionTokens,
+            completionTokens:
+              prev.completionTokens + event.usage.completionTokens,
             totalTokens: prev.totalTokens + event.usage.totalTokens,
           }));
           break;

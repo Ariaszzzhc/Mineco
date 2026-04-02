@@ -23,7 +23,8 @@ async function fetchSubscriptionInfo() {
     setState({ info, loading: false });
   } catch (err) {
     setState({
-      error: err instanceof Error ? err.message : "Failed to fetch subscription",
+      error:
+        err instanceof Error ? err.message : "Failed to fetch subscription",
       loading: false,
     });
   }

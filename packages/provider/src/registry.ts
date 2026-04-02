@@ -65,7 +65,9 @@ export class ProviderRegistry {
       name: p.name,
       models: p.listModels().map((m) => {
         const base = { id: m.id, name: m.name };
-        return m.contextWindow ? { ...base, contextWindow: m.contextWindow } : base;
+        return m.contextWindow
+          ? { ...base, contextWindow: m.contextWindow }
+          : base;
       }),
     }));
   }

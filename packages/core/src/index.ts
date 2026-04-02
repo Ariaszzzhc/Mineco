@@ -56,7 +56,11 @@ function buildRoutes(deps: {
     .get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }))
     .route(
       "/api/config",
-      createConfigRoutes(deps.configService, deps.getRegistryModels, deps.registry),
+      createConfigRoutes(
+        deps.configService,
+        deps.getRegistryModels,
+        deps.registry,
+      ),
     )
     .route("/api/workspaces", createWorkspaceRoutes(deps.workspaceStore))
     .route("/api/fs", createFsRoutes())
