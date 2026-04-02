@@ -59,9 +59,10 @@ export function ChatView() {
     on(
       () => chatStore.isStreaming(),
       async (streaming, prev) => {
-        if (prev === true && streaming === false && session()) {
+        const s = session();
+        if (prev === true && streaming === false && s) {
           try {
-            const stats = await api.getSessionStats(session()!.id);
+            const stats = await api.getSessionStats(s.id);
             setSessionUsage(stats);
           } catch {
             /* ignore */
