@@ -37,7 +37,7 @@ function buildRoutes(deps: {
   getRegistryModels: () => Array<{
     id: string;
     name: string;
-    models: Array<{ id: string; name: string }>;
+    models: Array<{ id: string; name: string; contextWindow: number }>;
   }>;
   sessionStore: SqliteSessionStore;
   workspaceStore: SqliteWorkspaceStore;
@@ -56,7 +56,7 @@ function buildRoutes(deps: {
     .get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }))
     .route(
       "/api/config",
-      createConfigRoutes(deps.configService, deps.getRegistryModels),
+      createConfigRoutes(deps.configService, deps.getRegistryModels, deps.registry),
     )
     .route("/api/workspaces", createWorkspaceRoutes(deps.workspaceStore))
     .route("/api/fs", createFsRoutes())

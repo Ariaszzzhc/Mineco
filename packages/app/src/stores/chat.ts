@@ -35,6 +35,11 @@ interface ChatState {
   error: string | null;
   subagentRuns: Record<string, SubagentRunState>;
   activeSubagentRunId: string | null;
+  sessionUsage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }
 
 const initialState: ChatState = {
@@ -48,6 +53,7 @@ const initialState: ChatState = {
   error: null,
   subagentRuns: {},
   activeSubagentRunId: null,
+  sessionUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
 };
 
 const [state, setState] = createStore<ChatState>({ ...initialState });
@@ -156,6 +162,7 @@ async function startStream(sessionId: string, message: string) {
       error: null,
       subagentRuns: {},
       activeSubagentRunId: null,
+      sessionUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
     });
   });
 
@@ -180,6 +187,13 @@ async function startStream(sessionId: string, message: string) {
           break;
         case "step":
           archiveCurrentSegment();
+          break;
+        case "usage":
+          setState("sessionUsage", (prev) => ({
+            promptTokens: prev.promptTokens + event.usage.promptTokens,
+            completionTokens: prev.completionTokens + event.usage.completionTokens,
+            totalTokens: prev.totalTokens + event.usage.totalTokens,
+          }));
           break;
         case "title-generated":
           sessionStore.updateTitle(sessionId, event.title);
@@ -261,6 +275,7 @@ function resetStreamState() {
       error: null,
       subagentRuns: {},
       activeSubagentRunId: null,
+      sessionUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
     });
     currentAbort = null;
   });
@@ -285,6 +300,7 @@ export const chatStore = {
   error: () => state.error,
   subagentRuns: () => state.subagentRuns,
   activeSubagentRunId: () => state.activeSubagentRunId,
+  sessionUsage: () => state.sessionUsage,
   startStream,
   stopStream,
   resetStreamState,

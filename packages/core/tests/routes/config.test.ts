@@ -12,12 +12,16 @@ describe("Config Routes", () => {
   let configService: ReturnType<typeof createMockConfigService>;
   let app: ReturnType<typeof createConfigRoutes>;
   const mockRegistryModels = () => [
-    { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5" }] },
+    { id: "zhipu", name: "Zhipu", models: [{ id: "glm-5", name: "GLM-5", contextWindow: 131072 }] },
   ];
+
+  const mockRegistry = {
+    get: vi.fn().mockReturnValue(null),
+  } as unknown as Parameters<typeof createConfigRoutes>[2];
 
   beforeEach(() => {
     configService = createMockConfigService();
-    app = createConfigRoutes(configService, mockRegistryModels);
+    app = createConfigRoutes(configService, mockRegistryModels, mockRegistry);
     vi.clearAllMocks();
   });
 
@@ -105,7 +109,7 @@ describe("Config Routes", () => {
         ],
         settings: {},
       });
-      app = createConfigRoutes(configService, mockRegistryModels);
+      app = createConfigRoutes(configService, mockRegistryModels, mockRegistry);
 
       const res = await app.request("/providers/zhipu", {
         method: "DELETE",
@@ -232,7 +236,7 @@ describe("Config Routes", () => {
         ],
         settings: {},
       });
-      app = createConfigRoutes(configService, mockRegistryModels);
+      app = createConfigRoutes(configService, mockRegistryModels, mockRegistry);
 
       const res = await app.request("/providers/ollama", {
         method: "DELETE",
