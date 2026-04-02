@@ -6,6 +6,10 @@ import type { Session, SessionStore, SubagentRun } from "../session/types.js";
 import type { AgentConfig, AgentEvent } from "../types.js";
 import { bashTool } from "./bash.js";
 import { defineTool } from "./define.js";
+import { editTool } from "./edit.js";
+import { globTool } from "./glob.js";
+import { grepTool } from "./grep.js";
+import { lsTool } from "./ls.js";
 import { readFileTool } from "./read.js";
 import { ToolRegistry } from "./registry.js";
 import type { ToolContext, ToolDefinition } from "./types.js";
@@ -17,7 +21,7 @@ const AgentToolSchema = z.object({
   prompt: z.string().describe("The task description for the subagent"),
 });
 
-const ALL_TOOLS = [readFileTool, writeFileTool, bashTool];
+const ALL_TOOLS = [readFileTool, writeFileTool, bashTool, grepTool, globTool, editTool, lsTool];
 
 export function createAgentTool(deps: {
   providerRegistry: ProviderRegistry;
