@@ -19,6 +19,15 @@ export interface GlobalStats {
     string,
     { totalTokens: number; totalCost: number; requests: number }
   >;
+  byModel: Array<{
+    providerId: string;
+    model: string;
+    requests: number;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    cost: number;
+  }>;
 }
 
 export interface DailyStats {
@@ -77,36 +86,38 @@ export class SqliteUsageStore {
 
     const id = randomUUID();
     const now = Date.now();
-    const date = new Date(now).toISOString().slice(0, 10) ?? "";
+    const date = new Date(now).toISOString().slice(0, 10);
 
-    await this.db
-      .insertInto("usage_records")
-      .values({
-        id,
-        provider_id: input.providerId,
-        model: input.model,
-        session_id: input.sessionId ?? null,
-        message_id: input.messageId ?? null,
-        prompt_tokens: input.usage.promptTokens,
-        completion_tokens: input.usage.completionTokens,
-        total_tokens: input.usage.totalTokens,
-        cost,
-        created_at: now,
-      })
-      .execute();
+    await this.db.transaction().execute(async (trx) => {
+      await trx
+        .insertInto("usage_records")
+        .values({
+          id,
+          provider_id: input.providerId,
+          model: input.model,
+          session_id: input.sessionId ?? null,
+          message_id: input.messageId ?? null,
+          prompt_tokens: input.usage.promptTokens,
+          completion_tokens: input.usage.completionTokens,
+          total_tokens: input.usage.totalTokens,
+          cost,
+          created_at: now,
+        })
+        .execute();
 
-    await sql`INSERT INTO usage_daily (provider_id, model, date, requests, prompt_tokens, completion_tokens, total_tokens, cost)
-      VALUES (${input.providerId}, ${input.model}, ${date}, 1, ${input.usage.promptTokens}, ${input.usage.completionTokens}, ${input.usage.totalTokens}, ${cost})
-      ON CONFLICT(provider_id, model, date) DO UPDATE SET
-        requests = requests + 1,
-        prompt_tokens = prompt_tokens + ${input.usage.promptTokens},
-        completion_tokens = completion_tokens + ${input.usage.completionTokens},
-        total_tokens = total_tokens + ${input.usage.totalTokens},
-        cost = cost + ${cost}`.execute(this.db);
+      await sql`INSERT INTO usage_daily (provider_id, model, date, requests, prompt_tokens, completion_tokens, total_tokens, cost)
+        VALUES (${input.providerId}, ${input.model}, ${date}, 1, ${input.usage.promptTokens}, ${input.usage.completionTokens}, ${input.usage.totalTokens}, ${cost})
+        ON CONFLICT(provider_id, model, date) DO UPDATE SET
+          requests = requests + 1,
+          prompt_tokens = prompt_tokens + ${input.usage.promptTokens},
+          completion_tokens = completion_tokens + ${input.usage.completionTokens},
+          total_tokens = total_tokens + ${input.usage.totalTokens},
+          cost = cost + ${cost}`.execute(trx);
+    });
   }
 
   async getSummary(): Promise<GlobalStats> {
-    const rows = await this.db
+    const providerRows = await this.db
       .selectFrom("usage_daily")
       .select([
         "provider_id",
@@ -124,9 +135,10 @@ export class SqliteUsageStore {
       totalCost: 0,
       totalRequests: 0,
       byProvider: {},
+      byModel: [],
     };
 
-    for (const row of rows) {
+    for (const row of providerRows) {
       const entry = {
         totalTokens: Number(row.total_tokens),
         totalCost: Number(row.cost),
@@ -138,6 +150,7 @@ export class SqliteUsageStore {
       stats.totalRequests += entry.requests;
     }
 
+    stats.byModel = await this.getByModel();
     return stats;
   }
 
@@ -225,9 +238,15 @@ export class SqliteUsageStore {
       cost: Number(row.cost),
     }));
 
-    const totalTokens = byModel.reduce<number>((sum, m) => sum + m.totalTokens, 0);
+    const totalTokens = byModel.reduce<number>(
+      (sum, m) => sum + m.totalTokens,
+      0,
+    );
     const totalCost = byModel.reduce<number>((sum, m) => sum + m.cost, 0);
-    const totalRequests = byModel.reduce<number>((sum, m) => sum + m.requests, 0);
+    const totalRequests = byModel.reduce<number>(
+      (sum, m) => sum + m.requests,
+      0,
+    );
 
     return { sessionId, totalTokens, totalCost, totalRequests, byModel };
   }

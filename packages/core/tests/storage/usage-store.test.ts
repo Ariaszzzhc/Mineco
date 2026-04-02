@@ -77,13 +77,13 @@ describe("SqliteUsageStore", () => {
         usage: { promptTokens: 200, completionTokens: 100, totalTokens: 300 },
       });
 
-      const today = new Date().toISOString().slice(0, 10)!;
+      const today = new Date().toISOString().slice(0, 10) as string;
       const daily = await store.getDaily(today, today);
       expect(daily).toHaveLength(1);
-      expect(daily[0]!.requests).toBe(2);
-      expect(daily[0]!.promptTokens).toBe(300);
-      expect(daily[0]!.completionTokens).toBe(150);
-      expect(daily[0]!.totalTokens).toBe(450);
+      expect(daily[0]?.requests).toBe(2);
+      expect(daily[0]?.promptTokens).toBe(300);
+      expect(daily[0]?.completionTokens).toBe(150);
+      expect(daily[0]?.totalTokens).toBe(450);
     });
 
     it("should handle multiple providers and models", async () => {
@@ -101,8 +101,28 @@ describe("SqliteUsageStore", () => {
       const stats = await store.getSummary();
       expect(stats.totalTokens).toBe(450);
       expect(stats.totalRequests).toBe(2);
-      expect(stats.byProvider["zhipu"]!.totalTokens).toBe(150);
-      expect(stats.byProvider["deepseek"]!.totalTokens).toBe(300);
+      expect(stats.byProvider.zhipu?.totalTokens).toBe(150);
+      expect(stats.byProvider.deepseek?.totalTokens).toBe(300);
+    });
+
+    it("should include byModel breakdown in summary", async () => {
+      await store.record({
+        providerId: "zhipu",
+        model: "glm-5",
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+      });
+      await store.record({
+        providerId: "zhipu",
+        model: "glm-4.7",
+        usage: { promptTokens: 50, completionTokens: 25, totalTokens: 75 },
+      });
+
+      const stats = await store.getSummary();
+      expect(stats.byModel).toHaveLength(2);
+      const glm5 = stats.byModel.find(
+        (m) => m.model === "glm-5" && m.providerId === "zhipu",
+      );
+      expect(glm5?.totalTokens).toBe(150);
     });
   });
 
@@ -113,6 +133,7 @@ describe("SqliteUsageStore", () => {
       expect(stats.totalCost).toBe(0);
       expect(stats.totalRequests).toBe(0);
       expect(Object.keys(stats.byProvider)).toHaveLength(0);
+      expect(stats.byModel).toHaveLength(0);
     });
   });
 
@@ -124,12 +145,12 @@ describe("SqliteUsageStore", () => {
         usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       });
 
-      const today = new Date().toISOString().slice(0, 10)!;
+      const today = new Date().toISOString().slice(0, 10) as string;
       const daily = await store.getDaily(today, today);
       expect(daily).toHaveLength(1);
-      expect(daily[0]!.date).toBe(today);
-      expect(daily[0]!.providerId).toBe("zhipu");
-      expect(daily[0]!.model).toBe("glm-5");
+      expect(daily[0]?.date).toBe(today);
+      expect(daily[0]?.providerId).toBe("zhipu");
+      expect(daily[0]?.model).toBe("glm-5");
     });
 
     it("should return empty for non-matching range", async () => {
@@ -167,8 +188,8 @@ describe("SqliteUsageStore", () => {
       const glm5 = byModel.find(
         (m) => m.model === "glm-5" && m.providerId === "zhipu",
       );
-      expect(glm5!.requests).toBe(2);
-      expect(glm5!.totalTokens).toBe(450);
+      expect(glm5?.requests).toBe(2);
+      expect(glm5?.totalTokens).toBe(450);
     });
 
     it("should filter by date range", async () => {

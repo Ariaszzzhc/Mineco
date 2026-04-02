@@ -115,7 +115,7 @@ async function main() {
           usage,
           ...(sessionId ? { sessionId } : {}),
         })
-        .catch(() => {});
+        .catch((e) => console.error("Failed to record usage:", e));
     },
   });
 
