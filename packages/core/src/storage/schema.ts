@@ -130,4 +130,11 @@ export async function initializeSchema(db: Kysely<Database>): Promise<void> {
     cost REAL NOT NULL DEFAULT 0,
     PRIMARY KEY (provider_id, model, date)
   )`.execute(db);
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_usage_records_session ON usage_records(session_id)`.execute(
+    db,
+  );
+  await sql`CREATE INDEX IF NOT EXISTS idx_usage_records_created_at ON usage_records(created_at)`.execute(
+    db,
+  );
 }

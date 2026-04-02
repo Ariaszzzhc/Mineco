@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import {
+  type AgentEvent,
   AgentLoop,
   agentDefinitions,
   buildSystemPrompt,
   createAgentTool,
   createDefaultToolRegistry,
-  type AgentEvent,
   type SessionMessage,
   type SessionStore,
 } from "@mineco/agent";
@@ -126,12 +126,7 @@ export function createChatRoutes(
 
       // Start title generation concurrently with agent loop
       const titlePromise = isFirstMessage
-        ? generateTitle(
-            body.providerId!,
-            body.model!,
-            body.message!,
-            sessionId,
-          )
+        ? generateTitle(body.providerId!, body.model!, body.message!, sessionId)
         : null;
 
       try {
