@@ -39,9 +39,9 @@ export class BrowserNotificationAdapter implements NotificationAdapter {
     const id = `n-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const notification = new Notification(title, {
       body,
-      tag: options?.tag,
-      silent: options?.silent,
-      icon: options?.icon,
+      ...(options?.tag ? { tag: options.tag } : {}),
+      ...(options?.silent ? { silent: options.silent } : {}),
+      ...(options?.icon ? { icon: options.icon } : {}),
     });
 
     notification.onclick = () => {

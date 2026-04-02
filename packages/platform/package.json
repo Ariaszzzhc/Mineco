@@ -4,14 +4,13 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "scripts": {
-    "check": "tsc -p ."
-  },
-  "devDependencies": {
-    "typescript": "^6.0.2"
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc -p .",
+    "dev": "tsx watch src/index.ts"
   }
 }

@@ -20,7 +20,7 @@ export function createBrowserPlatform(): Platform {
   return {
     name: "web",
     apiBaseUrl: "",
-    token: token ?? undefined,
+    ...(token ? { token } : {}),
     capabilities: { notification: true, tray: false },
     notification: new BrowserNotificationAdapter(),
   };

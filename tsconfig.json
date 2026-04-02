@@ -17,6 +17,12 @@
       "path": "packages/mineco/tsconfig.json"
     },
     {
+      "path": "packages/platform/tsconfig.json"
+    },
+    {
+      "path": "packages/web/tsconfig.json"
+    },
+    {
       "path": "./tsconfig.node.json"
     }
   ]
