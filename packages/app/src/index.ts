@@ -1,11 +1,9 @@
+export { createApp } from "./create-app";
 export { default as App } from "./App";
-export type { Platform } from "./lib/platform";
+export type { Platform } from "@mineco/platform";
 export {
-  createDesktopPlatform,
-  createPlatform,
-  createWebPlatform,
+  usePlatform,
   getPlatform,
   PlatformProvider,
   setPlatform,
-  usePlatform,
 } from "./lib/platform";

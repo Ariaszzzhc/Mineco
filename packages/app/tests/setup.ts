@@ -1,8 +1,16 @@
 import { vi } from "vitest";
-import { createWebPlatform, setPlatform } from "../src/lib/platform";
+import type { Platform } from "@mineco/platform";
+import { NoOpNotificationAdapter } from "@mineco/platform";
+import { setPlatform } from "../src/lib/platform";
 
 // Initialize Platform singleton for tests
-setPlatform(createWebPlatform());
+const testPlatform: Platform = {
+  name: "web",
+  apiBaseUrl: "",
+  capabilities: { notification: false, tray: false },
+  notification: new NoOpNotificationAdapter(),
+};
+setPlatform(testPlatform);
 
 // Suppress console.warn noise from SSE parse warnings etc.
 const _originalWarn = console.warn;
