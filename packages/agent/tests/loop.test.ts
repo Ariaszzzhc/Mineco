@@ -164,7 +164,7 @@ describe("AgentLoop", () => {
       const loop = new AgentLoop(makeRegistry(provider), toolReg);
       const events = await collectEvents(loop, makeSession(), makeConfig());
 
-      const toolCall = events.find((e) => e.type === "tool-call")!;
+      const toolCall = events.find((e) => e.type === "tool-call");
       expect(toolCall).toMatchObject({
         type: "tool-call",
         toolCallId: "tc1",
@@ -172,7 +172,7 @@ describe("AgentLoop", () => {
         args: { input: "hi" },
       });
 
-      const toolResult = events.find((e) => e.type === "tool-result")!;
+      const toolResult = events.find((e) => e.type === "tool-result");
       expect(toolResult).toMatchObject({
         type: "tool-result",
         toolCallId: "tc1",
@@ -224,7 +224,7 @@ describe("AgentLoop", () => {
       const loop = new AgentLoop(makeRegistry(provider), toolReg);
       const events = await collectEvents(loop, makeSession(), makeConfig());
 
-      const toolCall = events.find((e) => e.type === "tool-call")!;
+      const toolCall = events.find((e) => e.type === "tool-call");
       expect((toolCall as { args: unknown }).args).toEqual({ input: "x" });
     });
   });
@@ -256,7 +256,7 @@ describe("AgentLoop", () => {
         makeConfig({ maxSteps: 3 }),
       );
 
-      const complete = events.find((e) => e.type === "complete")!;
+      const complete = events.find((e) => e.type === "complete");
       expect(complete).toMatchObject({ type: "complete", reason: "max-steps" });
     });
   });
@@ -469,12 +469,25 @@ describe("AgentLoop", () => {
           callCount++;
           if (callCount === 1) {
             yield {
-              delta: { toolCalls: [{ index: 0, id: "tc1", name: "echo", arguments: '{"msg":"hi"}' }] },
+              delta: {
+                toolCalls: [
+                  {
+                    index: 0,
+                    id: "tc1",
+                    name: "echo",
+                    arguments: '{"msg":"hi"}',
+                  },
+                ],
+              },
               usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
               finishReason: "tool_calls",
             };
           } else {
-            yield { delta: { content: "done" }, usage: undefined, finishReason: "stop" };
+            yield {
+              delta: { content: "done" },
+              usage: undefined,
+              finishReason: "stop",
+            };
           }
         },
         chat: () => {

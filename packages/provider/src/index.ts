@@ -1,8 +1,5 @@
 // Types
 
-// Rate limiting
-export type { RateLimitConfig } from "./rate-limit.js";
-
 // Adapters
 export { OpenAICompatAdapter } from "./adapters/openai-compat.js";
 export type {
@@ -11,12 +8,13 @@ export type {
   ZhipuPlatform,
 } from "./adapters/zhipu.js";
 export { ZhipuProvider } from "./adapters/zhipu.js";
-
 // Errors
 export { ProviderError } from "./errors.js";
 // Provider interface
 export type { Provider } from "./provider.js";
 export { hasSubscription } from "./provider.js";
+// Rate limiting
+export type { RateLimitConfig } from "./rate-limit.js";
 export type { ProviderMeta } from "./registry.js";
 // Registry
 export { ProviderRegistry } from "./registry.js";

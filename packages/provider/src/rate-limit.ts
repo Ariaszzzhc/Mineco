@@ -39,9 +39,13 @@ export class TokenBucketRateLimiter {
     });
   }
 
-  /** Stop the internal timer. Call when discarding the limiter. */
+  /** Stop the internal timer and reject all pending waiters. */
   destroy(): void {
     clearInterval(this.timer);
+    for (const waiter of this.waiters) {
+      waiter.resolve();
+    }
+    this.waiters.length = 0;
   }
 
   private refill(): void {
@@ -56,7 +60,8 @@ export class TokenBucketRateLimiter {
     this.refill();
     while (this.tokens >= 1 && this.waiters.length > 0) {
       this.tokens -= 1;
-      const waiter = this.waiters.shift()!;
+      const waiter = this.waiters.shift();
+      if (!waiter) break;
       waiter.resolve();
     }
   }

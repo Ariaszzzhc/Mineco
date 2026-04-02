@@ -69,6 +69,7 @@ export class ProviderRegistry {
   }
 
   setRateLimit(config: RateLimitConfig): void {
+    this.rateLimiter?.destroy();
     this.rateLimiter = new TokenBucketRateLimiter(config);
   }
 
