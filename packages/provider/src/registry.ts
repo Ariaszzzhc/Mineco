@@ -1,7 +1,7 @@
 import { OpenAICompatAdapter } from "./adapters/openai-compat.js";
 import type { Provider as IProvider } from "./provider.js";
 import { type RateLimitConfig, TokenBucketRateLimiter } from "./rate-limit.js";
-import type { UserProviderConfig } from "./types.js";
+import type { Usage, UsageRecorder, UserProviderConfig } from "./types.js";
 import { UsageTracker } from "./usage/tracker.js";
 
 export interface ProviderMeta {
@@ -14,6 +14,21 @@ export class ProviderRegistry {
   private readonly providers = new Map<string, IProvider>();
   readonly usage = new UsageTracker();
   private rateLimiter?: TokenBucketRateLimiter;
+  private recorder?: UsageRecorder;
+
+  setRecorder(recorder: UsageRecorder): void {
+    this.recorder = recorder;
+  }
+
+  recordUsage(
+    providerId: string,
+    model: string,
+    usage: Usage,
+    sessionId?: string,
+  ): void {
+    this.usage.record(providerId, model, usage);
+    this.recorder?.record(providerId, model, usage, sessionId);
+  }
 
   register(provider: IProvider): void {
     this.providers.set(provider.id, provider);

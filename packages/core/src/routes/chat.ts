@@ -48,6 +48,16 @@ export function createChatRoutes(
           { role: "user", content: userMessage },
         ],
       });
+
+      if (response.usage) {
+        providerRegistry.recordUsage(
+          providerId,
+          model,
+          response.usage,
+          sessionId,
+        );
+      }
+
       const title = response.message.content;
       if (typeof title === "string" && title.trim()) {
         const cleaned = title.trim().replace(/^["']|["']$/g, "");
