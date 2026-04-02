@@ -52,10 +52,14 @@ if (platform !== "win32" && existsSync(finalOutput)) {
   // For distribution, replace "-" with a Developer ID certificate.
   if (platform === "darwin") {
     try {
-      execSync(`codesign --force --sign - "${finalOutput}"`, { stdio: "inherit" });
+      execSync(`codesign --force --sign - "${finalOutput}"`, {
+        stdio: "inherit",
+      });
       console.log("Ad-hoc codesigned");
     } catch {
-      console.warn("codesign failed — binary will run but may be blocked by Gatekeeper");
+      console.warn(
+        "codesign failed — binary will run but may be blocked by Gatekeeper",
+      );
     }
   }
 }

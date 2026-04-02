@@ -21,7 +21,11 @@ describe("grepTool", () => {
   });
 
   it("finds pattern in a single file", async () => {
-    await writeFile(join(testDir, "a.ts"), "const hello = 'world';\nconst foo = 'bar';", "utf-8");
+    await writeFile(
+      join(testDir, "a.ts"),
+      "const hello = 'world';\nconst foo = 'bar';",
+      "utf-8",
+    );
     const result = await grepTool.execute(
       { pattern: "hello" },
       { workingDir: testDir },
@@ -34,7 +38,11 @@ describe("grepTool", () => {
   it("searches across multiple files", async () => {
     await mkdir(join(testDir, "sub"), { recursive: true });
     await writeFile(join(testDir, "a.ts"), "function greet() {}", "utf-8");
-    await writeFile(join(testDir, "sub", "b.ts"), "function greetUser() {}", "utf-8");
+    await writeFile(
+      join(testDir, "sub", "b.ts"),
+      "function greetUser() {}",
+      "utf-8",
+    );
 
     const result = await grepTool.execute(
       { pattern: "greet" },

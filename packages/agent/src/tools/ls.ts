@@ -35,7 +35,9 @@ const LsSchema = z.object({
   path: z
     .string()
     .optional()
-    .describe("The directory to list. Defaults to the current working directory."),
+    .describe(
+      "The directory to list. Defaults to the current working directory.",
+    ),
 });
 
 export const lsTool = defineTool({
@@ -55,7 +57,10 @@ export const lsTool = defineTool({
     try {
       const s = await stat(dirPath);
       if (!s.isDirectory()) {
-        return { output: `Error: ${dirPath} is not a directory`, isError: true };
+        return {
+          output: `Error: ${dirPath} is not a directory`,
+          isError: true,
+        };
       }
     } catch {
       return {

@@ -152,9 +152,7 @@ describe("SqliteSessionStore", () => {
       await store.addMessage(session.id, msg);
 
       const result = await store.get(session.id);
-      expect(result?.messages[0]?.thinking).toBe(
-        "Let me reason about this...",
-      );
+      expect(result?.messages[0]?.thinking).toBe("Let me reason about this...");
     });
 
     it("should not set thinking when not provided", async () => {

@@ -17,7 +17,13 @@ afterEach(async () => {
 
 describe("editTool", () => {
   it("isConcurrencySafe returns false", () => {
-    expect(editTool.isConcurrencySafe?.({ file_path: "x", old_string: "a", new_string: "b" })).toBe(false);
+    expect(
+      editTool.isConcurrencySafe?.({
+        file_path: "x",
+        old_string: "a",
+        new_string: "b",
+      }),
+    ).toBe(false);
   });
 
   it("replaces unique string in file", async () => {
@@ -25,7 +31,11 @@ describe("editTool", () => {
     await writeFile(filePath, "const old = 'value';", "utf-8");
 
     const result = await editTool.execute(
-      { file_path: filePath, old_string: "old = 'value'", new_string: "new = 'updated'" },
+      {
+        file_path: filePath,
+        old_string: "old = 'value'",
+        new_string: "new = 'updated'",
+      },
       { workingDir: testDir },
     );
     expect(result.isError).toBeUndefined();
@@ -40,7 +50,12 @@ describe("editTool", () => {
     await writeFile(filePath, "foo foo foo", "utf-8");
 
     const result = await editTool.execute(
-      { file_path: filePath, old_string: "foo", new_string: "bar", replace_all: true },
+      {
+        file_path: filePath,
+        old_string: "foo",
+        new_string: "bar",
+        replace_all: true,
+      },
       { workingDir: testDir },
     );
     expect(result.isError).toBeUndefined();
@@ -54,7 +69,11 @@ describe("editTool", () => {
     await writeFile(filePath, "hello world", "utf-8");
 
     const result = await editTool.execute(
-      { file_path: filePath, old_string: "nonexistent", new_string: "replacement" },
+      {
+        file_path: filePath,
+        old_string: "nonexistent",
+        new_string: "replacement",
+      },
       { workingDir: testDir },
     );
     expect(result.isError).toBe(true);

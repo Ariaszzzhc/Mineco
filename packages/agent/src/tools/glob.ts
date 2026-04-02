@@ -51,18 +51,13 @@ async function globWithRg(
   const args = ["--files", "--no-messages", "--glob", pattern, searchPath];
 
   const output = await new Promise<string>((resolve) => {
-    execFile(
-      "rg",
-      args,
-      { maxBuffer: 10 * 1024 * 1024 },
-      (error, stdout) => {
-        if (error && error.code === 1) {
-          resolve("");
-          return;
-        }
-        resolve(stdout ?? "");
-      },
-    );
+    execFile("rg", args, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
+      if (error && error.code === 1) {
+        resolve("");
+        return;
+      }
+      resolve(stdout ?? "");
+    });
   });
 
   const files = output.trim().split(/\r?\n/).filter(Boolean);
@@ -157,9 +152,7 @@ async function formatResults(files: string[]): Promise<ToolResult> {
   withMtime.sort((a, b) => b.mtime - a.mtime);
 
   const truncated = withMtime.length > MAX_RESULTS;
-  const finalFiles = truncated
-    ? withMtime.slice(0, MAX_RESULTS)
-    : withMtime;
+  const finalFiles = truncated ? withMtime.slice(0, MAX_RESULTS) : withMtime;
 
   if (finalFiles.length === 0) {
     return { output: "No files found" };

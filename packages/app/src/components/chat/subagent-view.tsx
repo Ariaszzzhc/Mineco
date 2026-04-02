@@ -1,8 +1,7 @@
 import { ArrowLeft } from "lucide-solid";
 import { For, Show } from "solid-js";
 import { renderMarkdown } from "../../lib/markdown";
-import type { SubagentRunState } from "../../stores/chat";
-import type { StreamingSegment } from "../../stores/chat";
+import type { StreamingSegment, SubagentRunState } from "../../stores/chat";
 import { ThinkingBlock } from "./thinking-block";
 import { ToolCard } from "./tool-card";
 
@@ -57,8 +56,14 @@ export function SubagentView(props: SubagentViewProps) {
   const isRunning = () => props.run.status === "running";
 
   const currentSegment = () => {
-    const { streamingText, streamingThinking, streamingToolCalls, streamingToolResults } = props.run;
-    if (!streamingText && !streamingThinking && streamingToolCalls.length === 0) return null;
+    const {
+      streamingText,
+      streamingThinking,
+      streamingToolCalls,
+      streamingToolResults,
+    } = props.run;
+    if (!streamingText && !streamingThinking && streamingToolCalls.length === 0)
+      return null;
     return {
       text: streamingText,
       thinking: streamingThinking,
@@ -99,12 +104,16 @@ export function SubagentView(props: SubagentViewProps) {
 
           {/* Completed segments */}
           <For each={props.run.streamingSegments}>
-            {(seg) => <StreamingSegmentView segment={seg} isStreaming={false} />}
+            {(seg) => (
+              <StreamingSegmentView segment={seg} isStreaming={false} />
+            )}
           </For>
 
           {/* Current streaming segment */}
           <Show when={currentSegment()}>
-            {(seg) => <StreamingSegmentView segment={seg()} isStreaming={isRunning()} />}
+            {(seg) => (
+              <StreamingSegmentView segment={seg()} isStreaming={isRunning()} />
+            )}
           </Show>
         </div>
       </div>

@@ -11,9 +11,8 @@ export { ZhipuProvider } from "./adapters/zhipu.js";
 // Errors
 export { ProviderError } from "./errors.js";
 // Provider interface
-export type { Provider } from "./provider.js";
+export type { Provider, ProviderResolvableConfig } from "./provider.js";
 export { hasSubscription, resolveProviderId } from "./provider.js";
-export type { ProviderResolvableConfig } from "./provider.js";
 // Rate limiting
 export type { RateLimitConfig } from "./rate-limit.js";
 export type { ProviderMeta } from "./registry.js";

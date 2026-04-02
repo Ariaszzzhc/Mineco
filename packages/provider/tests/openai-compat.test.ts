@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { OpenAICompatAdapter } from "../src/adapters/openai-compat.js";
-import type { ChatRequest, ChatResponse, ChatStreamChunk } from "../src/types.js";
+import type {
+  ChatRequest,
+  ChatResponse,
+  ChatStreamChunk,
+} from "../src/types.js";
 
 const MOCK_MODELS = [
   {
