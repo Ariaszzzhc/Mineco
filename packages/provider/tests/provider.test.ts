@@ -69,6 +69,7 @@ describe("hasSubscription", () => {
           planName: "Pro",
           quotas: [],
           expiresAt: null,
+          primaryPercentage: 0,
         }),
         getUsage: async () => ({ callCount: 0, totalTokens: 0 }),
       } satisfies SubscriptionClient,

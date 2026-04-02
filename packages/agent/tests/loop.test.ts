@@ -504,10 +504,10 @@ describe("AgentLoop", () => {
         name: "echo",
         description: "echo",
         parameters: z.object({ msg: z.string() }),
-        execute: async (params: { msg: string }) => {
+        execute: async (params, _ctx) => {
           // Abort during tool execution
           controller.abort();
-          return { output: params.msg };
+          return { output: (params as { msg: string }).msg };
         },
       });
 

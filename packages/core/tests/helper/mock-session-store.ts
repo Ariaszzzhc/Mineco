@@ -21,6 +21,10 @@ export function createMockSessionStore(
     addMessage: vi.fn(async () => {}),
     updateMessages: vi.fn(async () => {}),
     delete: vi.fn(async () => {}),
+    updateTitle: vi.fn(async () => {}),
+    createRun: vi.fn(async () => {}),
+    updateRun: vi.fn(async () => {}),
+    getRunsBySession: vi.fn(async () => []),
     ...overrides,
   };
 }

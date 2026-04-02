@@ -77,7 +77,7 @@ describe("BrowserNotificationAdapter", () => {
     stubNotification();
     const id = await adapter.notify("Title", "Body");
     adapter.close(id);
-    expect(notificationInstances[0].close).toHaveBeenCalled();
+    expect(notificationInstances[0]?.close).toHaveBeenCalled();
   });
 
   it("registers click handler and fires on click", async () => {
@@ -88,8 +88,9 @@ describe("BrowserNotificationAdapter", () => {
     const id = await adapter.notify("Title", "Body");
 
     // Simulate click
-    expect(notificationInstances[0].onclick).toBeTruthy();
-    notificationInstances[0].onclick!();
+    const instance = notificationInstances[0];
+    expect(instance?.onclick).toBeTruthy();
+    instance?.onclick?.();
 
     expect(clickHandler).toHaveBeenCalledWith(id);
 

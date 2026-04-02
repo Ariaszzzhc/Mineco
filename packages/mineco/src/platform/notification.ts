@@ -4,12 +4,15 @@ import type {
   NotificationPermission,
   NotifyOptions,
 } from "@mineco/platform";
+import {
+  isPermissionGranted,
+  onAction,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 
 /**
  * Tauri notification adapter.
- *
- * Uses dynamic import of `@tauri-apps/plugin-notification` so the
- * code works in test environments where the plugin is not available.
  */
 export class TauriNotificationAdapter implements NotificationAdapter {
   private clickHandlers: NotificationClickHandler[] = [];
@@ -25,10 +28,7 @@ export class TauriNotificationAdapter implements NotificationAdapter {
 
   async requestPermission(): Promise<NotificationPermission> {
     try {
-      const mod = await import("@tauri-apps/plugin-notification");
-      if (mod.requestPermission) {
-        await mod.requestPermission();
-      }
+      await requestPermission();
     } catch (error) {
       console.warn("[TauriNotification] requestPermission failed:", error);
     }
@@ -41,15 +41,17 @@ export class TauriNotificationAdapter implements NotificationAdapter {
     _options?: NotifyOptions,
   ): Promise<string> {
     try {
-      const mod = await import("@tauri-apps/plugin-notification");
-      if (mod.sendNotification) {
-        mod.sendNotification({ title, body });
-        return `tauri-${Date.now()}`;
+      const permitted = await isPermissionGranted();
+      if (!permitted) {
+        const permission = await requestPermission();
+        if (permission !== "granted") return "";
       }
+      sendNotification({ title, body });
+      return `tauri-${Date.now()}`;
     } catch (error) {
       console.warn("[TauriNotification] sendNotification failed:", error);
+      return "";
     }
-    return "";
   }
 
   close(_id: string): void {
@@ -71,20 +73,14 @@ export class TauriNotificationAdapter implements NotificationAdapter {
   private ensureClickListener(): void {
     if (this.listenerCleanup) return;
 
-    import("@tauri-apps/plugin-notification")
-      .then((mod) => {
-        if (mod.onNotificationActionPerformed && !this.listenerCleanup) {
-          mod
-            .onNotificationActionPerformed((event) => {
-              const id = String(event.notification.id ?? "");
-              for (const handler of this.clickHandlers) {
-                handler(id);
-              }
-            })
-            .then((unlisten) => {
-              this.listenerCleanup = unlisten;
-            });
-        }
+    onAction((notification) => {
+      const id = String(notification.id ?? "");
+      for (const handler of this.clickHandlers) {
+        handler(id);
+      }
+    })
+      .then((listener) => {
+        this.listenerCleanup = () => listener.unregister();
       })
       .catch(() => {
         // Plugin not available (e.g. in tests)

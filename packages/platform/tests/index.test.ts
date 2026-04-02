@@ -7,7 +7,7 @@ import {
   type Platform,
   type PlatformCapabilities,
   type NotificationClickHandler,
-} from "../src/index";
+} from "../src/index.js";
 
 describe("NoOpNotificationAdapter", () => {
   it("reports unsupported", () => {
