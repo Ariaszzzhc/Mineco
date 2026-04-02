@@ -1,5 +1,14 @@
 import type { Usage } from "@mineco/provider";
 
+export interface CompressionStats {
+  originalTokenEstimate: number;
+  finalTokenEstimate: number;
+  microCompacted: boolean;
+  memoryExtracted: boolean;
+  toolOutputsTruncated: number;
+  messagesRemoved: number;
+}
+
 export interface AgentConfig {
   providerId: string;
   model: string;
@@ -32,4 +41,5 @@ export type AgentEvent =
   | { type: "error"; error: string }
   | { type: "subagent-start"; runId: string; agentType: string }
   | { type: "subagent-event"; runId: string; event: AgentEvent }
-  | { type: "subagent-end"; runId: string; summary: string };
+  | { type: "subagent-end"; runId: string; summary: string }
+  | { type: "context-compressed"; stats: CompressionStats };

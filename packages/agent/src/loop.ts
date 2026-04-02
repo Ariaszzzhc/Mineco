@@ -9,11 +9,13 @@ import type { Session } from "./session/types.js";
 import type { ToolRegistry } from "./tools/registry.js";
 import { StreamingToolExecutor } from "./tools/streaming-executor.js";
 import type { AgentConfig, AgentEvent } from "./types.js";
+import type { ContextManager } from "./context/manager.js";
 
 export class AgentLoop {
   constructor(
     private providerRegistry: ProviderRegistry,
     private toolRegistry: ToolRegistry,
+    private contextManager?: ContextManager,
   ) {}
 
   async *run(
@@ -22,7 +24,27 @@ export class AgentLoop {
   ): AsyncGenerator<AgentEvent> {
     const provider = this.providerRegistry.get(config.providerId);
 
-    const messages = toApiMessages(session.messages, config.systemPrompt);
+    // Use ContextManager if available for compression, otherwise raw conversion
+    let messages: ChatRequest["messages"];
+
+    if (this.contextManager) {
+      const result = await this.contextManager.prepareContext(
+        session.messages,
+        config.systemPrompt,
+        {
+          providerRegistry: this.providerRegistry,
+          providerId: config.providerId,
+          model: config.model,
+        },
+      );
+      messages = result.messages;
+
+      if (result.stats.microCompacted || result.stats.memoryExtracted) {
+        yield { type: "context-compressed" as const, stats: result.stats };
+      }
+    } else {
+      messages = toApiMessages(session.messages, config.systemPrompt);
+    }
     let step = 0;
 
     while (step < config.maxSteps) {

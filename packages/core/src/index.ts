@@ -21,6 +21,7 @@ import { createStatsRoutes } from "./routes/stats.js";
 import { createWorkspaceRoutes } from "./routes/workspace.js";
 import {
   NodeSqliteDialect,
+  SqliteSessionNotesStore,
   SqliteSessionStore,
   SqliteUsageStore,
   SqliteWorkspaceStore,
@@ -38,6 +39,7 @@ function buildRoutes(deps: {
   configService: ConfigService;
   getRegistryModels: () => ProviderMeta[];
   sessionStore: SqliteSessionStore;
+  sessionNotesStore: SqliteSessionNotesStore;
   workspaceStore: SqliteWorkspaceStore;
   registry: ProviderRegistry;
   usageStore: SqliteUsageStore;
@@ -63,7 +65,7 @@ function buildRoutes(deps: {
     )
     .route("/api/workspaces", createWorkspaceRoutes(deps.workspaceStore))
     .route("/api/fs", createFsRoutes())
-    .route("/api/sessions", createSessionRoutes(deps.sessionStore))
+    .route("/api/sessions", createSessionRoutes(deps.sessionStore, deps.sessionNotesStore))
     .route(
       "/api/sessions",
       createChatRoutes(deps.registry, deps.sessionStore, deps.workspaceStore),
@@ -92,6 +94,7 @@ async function main() {
   await initializeSchema(db);
 
   const sessionStore = new SqliteSessionStore(db);
+  const sessionNotesStore = new SqliteSessionNotesStore(db);
   const workspaceStore = new SqliteWorkspaceStore(db);
 
   // --- Config system ---
@@ -120,6 +123,7 @@ async function main() {
     configService,
     getRegistryModels: () => registry.list(),
     sessionStore,
+    sessionNotesStore,
     workspaceStore,
     registry,
     usageStore,

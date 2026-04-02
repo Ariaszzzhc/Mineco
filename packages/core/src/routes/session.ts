@@ -1,9 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import type { SessionStore } from "@mineco/agent";
 import { Hono } from "hono";
+import { z } from "zod";
 import { createSessionSchema, updateSessionSchema } from "../config/schema.js";
+import type { SqliteSessionNotesStore } from "../storage/session-notes-store.js";
 
-export function createSessionRoutes(store: SessionStore) {
+export function createSessionRoutes(
+  store: SessionStore,
+  notesStore?: SqliteSessionNotesStore,
+) {
   return new Hono()
     .post("/", zValidator("json", createSessionSchema), async (c) => {
       const { workspaceId } = c.req.valid("json");
@@ -31,6 +36,26 @@ export function createSessionRoutes(store: SessionStore) {
     })
     .delete("/:id", async (c) => {
       await store.delete(c.req.param("id"));
+      return c.json({ ok: true });
+    })
+    .get("/:id/notes", async (c) => {
+      if (!notesStore) return c.json([]);
+      const notes = await notesStore.getNotes(c.req.param("id"));
+      return c.json(notes);
+    })
+    .patch(
+      "/:id/notes/:noteId",
+      zValidator("json", z.object({ content: z.string() })),
+      async (c) => {
+        if (!notesStore) return c.json({ error: "Notes not available" }, 503);
+        const { content } = c.req.valid("json");
+        await notesStore.updateNoteContent(c.req.param("noteId"), content);
+        return c.json({ ok: true });
+      },
+    )
+    .delete("/:id/notes/:noteId", async (c) => {
+      if (!notesStore) return c.json({ error: "Notes not available" }, 503);
+      await notesStore.deleteNote(c.req.param("noteId"));
       return c.json({ ok: true });
     });
 }
