@@ -15,11 +15,20 @@ vi.mock("@mineco/agent", () => ({
     run = mockRun;
   },
   ContextManager: class {
-    prepareContext = vi.fn(async (_sessionId: string, _messages: unknown, systemPrompt: string) => ({
-      messages: [],
-      systemPrompt,
-      stats: { originalTokenEstimate: 0, finalTokenEstimate: 0, microCompacted: false, memoryExtracted: false, toolOutputsTruncated: 0, messagesRemoved: 0 },
-    }));
+    prepareContext = vi.fn(
+      async (_sessionId: string, _messages: unknown, systemPrompt: string) => ({
+        messages: [],
+        systemPrompt,
+        stats: {
+          originalTokenEstimate: 0,
+          finalTokenEstimate: 0,
+          microCompacted: false,
+          memoryExtracted: false,
+          toolOutputsTruncated: 0,
+          messagesRemoved: 0,
+        },
+      }),
+    );
   },
   buildSystemPrompt: vi.fn(() => "system prompt"),
   createDefaultToolRegistry: vi.fn(() => ({
@@ -87,7 +96,12 @@ describe("Chat Routes", () => {
   let store: ReturnType<typeof createMockSessionStore>;
   let registry: ReturnType<typeof createMockProviderRegistry>;
   let workspaceStore: ReturnType<typeof createMockWorkspaceStore>;
-  let notesStore: { upsertAutoNote: ReturnType<typeof vi.fn>; getNotes: ReturnType<typeof vi.fn>; updateNoteContent: ReturnType<typeof vi.fn>; deleteNote: ReturnType<typeof vi.fn> };
+  let notesStore: {
+    upsertAutoNote: ReturnType<typeof vi.fn>;
+    getNotes: ReturnType<typeof vi.fn>;
+    updateNoteContent: ReturnType<typeof vi.fn>;
+    deleteNote: ReturnType<typeof vi.fn>;
+  };
   let app: ReturnType<typeof createChatRoutes>;
 
   beforeEach(() => {

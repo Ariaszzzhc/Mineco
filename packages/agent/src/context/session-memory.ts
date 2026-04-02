@@ -39,9 +39,7 @@ function buildConversationSummary(messages: SessionMessage[]): string {
         break;
       }
       case "tool":
-        lines.push(
-          `[Tool ${msg.toolName}]: ${msg.content.slice(0, 200)}`,
-        );
+        lines.push(`[Tool ${msg.toolName}]: ${msg.content.slice(0, 200)}`);
         break;
     }
   }

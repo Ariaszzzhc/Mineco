@@ -43,4 +43,8 @@ export type AgentEvent =
   | { type: "subagent-start"; runId: string; agentType: string }
   | { type: "subagent-event"; runId: string; event: AgentEvent }
   | { type: "subagent-end"; runId: string; summary: string }
-  | { type: "context-compressed"; stats: CompressionStats; notes: ExtractedNotes | null };
+  | {
+      type: "context-compressed";
+      stats: CompressionStats;
+      notes: ExtractedNotes | null;
+    };

@@ -43,10 +43,7 @@ interface ModelUsageResponse {
 // Zhipu quota unit → label/window mapping
 // unit 3 = Token 配额 (5h window)
 // unit 5 = MCP 配额 (30d window)
-const QUOTA_META: Record<
-  number,
-  { label: string; window: string }
-> = {
+const QUOTA_META: Record<number, { label: string; window: string }> = {
   3: { label: "Token 配额", window: "5h" },
   5: { label: "MCP 配额", window: "30d" },
   6: { label: "每周配额", window: "weekly" },
@@ -65,9 +62,7 @@ function parseQuotaItem(item: QuotaLimitItem): QuotaUsage {
     limit: isTokenLimit ? 100 : (item.usage ?? 0),
     percentage: item.percentage,
     window: meta.window,
-    resetAt: item.nextResetTime
-      ? Math.floor(item.nextResetTime / 1000)
-      : null,
+    resetAt: item.nextResetTime ? Math.floor(item.nextResetTime / 1000) : null,
   };
 }
 
@@ -81,15 +76,12 @@ export class ZhipuSubscriptionClient implements SubscriptionClient {
   }
 
   async getSubscriptionInfo(): Promise<SubscriptionInfo> {
-    const response = await fetch(
-      `${this.baseURL}/monitor/usage/quota/limit`,
-      { headers: { Authorization: `Bearer ${this.apiKey}` } },
-    );
+    const response = await fetch(`${this.baseURL}/monitor/usage/quota/limit`, {
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+    });
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to fetch subscription info: ${response.status}`,
-      );
+      throw new Error(`Failed to fetch subscription info: ${response.status}`);
     }
 
     const body = (await response.json()) as QuotaLimitResponse;
@@ -98,8 +90,7 @@ export class ZhipuSubscriptionClient implements SubscriptionClient {
     }
 
     const rawLevel = body.data.level ?? "lite";
-    const planName =
-      rawLevel.charAt(0).toUpperCase() + rawLevel.slice(1);
+    const planName = rawLevel.charAt(0).toUpperCase() + rawLevel.slice(1);
 
     const quotas = body.data.limits.map(parseQuotaItem);
 

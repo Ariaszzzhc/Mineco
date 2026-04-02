@@ -5,11 +5,11 @@ import type {
   ToolCall,
   Usage,
 } from "@mineco/provider";
+import type { ContextManager } from "./context/manager.js";
 import type { Session } from "./session/types.js";
 import type { ToolRegistry } from "./tools/registry.js";
 import { StreamingToolExecutor } from "./tools/streaming-executor.js";
 import type { AgentConfig, AgentEvent } from "./types.js";
-import type { ContextManager } from "./context/manager.js";
 
 export class AgentLoop {
   constructor(
@@ -41,7 +41,11 @@ export class AgentLoop {
       messages = result.messages;
 
       if (result.stats.microCompacted || result.stats.memoryExtracted) {
-        yield { type: "context-compressed" as const, stats: result.stats, notes: result.notes };
+        yield {
+          type: "context-compressed" as const,
+          stats: result.stats,
+          notes: result.notes,
+        };
       }
     } else {
       messages = toApiMessages(session.messages, config.systemPrompt);
