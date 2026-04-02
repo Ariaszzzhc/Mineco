@@ -1,4 +1,5 @@
 import type { ChatRequest, ProviderRegistry } from "@mineco/provider";
+export type { CompressionStats } from "../types.js";
 import type { CompressionStats } from "../types.js";
 import type { SessionMessage } from "../session/types.js";
 import { microCompact } from "./micro-compact.js";
@@ -6,7 +7,7 @@ import {
   extractSessionNotes,
   type ExtractedNotes,
 } from "./session-memory.js";
-import { estimateSessionTokens } from "./token-estimator.js";
+import { estimateMessagesTokens } from "./token-estimator.js";
 
 export interface ContextManagerConfig {
   microCompactThreshold: number;
@@ -33,37 +34,46 @@ export const DEFAULT_CONFIG: ContextManagerConfig = {
   maxToolOutputTruncation: 500,
 };
 
+interface SessionState {
+  cachedNotes: ExtractedNotes | null;
+  notesExtracted: boolean;
+}
+
 export class ContextManager {
-  private cachedNotes: ExtractedNotes | null = null;
-  private notesExtracted = false;
+  private sessionStates = new Map<string, SessionState>();
 
   constructor(
     private config: ContextManagerConfig = DEFAULT_CONFIG,
-    private deps?: {
-      providerRegistry: ProviderRegistry;
-      providerId: string;
-      model: string;
-    },
   ) {}
 
+  private getState(sessionId: string): SessionState {
+    let state = this.sessionStates.get(sessionId);
+    if (!state) {
+      state = { cachedNotes: null, notesExtracted: false };
+      this.sessionStates.set(sessionId, state);
+    }
+    return state;
+  }
+
   async prepareContext(
+    sessionId: string,
     sessionMessages: SessionMessage[],
     systemPrompt: string,
-    requestDeps?: {
+    requestDeps: {
       providerRegistry: ProviderRegistry;
       providerId: string;
       model: string;
     },
   ): Promise<ContextManagerResult> {
-    const deps = requestDeps ?? this.deps;
-    const tokenEstimate = estimateSessionTokens(sessionMessages, systemPrompt);
+    const state = this.getState(sessionId);
     const apiMessages = toApiMessages(sessionMessages, systemPrompt);
+    const tokenEstimate = estimateMessagesTokens(apiMessages);
 
     if (tokenEstimate < this.config.microCompactThreshold) {
       return {
         messages: apiMessages,
         systemPrompt,
-        notes: this.cachedNotes,
+        notes: state.cachedNotes,
         stats: {
           originalTokenEstimate: tokenEstimate,
           finalTokenEstimate: tokenEstimate,
@@ -84,27 +94,26 @@ export class ContextManager {
     });
 
     // Layer 2: Session memory extraction
-    let notes = this.cachedNotes;
+    let notes = state.cachedNotes;
     let memoryExtracted = false;
 
     if (
-      deps &&
-      !this.notesExtracted &&
+      !state.notesExtracted &&
       tokenEstimate >= this.config.sessionMemoryThreshold &&
       countToolCalls(sessionMessages) >= this.config.toolCallThreshold
     ) {
       const extracted = await extractSessionNotes(
         sessionMessages,
-        deps.providerRegistry,
-        deps.providerId,
-        deps.model,
+        requestDeps.providerRegistry,
+        requestDeps.providerId,
+        requestDeps.model,
       );
       if (extracted) {
         notes = extracted;
-        this.cachedNotes = extracted;
+        state.cachedNotes = extracted;
         memoryExtracted = true;
       }
-      this.notesExtracted = true;
+      state.notesExtracted = true;
     }
 
     // Inject notes into system prompt
@@ -112,10 +121,12 @@ export class ContextManager {
       ? injectNotesIntoPrompt(systemPrompt, notes)
       : systemPrompt;
 
-    const messages = compactResult.messages;
-    if (messages.length > 0 && messages[0].role === "system") {
-      messages[0] = { ...messages[0], content: finalPrompt };
-    }
+    // Build final messages array without mutating compactResult
+    const messages = compactResult.messages.map((msg, idx) =>
+      idx === 0 && msg.role === "system"
+        ? { ...msg, content: finalPrompt }
+        : msg,
+    );
 
     return {
       messages,

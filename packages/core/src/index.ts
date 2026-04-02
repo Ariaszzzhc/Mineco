@@ -68,7 +68,7 @@ function buildRoutes(deps: {
     .route("/api/sessions", createSessionRoutes(deps.sessionStore, deps.sessionNotesStore))
     .route(
       "/api/sessions",
-      createChatRoutes(deps.registry, deps.sessionStore, deps.workspaceStore),
+      createChatRoutes(deps.registry, deps.sessionStore, deps.workspaceStore, deps.sessionNotesStore),
     )
     .route("/api/stats", createStatsRoutes(deps.usageStore));
 

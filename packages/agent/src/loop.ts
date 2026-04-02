@@ -29,6 +29,7 @@ export class AgentLoop {
 
     if (this.contextManager) {
       const result = await this.contextManager.prepareContext(
+        session.id,
         session.messages,
         config.systemPrompt,
         {
@@ -40,7 +41,7 @@ export class AgentLoop {
       messages = result.messages;
 
       if (result.stats.microCompacted || result.stats.memoryExtracted) {
-        yield { type: "context-compressed" as const, stats: result.stats };
+        yield { type: "context-compressed" as const, stats: result.stats, notes: result.notes };
       }
     } else {
       messages = toApiMessages(session.messages, config.systemPrompt);
