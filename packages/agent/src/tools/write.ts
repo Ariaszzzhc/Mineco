@@ -12,6 +12,7 @@ export const writeFileTool = defineTool({
   name: "write_file",
   description: "Create or overwrite a file with the given content.",
   parameters: WriteFileSchema,
+  isConcurrencySafe: () => false,
   execute: async (params, ctx) => {
     if (!params.file_path?.trim()) {
       return { output: "Error: No file path provided.", isError: true };

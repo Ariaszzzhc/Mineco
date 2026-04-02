@@ -16,6 +16,10 @@ afterEach(async () => {
 });
 
 describe("readFileTool", () => {
+  it("isConcurrencySafe returns true", () => {
+    expect(readFileTool.isConcurrencySafe?.({ file_path: "x" })).toBe(true);
+  });
+
   it("reads file with line numbers", async () => {
     await writeFile(join(testDir, "a.txt"), "line1\nline2\nline3", "utf-8");
     const result = await readFileTool.execute(

@@ -14,6 +14,7 @@ export const readFileTool = defineTool({
   description:
     "Read a file from the local filesystem. Returns file contents with line numbers.",
   parameters: ReadFileSchema,
+  isConcurrencySafe: () => true,
   execute: async (params, ctx) => {
     if (!params.file_path?.trim()) {
       return { output: "Error: No file path provided.", isError: true };

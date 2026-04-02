@@ -17,6 +17,17 @@ export class ToolRegistry {
     return Array.from(this.tools.values());
   }
 
+  isConcurrencySafe(name: string, argsJson: string): boolean {
+    const tool = this.tools.get(name);
+    if (!tool?.isConcurrencySafe) return false;
+    try {
+      const args = JSON.parse(argsJson);
+      return tool.isConcurrencySafe(args as never);
+    } catch {
+      return false;
+    }
+  }
+
   async execute(
     name: string,
     argsJson: string,

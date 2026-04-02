@@ -15,6 +15,7 @@ export const bashTool = defineTool({
   description:
     "Execute a shell command and return its output. Use for system commands and operations that require shell execution.",
   parameters: BashSchema,
+  isConcurrencySafe: () => false,
   execute: async (params, ctx) => {
     if (!params.command?.trim()) {
       return { output: "Error: No command provided.", isError: true };

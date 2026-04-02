@@ -7,6 +7,7 @@ import type {
 } from "@mineco/provider";
 import type { Session } from "./session/types.js";
 import type { ToolRegistry } from "./tools/registry.js";
+import { StreamingToolExecutor } from "./tools/streaming-executor.js";
 import type { AgentConfig, AgentEvent } from "./types.js";
 
 export class AgentLoop {
@@ -96,6 +97,14 @@ export class AgentLoop {
         return;
       }
 
+      const executor = new StreamingToolExecutor(this.toolRegistry, {
+        workingDir: config.workingDir,
+        sessionId: session.id,
+        providerId: config.providerId,
+        model: config.model,
+        ...(config.emitEvent ? { emitEvent: config.emitEvent } : {}),
+      });
+
       for (const tc of collectedCalls) {
         let args: Record<string, unknown>;
         try {
@@ -111,26 +120,22 @@ export class AgentLoop {
           args,
         };
 
-        const result = await this.toolRegistry.execute(tc.name, tc.arguments, {
-          workingDir: config.workingDir,
-          sessionId: session.id,
-          providerId: config.providerId,
-          model: config.model,
-          ...(config.emitEvent ? { emitEvent: config.emitEvent } : {}),
-        });
+        executor.addTool(tc.id, tc.name, tc.arguments);
+      }
 
+      for await (const result of executor.getRemainingResults()) {
         yield {
           type: "tool-result",
-          toolCallId: tc.id,
-          toolName: tc.name,
+          toolCallId: result.toolCallId,
+          toolName: result.toolName,
           result: result.output,
-          isError: !!result.isError,
+          isError: result.isError,
         };
 
         messages.push({
           role: "tool",
           content: result.output,
-          ...(tc.id ? { toolCallId: tc.id } : {}),
+          ...(result.toolCallId ? { toolCallId: result.toolCallId } : {}),
         });
       }
     }

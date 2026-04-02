@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { bashTool } from "../../src/tools/bash.js";
 
 describe("bashTool", () => {
+  it("isConcurrencySafe returns false", () => {
+    expect(bashTool.isConcurrencySafe?.({ command: "ls" })).toBe(false);
+  });
+
   it("returns stdout on success", async () => {
     const result = await bashTool.execute(
       { command: "echo hello" },
