@@ -16,6 +16,10 @@ afterEach(async () => {
 });
 
 describe("globTool", () => {
+  it("isConcurrencySafe returns true", () => {
+    expect(globTool.isConcurrencySafe?.({ pattern: "*.ts" })).toBe(true);
+  });
+
   it("finds files matching glob pattern", async () => {
     await writeFile(join(testDir, "a.ts"), "content", "utf-8");
     await writeFile(join(testDir, "b.ts"), "content", "utf-8");

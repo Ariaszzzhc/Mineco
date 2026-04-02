@@ -16,6 +16,10 @@ afterEach(async () => {
 });
 
 describe("grepTool", () => {
+  it("isConcurrencySafe returns true", () => {
+    expect(grepTool.isConcurrencySafe?.({ pattern: "x" })).toBe(true);
+  });
+
   it("finds pattern in a single file", async () => {
     await writeFile(join(testDir, "a.ts"), "const hello = 'world';\nconst foo = 'bar';", "utf-8");
     const result = await grepTool.execute(

@@ -16,6 +16,10 @@ afterEach(async () => {
 });
 
 describe("lsTool", () => {
+  it("isConcurrencySafe returns true", () => {
+    expect(lsTool.isConcurrencySafe?.({})).toBe(true);
+  });
+
   it("lists directory with tree structure", async () => {
     await mkdir(join(testDir, "src"), { recursive: true });
     await writeFile(join(testDir, "src", "index.ts"), "content", "utf-8");
