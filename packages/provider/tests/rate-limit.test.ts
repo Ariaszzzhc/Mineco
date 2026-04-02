@@ -104,7 +104,7 @@ describe("TokenBucketRateLimiter", () => {
       await limiter.acquire();
 
       let resolved = false;
-      const p3 = limiter.acquire().then(() => {
+      const _p3 = limiter.acquire().then(() => {
         resolved = true;
       });
 

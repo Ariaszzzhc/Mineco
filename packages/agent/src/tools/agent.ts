@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ProviderRegistry } from "@mineco/provider";
+import { z } from "zod";
 import type { AgentDefinition } from "../agents/types.js";
 import { AgentLoop } from "../loop.js";
 import type { Session, SessionStore, SubagentRun } from "../session/types.js";
@@ -14,14 +15,21 @@ import { readFileTool } from "./read.js";
 import { ToolRegistry } from "./registry.js";
 import type { ToolContext, ToolDefinition } from "./types.js";
 import { writeFileTool } from "./write.js";
-import { z } from "zod";
 
 const AgentToolSchema = z.object({
   agent_type: z.string().describe("The type of subagent to run"),
   prompt: z.string().describe("The task description for the subagent"),
 });
 
-const ALL_TOOLS = [readFileTool, writeFileTool, bashTool, grepTool, globTool, editTool, lsTool];
+const ALL_TOOLS = [
+  readFileTool,
+  writeFileTool,
+  bashTool,
+  grepTool,
+  globTool,
+  editTool,
+  lsTool,
+];
 
 export function createAgentTool(deps: {
   providerRegistry: ProviderRegistry;
@@ -99,10 +107,7 @@ export function createAgentTool(deps: {
 
       let summary = "";
       let innerError: string | null = null;
-      const innerLoop = new AgentLoop(
-        deps.providerRegistry,
-        filteredRegistry,
-      );
+      const innerLoop = new AgentLoop(deps.providerRegistry, filteredRegistry);
 
       try {
         for await (const innerEvent of innerLoop.run(

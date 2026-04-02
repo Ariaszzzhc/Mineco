@@ -42,7 +42,7 @@ export class AgentLoop {
       };
 
       let text = "";
-      let thinking = "";
+      let _thinking = "";
       const toolCallMap = new Map<number, ToolCall>();
       let finishReason: FinishReason | null = null;
       let usage: Usage | undefined;
@@ -59,7 +59,7 @@ export class AgentLoop {
           }
 
           if (delta.thinking) {
-            thinking += delta.thinking;
+            _thinking += delta.thinking;
             yield { type: "thinking-delta", delta: delta.thinking };
           }
 
@@ -148,8 +148,8 @@ export class AgentLoop {
       }
 
       // Check signal after tool execution
- if (config.signal?.aborted) {
-        yield { type: "complete", reason: "aborted" };
+      if (config.signal?.aborted) {
+        yield { type: "complete", reason: "aborted" as const };
         return;
       }
     }
