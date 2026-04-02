@@ -16,6 +16,10 @@ afterEach(async () => {
 });
 
 describe("writeFileTool", () => {
+  it("isConcurrencySafe returns false", () => {
+    expect(writeFileTool.isConcurrencySafe?.({ file_path: "x", content: "" })).toBe(false);
+  });
+
   it("creates a new file", async () => {
     const filePath = join(testDir, "new.txt");
     const result = await writeFileTool.execute(

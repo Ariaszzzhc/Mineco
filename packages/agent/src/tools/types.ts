@@ -5,6 +5,7 @@ export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
   name: string;
   description: string;
   parameters: T;
+  isConcurrencySafe?: (params: z.infer<T>) => boolean;
   execute: (params: z.infer<T>, ctx: ToolContext) => Promise<ToolResult>;
 }
 

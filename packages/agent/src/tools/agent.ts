@@ -32,6 +32,7 @@ export function createAgentTool(deps: {
     name: "agent",
     description: buildAgentToolDescription(deps.definitions),
     parameters: AgentToolSchema,
+    isConcurrencySafe: () => true,
     execute: async (params, ctx) => {
       const definition = deps.definitions.get(params.agent_type);
       if (!definition) {

@@ -297,6 +297,104 @@ describe("AgentLoop", () => {
     });
   });
 
+  describe("parallel tool execution", () => {
+    it("executes concurrency-safe tools in parallel via loop", async () => {
+      let aStart = 0;
+      let bStart = 0;
+
+      const provider = mockProvider(
+        [
+          toolCallDelta(0, { id: "tc1", name: "delay_a", arguments: "{}" }),
+          toolCallDelta(1, { id: "tc2", name: "delay_b", arguments: "{}" }),
+          finishChunk("tool_calls"),
+        ],
+        [textChunk("Done"), finishChunk("stop")],
+      );
+
+      const toolReg = new ToolRegistry();
+      toolReg.register({
+        name: "delay_a",
+        description: "",
+        parameters: z.object({}),
+        isConcurrencySafe: () => true,
+        execute: async () => {
+          aStart = Date.now();
+          await new Promise((r) => setTimeout(r, 80));
+          return { output: "a-done" };
+        },
+      });
+      toolReg.register({
+        name: "delay_b",
+        description: "",
+        parameters: z.object({}),
+        isConcurrencySafe: () => true,
+        execute: async () => {
+          bStart = Date.now();
+          await new Promise((r) => setTimeout(r, 80));
+          return { output: "b-done" };
+        },
+      });
+
+      const loop = new AgentLoop(makeRegistry(provider), toolReg);
+      const start = Date.now();
+      const events = await collectEvents(loop, makeSession(), makeConfig());
+      const elapsed = Date.now() - start;
+
+      const results = events.filter((e) => e.type === "tool-result");
+      expect(results).toHaveLength(2);
+      // Parallel: total ~80ms, not ~160ms
+      expect(elapsed).toBeLessThan(200);
+
+      // Both tools should start within a few ms of each other
+      expect(Math.abs(aStart - bStart)).toBeLessThan(30);
+    });
+
+    it("runs unsafe tool after safe tools complete", async () => {
+      const provider = mockProvider(
+        [
+          toolCallDelta(0, { id: "tc1", name: "safe_a", arguments: "{}" }),
+          toolCallDelta(1, { id: "tc2", name: "unsafe_b", arguments: "{}" }),
+          finishChunk("tool_calls"),
+        ],
+        [finishChunk("stop")],
+      );
+
+      const toolReg = new ToolRegistry();
+      let unsafeStart = 0;
+      const safeStart = Date.now();
+
+      toolReg.register({
+        name: "safe_a",
+        description: "",
+        parameters: z.object({}),
+        isConcurrencySafe: () => true,
+        execute: async () => {
+          await new Promise((r) => setTimeout(r, 50));
+          return { output: "safe-done" };
+        },
+      });
+      toolReg.register({
+        name: "unsafe_b",
+        description: "",
+        parameters: z.object({}),
+        isConcurrencySafe: () => false,
+        execute: async () => {
+          unsafeStart = Date.now();
+          return { output: "unsafe-done" };
+        },
+      });
+
+      const loop = new AgentLoop(makeRegistry(provider), toolReg);
+      const events = await collectEvents(loop, makeSession(), makeConfig());
+
+      const results = events.filter((e) => e.type === "tool-result");
+      expect(results).toHaveLength(2);
+
+      // Unsafe tool should start after safe tool finishes (~50ms)
+      expect(unsafeStart - safeStart).toBeGreaterThanOrEqual(40);
+    });
+  });
+
   describe("error handling", () => {
     it("yields error event when provider.chatStream throws", async () => {
       const provider: ReturnType<typeof mockProvider> = {

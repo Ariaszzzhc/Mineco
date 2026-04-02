@@ -133,6 +133,69 @@ describe("ToolRegistry", () => {
     });
   });
 
+  describe("isConcurrencySafe", () => {
+    it("returns true when tool declares safe and args parse", () => {
+      const reg = new ToolRegistry();
+      reg.register({
+        name: "safe_tool",
+        description: "",
+        parameters: z.object({ input: z.string() }),
+        isConcurrencySafe: () => true,
+        execute: async () => ({ output: "ok" }),
+      });
+      expect(reg.isConcurrencySafe("safe_tool", '{"input":"x"}')).toBe(true);
+    });
+
+    it("returns false when tool declares unsafe", () => {
+      const reg = new ToolRegistry();
+      reg.register({
+        name: "unsafe_tool",
+        description: "",
+        parameters: z.object({}),
+        isConcurrencySafe: () => false,
+        execute: async () => ({ output: "ok" }),
+      });
+      expect(reg.isConcurrencySafe("unsafe_tool", "{}")).toBe(false);
+    });
+
+    it("returns false for tool without isConcurrencySafe", () => {
+      const reg = new ToolRegistry();
+      reg.register(makeTool("plain"));
+      expect(reg.isConcurrencySafe("plain", '{"input":"x"}')).toBe(false);
+    });
+
+    it("returns false for unregistered tool", () => {
+      const reg = new ToolRegistry();
+      expect(reg.isConcurrencySafe("missing", "{}")).toBe(false);
+    });
+
+    it("returns false when args JSON is invalid", () => {
+      const reg = new ToolRegistry();
+      reg.register({
+        name: "safe_tool",
+        description: "",
+        parameters: z.object({}),
+        isConcurrencySafe: () => true,
+        execute: async () => ({ output: "ok" }),
+      });
+      expect(reg.isConcurrencySafe("safe_tool", "not-json")).toBe(false);
+    });
+
+    it("returns false when isConcurrencySafe throws", () => {
+      const reg = new ToolRegistry();
+      reg.register({
+        name: "buggy",
+        description: "",
+        parameters: z.object({}),
+        isConcurrencySafe: () => {
+          throw new Error("boom");
+        },
+        execute: async () => ({ output: "ok" }),
+      });
+      expect(reg.isConcurrencySafe("buggy", "{}")).toBe(false);
+    });
+  });
+
   describe("toApiTools", () => {
     it("converts tools to API format", () => {
       const reg = new ToolRegistry();
