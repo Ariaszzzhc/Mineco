@@ -179,7 +179,8 @@ export const api = {
     const client = getClient();
     const res = await client.api.config.subscription.$get();
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
-    return res.json();
+    const data = await res.json();
+    return data.subscription;
   },
 };
 

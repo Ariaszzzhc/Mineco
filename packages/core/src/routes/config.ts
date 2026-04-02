@@ -10,7 +10,7 @@ export function createConfigRoutes(
   getRegistryModels: () => Array<{
     id: string;
     name: string;
-    models: Array<{ id: string; name: string; contextWindow: number }>;
+    models: Array<{ id: string; name: string; contextWindow?: number }>;
   }>,
   registry: ProviderRegistry,
 ) {
@@ -124,18 +124,19 @@ export function createConfigRoutes(
         })();
 
         if (!providerId) {
-          return c.json(null);
+          return c.json({ subscription: null });
         }
 
         try {
           const provider = registry.get(providerId);
-          if (!hasSubscription(provider)) {
-            return c.json(null);
+          if (!provider || !hasSubscription(provider)) {
+            return c.json({ subscription: null });
           }
           const info = await provider.subscription.getSubscriptionInfo();
-          return c.json(info);
-        } catch {
-          return c.json(null);
+          return c.json({ subscription: info });
+        } catch (err) {
+          console.error("Failed to fetch subscription info:", err);
+          return c.json({ subscription: null });
         }
       })
   );

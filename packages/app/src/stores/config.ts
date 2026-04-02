@@ -10,7 +10,7 @@ interface ConfigState {
   providerModels: Array<{
     id: string;
     name: string;
-    models: Array<{ id: string; name: string; contextWindow: number }>;
+    models: Array<{ id: string; name: string; contextWindow?: number }>;
   }>;
 }
 

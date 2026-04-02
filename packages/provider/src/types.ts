@@ -70,7 +70,7 @@ export interface ModelInfo {
   id: string;
   name: string;
   maxOutputTokens: number;
-  contextWindow: number;
+  contextWindow?: number;
   supportsVision: boolean;
   supportsToolCalling: boolean;
   supportsStreaming: boolean;

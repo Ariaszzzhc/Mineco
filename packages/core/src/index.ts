@@ -37,7 +37,7 @@ function buildRoutes(deps: {
   getRegistryModels: () => Array<{
     id: string;
     name: string;
-    models: Array<{ id: string; name: string; contextWindow: number }>;
+    models: Array<{ id: string; name: string; contextWindow?: number }>;
   }>;
   sessionStore: SqliteSessionStore;
   workspaceStore: SqliteWorkspaceStore;

@@ -175,6 +175,79 @@ describe("Config Routes", () => {
     });
   });
 
+  describe("GET /subscription", () => {
+    it("should return null subscription when no provider configured", async () => {
+      const res = await app.request("/subscription");
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toEqual({ subscription: null });
+    });
+
+    it("should return null subscription when provider has no subscription support", async () => {
+      configService = createMockConfigService({
+        providers: [{ type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" }],
+        settings: { defaultProvider: "zhipu" },
+      });
+      // mockRegistry.get returns null by default (no subscription)
+      app = createConfigRoutes(configService, mockRegistryModels, mockRegistry);
+
+      const res = await app.request("/subscription");
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toEqual({ subscription: null });
+    });
+
+    it("should return subscription info when provider supports it", async () => {
+      configService = createMockConfigService({
+        providers: [{ type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" }],
+        settings: { defaultProvider: "zhipu" },
+      });
+
+      const mockSubscriptionInfo = {
+        planName: "Pro",
+        quotas: [{ label: "Token", used: 100, limit: 1000, percentage: 10, window: "5h", resetAt: null }],
+        expiresAt: null,
+      };
+
+      const providerMock = {
+        id: "zhipu",
+        subscription: { getSubscriptionInfo: async () => mockSubscriptionInfo },
+      };
+      const registryMock = {
+        get: vi.fn().mockReturnValue(providerMock),
+      } as unknown as Parameters<typeof createConfigRoutes>[2];
+
+      app = createConfigRoutes(configService, mockRegistryModels, registryMock);
+
+      const res = await app.request("/subscription");
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.subscription).toEqual(mockSubscriptionInfo);
+    });
+
+    it("should return null subscription when subscription fetch throws", async () => {
+      configService = createMockConfigService({
+        providers: [{ type: "zhipu", apiKey: "test-key", platform: "cn", endpoint: "general" }],
+        settings: { defaultProvider: "zhipu" },
+      });
+
+      const providerMock = {
+        id: "zhipu",
+        subscription: { getSubscriptionInfo: async () => { throw new Error("API error"); } },
+      };
+      const registryMock = {
+        get: vi.fn().mockReturnValue(providerMock),
+      } as unknown as Parameters<typeof createConfigRoutes>[2];
+
+      app = createConfigRoutes(configService, mockRegistryModels, registryMock);
+
+      const res = await app.request("/subscription");
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toEqual({ subscription: null });
+    });
+  });
+
   describe("error handling", () => {
     it("should return 400 when PUT / fails Zod validation", async () => {
       configService.updateConfig = vi.fn(async () => {

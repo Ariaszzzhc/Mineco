@@ -1,20 +1,6 @@
+import type { SubscriptionInfo } from "@mineco/provider";
 import { createStore } from "solid-js/store";
 import { api } from "../lib/api-client";
-
-interface QuotaUsage {
-  label: string;
-  used: number;
-  limit: number;
-  percentage: number;
-  window: string;
-  resetAt: number | null;
-}
-
-interface SubscriptionInfo {
-  planName: string;
-  quotas: QuotaUsage[];
-  expiresAt: number | null;
-}
 
 interface SubscriptionState {
   info: SubscriptionInfo | null;
