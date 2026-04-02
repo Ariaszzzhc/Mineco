@@ -70,8 +70,8 @@ export function StatusBar() {
 
   const primaryQuota = createMemo(() => {
     const info = subscriptionStore.info();
-    if (!info || info.quotas.length === 0) return null;
-    return info.quotas[0];
+    if (!info) return null;
+    return { percentage: info.primaryPercentage };
   });
 
   return (

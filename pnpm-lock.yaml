@@ -61,6 +61,9 @@ importers:
       '@mineco/core':
         specifier: workspace:*
         version: link:../core
+      '@mineco/provider':
+        specifier: workspace:*
+        version: link:../provider
       '@solidjs/router':
         specifier: ^0.16.1
         version: 0.16.1(solid-js@1.9.12)

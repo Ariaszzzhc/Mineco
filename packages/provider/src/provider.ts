@@ -32,7 +32,7 @@ export interface ProviderListEntry {
 
 export interface ProviderResolvableConfig {
   providers: ProviderListEntry[];
-  settings: { defaultProvider?: string };
+  settings: { defaultProvider?: string | undefined };
 }
 
 /** Resolve the active provider ID from config: explicit default → first provider → null */

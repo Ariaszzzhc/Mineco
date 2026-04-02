@@ -1,4 +1,4 @@
-import type { ProviderRegistry } from "@mineco/provider";
+import type { ProviderMeta, ProviderRegistry } from "@mineco/provider";
 import { hasSubscription, resolveProviderId } from "@mineco/provider";
 import { Hono } from "hono";
 import { ZodError } from "zod";
@@ -7,11 +7,7 @@ import type { ConfigService } from "../config/service.js";
 
 export function createConfigRoutes(
   configService: ConfigService,
-  getRegistryModels: () => Array<{
-    id: string;
-    name: string;
-    models: Array<{ id: string; name: string; contextWindow?: number }>;
-  }>,
+  getRegistryModels: () => ProviderMeta[],
   registry: ProviderRegistry,
 ) {
   return (

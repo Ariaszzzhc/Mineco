@@ -7,17 +7,24 @@ import type {
 
 // Zhipu-specific API response types (internal)
 
+interface QuotaLimitItem {
+  type: string;
+  unit: number;
+  number: number;
+  usage?: number;
+  currentValue?: number;
+  remaining?: number;
+  percentage: number;
+  nextResetTime: number | null;
+}
+
 interface QuotaLimitResponse {
   code: number;
   msg: string;
-  data: Array<{
-    quota_type: string;
-    unit: number;
-    usage: number;
-    current_value: number;
-    percentage: number;
-    next_reset_time: number | null;
-  }>;
+  data: {
+    limits: QuotaLimitItem[];
+    level?: string;
+  };
   success: boolean;
 }
 
@@ -25,47 +32,42 @@ interface ModelUsageResponse {
   code: number;
   msg: string;
   data: {
-    modelTotalUsage: {
-      total_model_call_count: number;
-      total_tokens_usage: number;
+    totalUsage: {
+      totalModelCallCount: number;
+      totalTokensUsage: number;
     };
   } | null;
   success: boolean;
 }
 
 // Zhipu quota unit → label/window mapping
-
-const QUOTA_LABELS: Record<number, { label: string; window: string }> = {
+// unit 3 = Token 配额 (5h window)
+// unit 5 = MCP 配额 (30d window)
+const QUOTA_META: Record<
+  number,
+  { label: string; window: string }
+> = {
   3: { label: "Token 配额", window: "5h" },
   5: { label: "MCP 配额", window: "30d" },
   6: { label: "每周配额", window: "weekly" },
 };
 
-// Zhipu unit → plan name mapping (highest wins)
-const PLAN_NAMES: Record<number, string> = {
-  5: "Pro",
-  6: "Max",
-};
-
-function parseQuotaItem(
-  item: QuotaLimitResponse["data"][number],
-): QuotaUsage & { unit: number } {
-  const meta = QUOTA_LABELS[item.unit] ?? {
+function parseQuotaItem(item: QuotaLimitItem): QuotaUsage {
+  const meta = QUOTA_META[item.unit] ?? {
     label: "配额",
     window: "unknown",
   };
-  const isTimeLimit = item.quota_type === "TIME_LIMIT";
+  const isTokenLimit = item.type === "TOKENS_LIMIT";
 
   return {
     label: meta.label,
-    used: isTimeLimit ? item.current_value : item.percentage,
-    limit: isTimeLimit ? item.usage : 100,
+    used: isTokenLimit ? item.percentage : (item.currentValue ?? 0),
+    limit: isTokenLimit ? 100 : (item.usage ?? 0),
     percentage: item.percentage,
     window: meta.window,
-    resetAt: item.next_reset_time
-      ? Math.floor(item.next_reset_time / 1000)
+    resetAt: item.nextResetTime
+      ? Math.floor(item.nextResetTime / 1000)
       : null,
-    unit: item.unit,
   };
 }
 
@@ -79,12 +81,15 @@ export class ZhipuSubscriptionClient implements SubscriptionClient {
   }
 
   async getSubscriptionInfo(): Promise<SubscriptionInfo> {
-    const response = await fetch(`${this.baseURL}/monitor/usage/quota/limit`, {
-      headers: { Authorization: `Bearer ${this.apiKey}` },
-    });
+    const response = await fetch(
+      `${this.baseURL}/monitor/usage/quota/limit`,
+      { headers: { Authorization: `Bearer ${this.apiKey}` } },
+    );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch subscription info: ${response.status}`);
+      throw new Error(
+        `Failed to fetch subscription info: ${response.status}`,
+      );
     }
 
     const body = (await response.json()) as QuotaLimitResponse;
@@ -92,33 +97,37 @@ export class ZhipuSubscriptionClient implements SubscriptionClient {
       throw new Error(`API error: ${body.msg}`);
     }
 
-    let planName = "Lite";
-    const quotas: QuotaUsage[] = [];
+    const rawLevel = body.data.level ?? "lite";
+    const planName =
+      rawLevel.charAt(0).toUpperCase() + rawLevel.slice(1);
 
-    for (const item of body.data) {
-      const quota = parseQuotaItem(item);
+    const quotas = body.data.limits.map(parseQuotaItem);
 
-      // Detect plan level (higher unit wins)
-      const plan = PLAN_NAMES[item.unit];
-      if (plan) {
-        // Max (unit 6) beats Pro (unit 5)
-        if (plan === "Max" || planName === "Lite") {
-          planName = plan;
-        }
-      }
+    // Primary indicator: Token quota (TOKENS_LIMIT, unit 3)
+    const tokenLimit = body.data.limits.find(
+      (l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
+    );
 
-      // Add quota without internal unit field
-      const { unit: _, ...quotaWithoutUnit } = quota;
-      quotas.push(quotaWithoutUnit);
-    }
-
-    return { planName, quotas, expiresAt: null };
+    return {
+      planName,
+      quotas,
+      primaryPercentage: tokenLimit?.percentage ?? 0,
+      expiresAt: null,
+    };
   }
 
   async getUsage(startTime: number, endTime: number): Promise<UsageSummary> {
+    // Zhipu API expects Beijing time (UTC+8) in yyyy-MM-dd HH:mm:ss format
+    const tz = 8 * 3600 * 1000;
+    const fmt = (ts: number) => {
+      const d = new Date(ts + tz);
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+    };
+
     const params = new URLSearchParams({
-      startTime: startTime.toString(),
-      endTime: endTime.toString(),
+      startTime: fmt(startTime),
+      endTime: fmt(endTime),
     });
 
     const response = await fetch(
@@ -138,8 +147,8 @@ export class ZhipuSubscriptionClient implements SubscriptionClient {
     }
 
     return {
-      callCount: body.data.modelTotalUsage.total_model_call_count,
-      totalTokens: body.data.modelTotalUsage.total_tokens_usage,
+      callCount: body.data.totalUsage.totalModelCallCount,
+      totalTokens: body.data.totalUsage.totalTokensUsage,
     };
   }
 }

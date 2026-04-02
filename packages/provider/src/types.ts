@@ -70,11 +70,11 @@ export interface ModelInfo {
   id: string;
   name: string;
   maxOutputTokens: number;
-  contextWindow?: number;
+  contextWindow?: number | undefined;
   supportsVision: boolean;
   supportsToolCalling: boolean;
   supportsStreaming: boolean;
-  pricing?: ModelPricing;
+  pricing?: ModelPricing | undefined;
 }
 
 export interface UsageRecorder {

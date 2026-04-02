@@ -20,6 +20,8 @@ export interface SubscriptionInfo {
   planName: string;
   /** Active quotas */
   quotas: QuotaUsage[];
+  /** Primary usage percentage 0-100 for statusline display */
+  primaryPercentage: number;
   /** Subscription expiry timestamp in seconds, null if not applicable */
   expiresAt: number | null;
 }

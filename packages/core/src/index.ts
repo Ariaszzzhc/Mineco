@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { honoLogger } from "@logtape/hono";
 import { configure, getConsoleSink } from "@logtape/logtape";
-import { PricingDB, ProviderRegistry } from "@mineco/provider";
+import { PricingDB, ProviderRegistry, type ProviderMeta } from "@mineco/provider";
 import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
 import { cors } from "hono/cors";
@@ -36,11 +36,7 @@ type Env = {
  */
 function buildRoutes(deps: {
   configService: ConfigService;
-  getRegistryModels: () => Array<{
-    id: string;
-    name: string;
-    models: Array<{ id: string; name: string; contextWindow?: number }>;
-  }>;
+  getRegistryModels: () => ProviderMeta[];
   sessionStore: SqliteSessionStore;
   workspaceStore: SqliteWorkspaceStore;
   registry: ProviderRegistry;

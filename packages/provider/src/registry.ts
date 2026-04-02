@@ -7,7 +7,7 @@ import { UsageTracker } from "./usage/tracker.js";
 export interface ProviderMeta {
   id: string;
   name: string;
-  models: Array<{ id: string; name: string; contextWindow?: number }>;
+  models: Array<{ id: string; name: string; contextWindow?: number | undefined }>;
 }
 
 export class ProviderRegistry {

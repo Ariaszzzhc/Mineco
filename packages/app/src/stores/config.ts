@@ -1,3 +1,4 @@
+import type { ProviderMeta } from "@mineco/provider";
 import { createStore } from "solid-js/store";
 import { api } from "../lib/api-client";
 
@@ -7,11 +8,7 @@ type AppSettings = AppConfig["settings"];
 interface ConfigState {
   config: AppConfig | null;
   loading: boolean;
-  providerModels: Array<{
-    id: string;
-    name: string;
-    models: Array<{ id: string; name: string; contextWindow?: number }>;
-  }>;
+  providerModels: ProviderMeta[];
 }
 
 const [state, setState] = createStore<ConfigState>({
