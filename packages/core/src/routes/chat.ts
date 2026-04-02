@@ -4,6 +4,7 @@ import {
   AgentLoop,
   agentDefinitions,
   buildSystemPrompt,
+  ContextManager,
   createAgentTool,
   createDefaultToolRegistry,
   type SessionMessage,
@@ -27,7 +28,8 @@ export function createChatRoutes(
       sessionStore: store,
     }),
   );
-  const loop = new AgentLoop(providerRegistry, tools);
+  const contextManager = new ContextManager();
+  const loop = new AgentLoop(providerRegistry, tools, contextManager);
 
   async function generateTitle(
     providerId: string,

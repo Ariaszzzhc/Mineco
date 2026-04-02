@@ -14,6 +14,13 @@ vi.mock("@mineco/agent", () => ({
   AgentLoop: class {
     run = mockRun;
   },
+  ContextManager: class {
+    prepareContext = vi.fn(async (messages: unknown, systemPrompt: string) => ({
+      messages: [],
+      systemPrompt,
+      stats: { microCompacted: false, memoryExtracted: false },
+    }));
+  },
   buildSystemPrompt: vi.fn(() => "system prompt"),
   createDefaultToolRegistry: vi.fn(() => ({
     register: vi.fn(),

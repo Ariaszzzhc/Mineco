@@ -61,6 +61,15 @@ export interface Database {
     total_tokens: number;
     cost: number;
   };
+  session_notes: {
+    id: string;
+    session_id: string;
+    content: string;
+    note_type: string;
+    token_count: number;
+    created_at: number;
+    updated_at: number;
+  };
 }
 
 export async function initializeSchema(db: Kysely<Database>): Promise<void> {
@@ -137,4 +146,16 @@ export async function initializeSchema(db: Kysely<Database>): Promise<void> {
   await sql`CREATE INDEX IF NOT EXISTS idx_usage_records_created_at ON usage_records(created_at)`.execute(
     db,
   );
+
+  await sql`CREATE TABLE IF NOT EXISTS session_notes (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    note_type TEXT NOT NULL DEFAULT 'auto-extracted',
+    token_count INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`.execute(db);
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_session_notes_session ON session_notes(session_id)`.execute(db);
 }
