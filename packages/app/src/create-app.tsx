@@ -9,15 +9,20 @@ import App from "./App";
  * Create the application root component with the given platform.
  *
  * Called by the platform-specific entry points (web / desktop).
- * Sets up the platform singleton, theme, markdown highlighter, and
- * wraps the app in a PlatformProvider.
+ * Side effects (theme, highlighter) run lazily on first render
+ * so repeated calls in tests don't pollute global state.
  */
 export function createApp(platform: Platform): () => JSX.Element {
-  setPlatform(platform);
-  applyTheme(lightTokens);
-  initHighlighter();
+  let initialized = false;
 
   return function AppRoot() {
+    if (!initialized) {
+      initialized = true;
+      setPlatform(platform);
+      applyTheme(lightTokens);
+      initHighlighter();
+    }
+
     return (
       <PlatformProvider value={platform}>
         <App />

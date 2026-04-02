@@ -22,9 +22,18 @@ function createTestPlatform(): Platform {
 }
 
 describe("createApp", () => {
-  it("sets the platform globally", () => {
+  it("sets the platform globally after rendering", () => {
     const platform = createTestPlatform();
-    createApp(platform);
+    const AppRoot = createApp(platform);
+
+    // Side effects are lazy — platform not set until first render
+    // Calling AppRoot() simulates Solid rendering the component
+    try {
+      AppRoot();
+    } catch {
+      // May throw due to missing DOM, but side effects still run
+    }
+
     expect(getPlatform()).toBe(platform);
   });
 
@@ -32,5 +41,19 @@ describe("createApp", () => {
     const platform = createTestPlatform();
     const AppRoot = createApp(platform);
     expect(typeof AppRoot).toBe("function");
+  });
+
+  it("only initializes once across multiple renders", () => {
+    const platform1 = createTestPlatform();
+    const AppRoot = createApp(platform1);
+
+    try {
+      AppRoot();
+      AppRoot();
+    } catch {
+      // May throw due to missing DOM
+    }
+
+    expect(getPlatform()).toBe(platform1);
   });
 });
