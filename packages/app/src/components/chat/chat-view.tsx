@@ -1,4 +1,5 @@
-import { Show } from "solid-js";
+import { createEffect, createSignal, on, Show } from "solid-js";
+import { api } from "../../lib/api-client";
 import { chatStore } from "../../stores/chat";
 import { configStore } from "../../stores/config";
 import { sessionStore } from "../../stores/session";
@@ -6,6 +7,16 @@ import { ChatInput } from "./chat-input";
 import { HeroPrompt } from "./hero-prompt";
 import { MessageList } from "./message-list";
 import { SubagentView } from "./subagent-view";
+
+function formatUsageTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return n.toString();
+}
+
+function formatUsageCost(n: number): string {
+  return n < 0.01 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`;
+}
 
 export function ChatView() {
   const session = () => sessionStore.currentSession();
@@ -20,6 +31,45 @@ export function ChatView() {
     if (!runId) return null;
     return chatStore.subagentRuns()[runId] ?? null;
   };
+
+  const [sessionUsage, setSessionUsage] = createSignal<{
+    totalTokens: number;
+    totalCost: number;
+    totalRequests: number;
+  } | null>(null);
+
+  // Fetch session usage when session changes
+  createEffect(
+    on(session, async (s) => {
+      if (!s) {
+        setSessionUsage(null);
+        return;
+      }
+      try {
+        const stats = await api.getSessionStats(s.id);
+        setSessionUsage(stats);
+      } catch {
+        setSessionUsage(null);
+      }
+    }),
+  );
+
+  // Refresh usage after streaming completes
+  createEffect(
+    on(
+      () => chatStore.isStreaming(),
+      async (streaming, prev) => {
+        if (prev === true && streaming === false && session()) {
+          try {
+            const stats = await api.getSessionStats(session()!.id);
+            setSessionUsage(stats);
+          } catch {
+            /* ignore */
+          }
+        }
+      },
+    ),
+  );
 
   function handleSend(message: string) {
     const s = session();
@@ -46,6 +96,20 @@ export function ChatView() {
                   {chatStore.error()}
                 </div>
               </div>
+            </Show>
+
+            <Show when={sessionUsage()}>
+              {(usage) => (
+                <div class="mx-auto max-w-3xl px-4 pb-1">
+                  <div class="flex items-center justify-center gap-3 text-[11px] text-[var(--text-muted)]">
+                    <span>
+                      Tokens: {formatUsageTokens(usage().totalTokens)}
+                    </span>
+                    <span class="text-[var(--border)]">|</span>
+                    <span>Cost: {formatUsageCost(usage().totalCost)}</span>
+                  </div>
+                </div>
+              )}
             </Show>
 
             <ChatInput

@@ -1,5 +1,11 @@
 import { useLocation, useNavigate } from "@solidjs/router";
-import { ArrowLeft, Plus, Settings, Trash2 } from "lucide-solid";
+import {
+  ArrowLeft,
+  ChartColumnBig,
+  Plus,
+  Settings,
+  Trash2,
+} from "lucide-solid";
 import { createEffect, createSignal, For, on, Show } from "solid-js";
 import { api } from "../../lib/api-client";
 import type { Session } from "../../lib/types";
@@ -187,6 +193,14 @@ export function Sidebar() {
 
       {/* Footer */}
       <div class="border-t border-[var(--border)] px-2 py-2">
+        <button
+          type="button"
+          onClick={() => navigate("/stats")}
+          class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+        >
+          <ChartColumnBig size={16} />
+          <span>Stats</span>
+        </button>
         <button
           type="button"
           onClick={() => navigate("/settings")}

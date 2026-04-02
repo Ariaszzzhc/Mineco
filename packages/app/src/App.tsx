@@ -3,6 +3,7 @@ import { Route, Router } from "@solidjs/router";
 import { AppLayout } from "./components/layout/app-layout";
 import { SessionPage } from "./pages/session";
 import { SettingsPage } from "./pages/settings";
+import { StatsPage } from "./pages/stats";
 import { WorkspacePage } from "./pages/workspace";
 import { WorkspacePickerPage } from "./pages/workspace-picker";
 
@@ -20,6 +21,7 @@ export default function App() {
         component={SessionPage}
       />
       <Route path="/settings" component={SettingsPage} />
+      <Route path="/stats" component={StatsPage} />
     </Router>
   );
 }
