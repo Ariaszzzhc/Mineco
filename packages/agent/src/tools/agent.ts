@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ProviderRegistry } from "@mineco/provider";
+import { z } from "zod";
 import type { AgentDefinition } from "../agents/types.js";
 import { AgentLoop } from "../loop.js";
 import type { Session, SessionStore, SubagentRun } from "../session/types.js";
@@ -14,14 +15,21 @@ import { readFileTool } from "./read.js";
 import { ToolRegistry } from "./registry.js";
 import type { ToolContext, ToolDefinition } from "./types.js";
 import { writeFileTool } from "./write.js";
-import { z } from "zod";
 
 const AgentToolSchema = z.object({
   agent_type: z.string().describe("The type of subagent to run"),
   prompt: z.string().describe("The task description for the subagent"),
 });
 
-const ALL_TOOLS = [readFileTool, writeFileTool, bashTool, grepTool, globTool, editTool, lsTool];
+const ALL_TOOLS = [
+  readFileTool,
+  writeFileTool,
+  bashTool,
+  grepTool,
+  globTool,
+  editTool,
+  lsTool,
+];
 
 export function createAgentTool(deps: {
   providerRegistry: ProviderRegistry;
@@ -34,6 +42,10 @@ export function createAgentTool(deps: {
     parameters: AgentToolSchema,
     isConcurrencySafe: () => true,
     execute: async (params, ctx) => {
+      if (ctx.signal?.aborted) {
+        return { output: "Aborted before execution started", isError: true };
+      }
+
       const definition = deps.definitions.get(params.agent_type);
       if (!definition) {
         return {
@@ -90,13 +102,12 @@ export function createAgentTool(deps: {
         systemPrompt: definition.systemPrompt,
         workingDir: ctx.workingDir,
         maxSteps: definition.maxSteps,
+        ...(ctx.signal ? { signal: ctx.signal } : {}),
       };
 
       let summary = "";
-      const innerLoop = new AgentLoop(
-        deps.providerRegistry,
-        filteredRegistry,
-      );
+      let innerError: string | null = null;
+      const innerLoop = new AgentLoop(deps.providerRegistry, filteredRegistry);
 
       try {
         for await (const innerEvent of innerLoop.run(
@@ -113,6 +124,10 @@ export function createAgentTool(deps: {
             summary += innerEvent.delta;
           }
 
+          if (innerEvent.type === "error") {
+            innerError = innerEvent.error;
+          }
+
           if (innerEvent.type === "complete") {
             break;
           }
@@ -120,20 +135,23 @@ export function createAgentTool(deps: {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unknown error";
+        innerError = message;
+      }
 
-        await emit(ctx, { type: "subagent-end", runId, summary: message });
+      if (innerError) {
+        await emit(ctx, { type: "subagent-end", runId, summary: innerError });
 
         try {
           await deps.sessionStore.updateRun(runId, {
             status: "error",
-            summary: message,
+            summary: innerError,
             completedAt: Date.now(),
           });
         } catch {
           // Best-effort
         }
 
-        return { output: message, isError: true };
+        return { output: innerError, isError: true };
       }
 
       if (!summary.trim()) {

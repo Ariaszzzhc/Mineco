@@ -1,5 +1,6 @@
 import { OpenAICompatAdapter } from "./adapters/openai-compat.js";
 import type { Provider as IProvider } from "./provider.js";
+import { type RateLimitConfig, TokenBucketRateLimiter } from "./rate-limit.js";
 import type { UserProviderConfig } from "./types.js";
 import { UsageTracker } from "./usage/tracker.js";
 
@@ -12,6 +13,7 @@ export interface ProviderMeta {
 export class ProviderRegistry {
   private readonly providers = new Map<string, IProvider>();
   readonly usage = new UsageTracker();
+  private rateLimiter?: TokenBucketRateLimiter;
 
   register(provider: IProvider): void {
     this.providers.set(provider.id, provider);
@@ -70,5 +72,14 @@ export class ProviderRegistry {
           : base;
       }),
     }));
+  }
+
+  setRateLimit(config: RateLimitConfig): void {
+    this.rateLimiter?.destroy();
+    this.rateLimiter = new TokenBucketRateLimiter(config);
+  }
+
+  async acquireRateLimit(): Promise<void> {
+    await this.rateLimiter?.acquire();
   }
 }

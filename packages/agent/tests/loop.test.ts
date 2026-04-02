@@ -51,7 +51,10 @@ async function collectEvents(
 }
 
 function makeRegistry(provider: ReturnType<typeof mockProvider>) {
-  return { get: () => provider } as unknown as ProviderRegistry;
+  return {
+    get: () => provider,
+    acquireRateLimit: async () => {},
+  } as unknown as ProviderRegistry;
 }
 
 /** Register a minimal tool with real Zod schema */
@@ -161,7 +164,7 @@ describe("AgentLoop", () => {
       const loop = new AgentLoop(makeRegistry(provider), toolReg);
       const events = await collectEvents(loop, makeSession(), makeConfig());
 
-      const toolCall = events.find((e) => e.type === "tool-call")!;
+      const toolCall = events.find((e) => e.type === "tool-call");
       expect(toolCall).toMatchObject({
         type: "tool-call",
         toolCallId: "tc1",
@@ -169,7 +172,7 @@ describe("AgentLoop", () => {
         args: { input: "hi" },
       });
 
-      const toolResult = events.find((e) => e.type === "tool-result")!;
+      const toolResult = events.find((e) => e.type === "tool-result");
       expect(toolResult).toMatchObject({
         type: "tool-result",
         toolCallId: "tc1",
@@ -221,7 +224,7 @@ describe("AgentLoop", () => {
       const loop = new AgentLoop(makeRegistry(provider), toolReg);
       const events = await collectEvents(loop, makeSession(), makeConfig());
 
-      const toolCall = events.find((e) => e.type === "tool-call")!;
+      const toolCall = events.find((e) => e.type === "tool-call");
       expect((toolCall as { args: unknown }).args).toEqual({ input: "x" });
     });
   });
@@ -253,7 +256,7 @@ describe("AgentLoop", () => {
         makeConfig({ maxSteps: 3 }),
       );
 
-      const complete = events.find((e) => e.type === "complete")!;
+      const complete = events.find((e) => e.type === "complete");
       expect(complete).toMatchObject({ type: "complete", reason: "max-steps" });
     });
   });
@@ -433,6 +436,96 @@ describe("AgentLoop", () => {
       await expect(
         collectEvents(loop, makeSession(), makeConfig()),
       ).rejects.toThrow('Provider "missing" not found');
+    });
+  });
+
+  describe("signal handling", () => {
+    it("yields complete:aborted when signal is already aborted", async () => {
+      const provider = mockProvider([
+        textChunk("should not reach"),
+        finishChunk("stop"),
+      ]);
+      const loop = new AgentLoop(makeRegistry(provider), new ToolRegistry());
+
+      const controller = new AbortController();
+      controller.abort();
+
+      const events = await collectEvents(
+        loop,
+        makeSession(),
+        makeConfig({ signal: controller.signal }),
+      );
+
+      expect(events).toEqual([{ type: "complete", reason: "aborted" }]);
+    });
+
+    it("stops at step boundary when signal aborts mid-loop", async () => {
+      // First call returns tool_calls, second call returns stop
+      let callCount = 0;
+      const provider: ReturnType<typeof mockProvider> = {
+        id: "test",
+        name: "test",
+        chatStream: async function* (_req: unknown) {
+          callCount++;
+          if (callCount === 1) {
+            yield {
+              delta: {
+                toolCalls: [
+                  {
+                    index: 0,
+                    id: "tc1",
+                    name: "echo",
+                    arguments: '{"msg":"hi"}',
+                  },
+                ],
+              },
+              usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+              finishReason: "tool_calls",
+            };
+          } else {
+            yield {
+              delta: { content: "done" },
+              usage: undefined,
+              finishReason: "stop",
+            };
+          }
+        },
+        chat: () => {
+          throw new Error("not impl");
+        },
+        listModels: () => [],
+      } as never;
+
+      const controller = new AbortController();
+      const registry = makeRegistry(provider);
+      const tools = new ToolRegistry();
+      tools.register({
+        name: "echo",
+        description: "echo",
+        parameters: z.object({ msg: z.string() }),
+        execute: async (params: { msg: string }) => {
+          // Abort during tool execution
+          controller.abort();
+          return { output: params.msg };
+        },
+      });
+
+      const loop = new AgentLoop(registry, tools);
+      const events = await collectEvents(
+        loop,
+        makeSession(),
+        makeConfig({ signal: controller.signal }),
+      );
+
+      // Should have first step events, then abort
+      expect(events).toEqual(
+        expect.arrayContaining([
+          { type: "step", step: 1, maxSteps: 5 },
+          { type: "complete", reason: "aborted" },
+        ]),
+      );
+      // Should NOT have a second step
+      expect(events.filter((e) => e.type === "step")).toHaveLength(1);
     });
   });
 });
