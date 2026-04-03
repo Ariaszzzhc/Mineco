@@ -5,9 +5,12 @@ import type { SkillManifest } from "./types.js";
 import { SkillFrontmatterSchema } from "./types.js";
 
 export class SkillScanner {
-  async scan(workingDir: string): Promise<SkillManifest[]> {
+  async scan(
+    workingDir: string,
+    options?: { userSkillsDir?: string },
+  ): Promise<SkillManifest[]> {
     const userSkills = await this.scanDirectory(
-      join(homedir(), ".agents", "skills"),
+      options?.userSkillsDir ?? join(homedir(), ".agents", "skills"),
       "user",
     );
     const projectSkills = await this.scanDirectory(

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { microCompact } from "../micro-compact.js";
+import { microCompact } from "../../src/context/micro-compact.js";
 import type { Message } from "@mineco/provider";
 
 describe("microCompact skill content protection", () => {

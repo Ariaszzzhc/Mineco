@@ -6,7 +6,9 @@ export class SkillStore {
   constructor(skills: SkillManifest[]) {
     for (const skill of skills) {
       const existing = this.skills.get(skill.name);
-      if (!existing || skill.source === "project") {
+      if (!existing) {
+        this.skills.set(skill.name, skill);
+      } else if (skill.source === "project" && existing.source === "user") {
         this.skills.set(skill.name, skill);
       }
     }
