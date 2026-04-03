@@ -46,5 +46,8 @@ export {
   defineTool,
   ToolRegistry,
 } from "./tools/index.js";
+// Skills
+export { SkillScanner, SkillStore, createActivateSkillTool, buildSkillCatalogText, injectSkillCatalog, resolveSlashSkill } from "./skills/index.js";
+export type { SkillManifest, ResolvedSlashSkill } from "./skills/index.js";
 // Types
 export type { AgentConfig, AgentEvent } from "./types.js";

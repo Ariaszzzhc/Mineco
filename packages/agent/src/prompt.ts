@@ -3,6 +3,7 @@ export function buildSystemPrompt(vars: {
   platform: string;
   date: string;
   model: string;
+  skillCatalog?: string;
 }): string {
   return `You are Mineco, an interactive coding agent that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.
 
@@ -92,5 +93,5 @@ Working directory: ${vars.workingDir}
 Platform: ${vars.platform}
 Today's date: ${vars.date}
 Model: ${vars.model}
-</env>`;
+</env>${vars.skillCatalog ? `\n${vars.skillCatalog}` : ""}`;
 }
