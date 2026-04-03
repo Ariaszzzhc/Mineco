@@ -23,7 +23,7 @@
   "scripts": {
     "build": "turbo run build",
     "check": "turbo run check",
-    "dev": "turbo run dev --filter=@mineco/core --filter=@mineco/app",
+    "dev": "turbo run dev --filter=@mineco/core --filter=@mineco/web",
     "dev:app": "turbo run dev --filter=@mineco/app",
     "dev:core": "turbo run dev --filter=@mineco/core",
     "test": "vitest run",

@@ -3,8 +3,9 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "tauri vite",
+    "build": "tsx scripts/build.ts",
+    "build:frontend": "vite build",
     "build:tauri": "tauri build",
     "tauri": "tauri",
     "check": "tsc -p ."
@@ -23,10 +24,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@tauri-apps/cli": "^2.10.1",
     "tailwindcss": "^4.2.2",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.2",
     "vite": "^8.0.1",
-    "vite-plugin-solid": "^2.11.11",
-    "vitest": "^4.1.2"
+    "vite-plugin-solid": "^2.11.11"
   }
 }

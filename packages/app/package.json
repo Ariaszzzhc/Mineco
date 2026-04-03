@@ -33,6 +33,8 @@
     "happy-dom": "^20.8.9",
     "hono": "^4.12.9",
     "tailwindcss": "^4.2.2",
-    "vite-plugin-solid": "^2.11.11"
+    "vite-plugin-solid": "^2.11.11",
+    "vite": "^8.0.1",
+    "@tailwindcss/vite": "^4.2.2"
   }
 }
