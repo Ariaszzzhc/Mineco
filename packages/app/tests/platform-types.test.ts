@@ -2,13 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   NoOpDirectoryPickerAdapter,
   NoOpNotificationAdapter,
-  type DirectoryPickerAdapter,
   type NotificationAdapter,
-  type NotificationPermission,
-  type NotifyOptions,
   type Platform,
   type PlatformCapabilities,
-  type NotificationClickHandler,
 } from "../src/lib/platform-types";
 
 describe("NoOpNotificationAdapter", () => {

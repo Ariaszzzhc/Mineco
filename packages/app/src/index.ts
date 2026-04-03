@@ -1,9 +1,15 @@
-export { createApp } from "./create-app";
 export { default as App } from "./App";
+export { createApp } from "./create-app";
 export {
+  getPlatform,
+  PlatformProvider,
+  setPlatform,
+  usePlatform,
+} from "./lib/platform";
+export {
+  type DirectoryPickerAdapter,
   NoOpDirectoryPickerAdapter,
   NoOpNotificationAdapter,
-  type DirectoryPickerAdapter,
   type NotificationAdapter,
   type NotificationClickHandler,
   type NotificationPermission,
@@ -11,9 +17,3 @@ export {
   type Platform,
   type PlatformCapabilities,
 } from "./lib/platform-types";
-export {
-  usePlatform,
-  getPlatform,
-  PlatformProvider,
-  setPlatform,
-} from "./lib/platform";

@@ -1,7 +1,10 @@
 import { vi } from "vitest";
-import type { Platform } from "../src/lib/platform-types";
-import { NoOpDirectoryPickerAdapter, NoOpNotificationAdapter } from "../src/lib/platform-types";
 import { setPlatform } from "../src/lib/platform";
+import type { Platform } from "../src/lib/platform-types";
+import {
+  NoOpDirectoryPickerAdapter,
+  NoOpNotificationAdapter,
+} from "../src/lib/platform-types";
 
 // Initialize Platform singleton for tests
 const testPlatform: Platform = {

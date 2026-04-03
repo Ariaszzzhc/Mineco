@@ -1,5 +1,5 @@
-import type { Platform } from "./platform-types";
 import { createContext, type JSX, useContext } from "solid-js";
+import type { Platform } from "./platform-types";
 
 // ---------------------------------------------------------------------------
 // Module-level singleton (for non-reactive use in utilities/stores)

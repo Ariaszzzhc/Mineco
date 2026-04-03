@@ -5,15 +5,8 @@
     "target": "ES2023",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": [
-      "ES2023",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "types": [
-      "vite/client",
-      "node"
-    ],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "node"],
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "noEmit": true,
@@ -21,10 +14,5 @@
     "jsxImportSource": "solid-js",
     "allowArbitraryExtensions": true
   },
-  "include": [
-    "src",
-    "tests",
-    "vitest.config.ts",
-    "scripts"
-  ]
+  "include": ["src", "tests", "vitest.config.ts", "scripts"]
 }
