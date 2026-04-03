@@ -1,10 +1,12 @@
 import { Trash2 } from "lucide-solid";
 import { For, Show } from "solid-js";
+import { useI18n } from "../../i18n/index.tsx";
 import type { ProviderConfig } from "../../lib/types";
 import { configStore } from "../../stores/config";
 import { Button } from "../ui/button";
 
 export function ProviderList() {
+  const { t } = useI18n();
   const providers = () => configStore.config()?.providers ?? [];
 
   async function handleDelete(id: string) {
@@ -37,7 +39,7 @@ export function ProviderList() {
     <div>
       <Show when={providers().length === 0}>
         <div class="rounded-lg border border-dashed border-[var(--border)] px-4 py-8 text-center text-sm text-[var(--text-muted)]">
-          No providers configured. Add one below.
+          {t("provider.none")}
         </div>
       </Show>
       <div class="space-y-2">
@@ -60,7 +62,7 @@ export function ProviderList() {
                   </div>
                   <Show when={getApiKey(p)}>
                     <div class="mt-0.5 font-mono text-[10px] text-[var(--text-muted)]">
-                      Key: {maskKey(getApiKey(p)!)}
+                      {t("provider.key")} {maskKey(getApiKey(p)!)}
                     </div>
                   </Show>
                 </div>

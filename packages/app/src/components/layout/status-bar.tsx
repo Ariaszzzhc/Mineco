@@ -1,6 +1,7 @@
 import { useNavigate } from "@solidjs/router";
 import { Cpu } from "lucide-solid";
 import { createMemo, onCleanup, onMount, Show } from "solid-js";
+import { useI18n } from "../../i18n/index.tsx";
 import { chatStore } from "../../stores/chat";
 import { configStore } from "../../stores/config";
 import { subscriptionStore } from "../../stores/subscription";
@@ -13,6 +14,7 @@ function formatTokens(n: number): string {
 
 export function StatusBar() {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   onMount(() => {
     subscriptionStore.startAutoRefresh();
@@ -86,7 +88,7 @@ export function StatusBar() {
               onClick={() => navigate("/settings")}
               class="text-[var(--warning)] hover:underline"
             >
-              No provider configured
+              {t("status.noProvider")}
             </button>
           }
         >

@@ -1,11 +1,13 @@
 import { useNavigate } from "@solidjs/router";
 import { createSignal, For, onMount, Show } from "solid-js";
+import { useI18n } from "../i18n/index.tsx";
 import { DirBrowser } from "../components/workspace/dir-browser";
 import { workspaceStore } from "../stores/workspace";
 
 export function WorkspacePickerPage() {
   const navigate = useNavigate();
   const [showBrowser, setShowBrowser] = createSignal(false);
+  const { t, locale } = useI18n();
 
   onMount(() => {
     workspaceStore.loadWorkspaces();
@@ -30,11 +32,12 @@ export function WorkspacePickerPage() {
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "Just now";
-    if (diffMin < 60) return `${diffMin}m ago`;
+    const rtf = new Intl.RelativeTimeFormat(locale(), { numeric: "auto" });
+    if (diffMin < 1) return rtf.format(0, "second");
+    if (diffMin < 60) return rtf.format(-diffMin, "minute");
     const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr}h ago`;
-    return d.toLocaleDateString();
+    if (diffHr < 24) return rtf.format(-diffHr, "hour");
+    return new Intl.DateTimeFormat(locale()).format(d);
   }
 
   return (
@@ -42,10 +45,10 @@ export function WorkspacePickerPage() {
       <div class="w-full max-w-lg px-6">
         <div class="text-center">
           <h1 class="text-xl font-semibold text-[var(--text-primary)]">
-            Mineco
+            {t("workspace.title")}
           </h1>
           <p class="mt-1 text-sm text-[var(--text-secondary)]">
-            Select a workspace to get started
+            {t("workspace.subtitle")}
           </p>
         </div>
 
@@ -70,7 +73,7 @@ export function WorkspacePickerPage() {
                 stroke-linecap="round"
               />
             </svg>
-            Open Directory
+            {t("workspace.openDirectory")}
           </button>
         </div>
 
@@ -78,7 +81,7 @@ export function WorkspacePickerPage() {
         <Show when={workspaceStore.workspaces().length > 0}>
           <div class="mt-6">
             <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-              Recent
+              {t("workspace.recent")}
             </h2>
             <div class="space-y-1">
               <For each={workspaceStore.workspaces()}>
@@ -128,7 +131,7 @@ export function WorkspacePickerPage() {
         >
           <div class="mt-8 text-center">
             <p class="text-sm text-[var(--text-muted)]">
-              No workspaces yet. Open a directory to create one.
+              {t("workspace.empty")}
             </p>
           </div>
         </Show>

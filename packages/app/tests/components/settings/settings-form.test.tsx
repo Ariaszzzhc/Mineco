@@ -6,6 +6,7 @@ import {
   createTestConfig,
   createZhipuProvider,
 } from "../../helper/fixture";
+import { I18nProvider } from "../../../src/i18n/index.tsx";
 
 // Use a mutable reference so the mock factory can access it
 const mockConfigRef: { value: () => AppConfig | null } = {
@@ -43,7 +44,11 @@ describe("SettingsForm", () => {
       createTestConfig({
         providers: [createZhipuProvider(), createOpenAIProvider()],
       });
-    const { container } = render(() => <SettingsForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <SettingsForm />
+      </I18nProvider>
+    ));
     const options = container.querySelectorAll("select:first-of-type option");
     // "Select provider" + Zhipu + test-provider = 3
     expect(options.length).toBeGreaterThanOrEqual(3);
@@ -51,7 +56,11 @@ describe("SettingsForm", () => {
 
   it('should show "Select provider" as default option', () => {
     mockConfigRef.value = () => createTestConfig();
-    const { container } = render(() => <SettingsForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <SettingsForm />
+      </I18nProvider>
+    ));
     const select = container.querySelector("select") as HTMLSelectElement;
     expect(select.value).toBe("");
   });
@@ -61,7 +70,11 @@ describe("SettingsForm", () => {
       createTestConfig({
         providers: [createOpenAIProvider()],
       });
-    const { container } = render(() => <SettingsForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <SettingsForm />
+      </I18nProvider>
+    ));
 
     // Select the openai-compatible provider
     const selects = container.querySelectorAll("select");
@@ -78,7 +91,11 @@ describe("SettingsForm", () => {
       createTestConfig({
         providers: [createOpenAIProvider(), createZhipuProvider()],
       });
-    const { container } = render(() => <SettingsForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <SettingsForm />
+      </I18nProvider>
+    ));
 
     const providerSelect = container.querySelector(
       "select",
@@ -100,7 +117,11 @@ describe("SettingsForm", () => {
       createTestConfig({
         providers: [createOpenAIProvider()],
       });
-    const { container } = render(() => <SettingsForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <SettingsForm />
+      </I18nProvider>
+    ));
 
     // Select provider
     const providerSelect = container.querySelector(
@@ -126,7 +147,11 @@ describe("SettingsForm", () => {
       createTestConfig({
         providers: [createOpenAIProvider()],
       });
-    const { container } = render(() => <SettingsForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <SettingsForm />
+      </I18nProvider>
+    ));
 
     // Don't select anything, just click save
     const saveBtn = container.querySelector("button")!;
@@ -150,7 +175,11 @@ describe("SettingsForm", () => {
   it("should label zhipu provider as Zhipu", () => {
     mockConfigRef.value = () =>
       createTestConfig({ providers: [createZhipuProvider()] });
-    const { container } = render(() => <SettingsForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <SettingsForm />
+      </I18nProvider>
+    ));
     const options = container.querySelectorAll("select option");
     const zhipuOption = Array.from(options).find(
       (o) => (o as HTMLOptionElement).value === "zhipu",
@@ -161,7 +190,11 @@ describe("SettingsForm", () => {
   it("should label openai-compatible by id", () => {
     mockConfigRef.value = () =>
       createTestConfig({ providers: [createOpenAIProvider()] });
-    const { container } = render(() => <SettingsForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <SettingsForm />
+      </I18nProvider>
+    ));
     const options = container.querySelectorAll("select option");
     const compatOption = Array.from(options).find(
       (o) => (o as HTMLOptionElement).value === "test-provider",

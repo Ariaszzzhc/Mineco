@@ -1,6 +1,7 @@
 import { Collapsible } from "@ark-ui/solid";
 import { CheckCircle, ChevronRight, Loader, XCircle } from "lucide-solid";
 import { Show } from "solid-js";
+import { useI18n } from "../../i18n/index.tsx";
 import type { ToolCallEvent, ToolResultEvent } from "../../lib/types";
 
 interface ToolCardProps {
@@ -9,6 +10,7 @@ interface ToolCardProps {
 }
 
 export function ToolCard(props: ToolCardProps) {
+  const { t } = useI18n();
   const name = () => props.call?.toolName ?? props.result?.toolName ?? "tool";
   const isDone = () => props.result !== undefined;
   const isError = () => props.result?.isError === true;
@@ -42,7 +44,7 @@ export function ToolCard(props: ToolCardProps) {
           >
             <div class="mb-2">
               <div class="mb-1 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                Arguments
+                {t("tool.arguments")}
               </div>
               <pre class="overflow-x-auto whitespace-pre-wrap text-[var(--text-secondary)]">
                 {JSON.stringify(props.call?.args, null, 2)}
@@ -52,7 +54,7 @@ export function ToolCard(props: ToolCardProps) {
           <Show when={props.result}>
             <div>
               <div class="mb-1 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                Result
+                {t("tool.result")}
               </div>
               <pre
                 class="max-h-[300px] overflow-auto whitespace-pre-wrap text-[var(--text-secondary)]"

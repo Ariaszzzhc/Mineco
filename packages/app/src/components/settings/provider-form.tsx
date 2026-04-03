@@ -1,8 +1,10 @@
 import { createSignal, Show } from "solid-js";
+import { useI18n } from "../../i18n/index.tsx";
 import { configStore } from "../../stores/config";
 import { Button } from "../ui/button";
 
 export function ProviderForm() {
+  const { t } = useI18n();
   const [type, setType] = createSignal<"zhipu" | "openai-compatible">("zhipu");
   const [apiKey, setApiKey] = createSignal("");
   const [platform, setPlatform] = createSignal<"cn" | "intl">("cn");
@@ -59,7 +61,7 @@ export function ProviderForm() {
               type() !== "zhipu",
           }}
         >
-          Zhipu
+          {t("provider.zhipu")}
         </button>
         <button
           type="button"
@@ -72,7 +74,7 @@ export function ProviderForm() {
               type() !== "openai-compatible",
           }}
         >
-          OpenAI Compatible
+          {t("provider.openaiCompatible")}
         </button>
       </div>
 
@@ -80,7 +82,7 @@ export function ProviderForm() {
         <div class="space-y-3">
           <label class="block">
             <span class="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-              API Key
+              {t("provider.apiKey")}
             </span>
             <input
               type="password"
@@ -88,13 +90,13 @@ export function ProviderForm() {
               onInput={(e) => setApiKey(e.currentTarget.value)}
               required
               class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)] focus:outline-none"
-              placeholder="Enter API key"
+              placeholder={t("provider.enterApiKey")}
             />
           </label>
           <div class="flex gap-3">
             <label class="flex-1">
               <span class="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-                Platform
+                {t("provider.platform")}
               </span>
               <select
                 value={platform()}
@@ -103,13 +105,13 @@ export function ProviderForm() {
                 }
                 class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--border-focus)] focus:outline-none"
               >
-                <option value="cn">China</option>
-                <option value="intl">International</option>
+                <option value="cn">{t("provider.platform.cn")}</option>
+                <option value="intl">{t("provider.platform.intl")}</option>
               </select>
             </label>
             <label class="flex-1">
               <span class="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-                Endpoint
+                {t("provider.endpoint")}
               </span>
               <select
                 value={endpoint()}
@@ -118,8 +120,8 @@ export function ProviderForm() {
                 }
                 class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--border-focus)] focus:outline-none"
               >
-                <option value="general">General</option>
-                <option value="coding">Coding</option>
+                <option value="general">{t("provider.endpoint.general")}</option>
+                <option value="coding">{t("provider.endpoint.coding")}</option>
               </select>
             </label>
           </div>
@@ -130,7 +132,7 @@ export function ProviderForm() {
         <div class="space-y-3">
           <label class="block">
             <span class="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-              Provider ID
+              {t("provider.providerId")}
             </span>
             <input
               type="text"
@@ -138,12 +140,12 @@ export function ProviderForm() {
               onInput={(e) => setCompId(e.currentTarget.value)}
               required
               class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)] focus:outline-none"
-              placeholder="e.g. openai, deepseek"
+              placeholder={t("provider.providerIdPlaceholder")}
             />
           </label>
           <label class="block">
             <span class="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-              Base URL
+              {t("provider.baseURL")}
             </span>
             <input
               type="url"
@@ -151,24 +153,24 @@ export function ProviderForm() {
               onInput={(e) => setBaseURL(e.currentTarget.value)}
               required
               class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)] focus:outline-none"
-              placeholder="https://api.example.com/v1"
+              placeholder={t("provider.baseURLPlaceholder")}
             />
           </label>
           <label class="block">
             <span class="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-              API Key (optional)
+              {t("provider.apiKeyOptional")}
             </span>
             <input
               type="password"
               value={apiKey()}
               onInput={(e) => setApiKey(e.currentTarget.value)}
               class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)] focus:outline-none"
-              placeholder="Enter API key"
+              placeholder={t("provider.enterApiKey")}
             />
           </label>
           <div class="rounded-lg border border-[var(--border)] p-3">
             <div class="mb-2 text-xs font-medium text-[var(--text-secondary)]">
-              Default Model
+              {t("provider.defaultModel")}
             </div>
             <div class="flex gap-2">
               <input
@@ -176,7 +178,7 @@ export function ProviderForm() {
                 value={modelId()}
                 onInput={(e) => setModelId(e.currentTarget.value)}
                 required
-                placeholder="Model ID"
+                placeholder={t("provider.modelId")}
                 class="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)] focus:outline-none"
               />
               <input
@@ -184,7 +186,7 @@ export function ProviderForm() {
                 value={modelName()}
                 onInput={(e) => setModelName(e.currentTarget.value)}
                 required
-                placeholder="Display name"
+                placeholder={t("provider.modelName")}
                 class="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)] focus:outline-none"
               />
             </div>
@@ -193,7 +195,7 @@ export function ProviderForm() {
       </Show>
 
       <Button type="submit" variant="primary" disabled={submitting()}>
-        {submitting() ? "Adding..." : "Add Provider"}
+        {submitting() ? t("provider.adding") : t("settings.addProvider")}
       </Button>
     </form>
   );

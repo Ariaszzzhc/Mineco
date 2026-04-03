@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { ArrowLeft, Plus, Trash2 } from "lucide-solid";
 import { createEffect, For, on, Show } from "solid-js";
+import { useI18n } from "../i18n/index.tsx";
 import { api } from "../lib/api-client";
 import { sessionStore } from "../stores/session";
 import { workspaceStore } from "../stores/workspace";
@@ -8,6 +9,7 @@ import { workspaceStore } from "../stores/workspace";
 export function WorkspacePage() {
   const params = useParams();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   createEffect(
     on(
@@ -70,7 +72,7 @@ export function WorkspacePage() {
           class="mb-2 flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         >
           <ArrowLeft size={12} />
-          All Workspaces
+          {t("workspace.allWorkspaces")}
         </button>
         <div class="flex items-center justify-between">
           <div>
@@ -87,7 +89,7 @@ export function WorkspacePage() {
             class="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--on-primary)] transition-colors hover:bg-[var(--primary-hover)]"
           >
             <Plus size={14} />
-            New Session
+            {t("workspace.newSession")}
           </button>
         </div>
       </div>
@@ -98,7 +100,7 @@ export function WorkspacePage() {
           <div class="flex h-full items-center justify-center">
             <div class="text-center">
               <p class="text-sm text-[var(--text-muted)]">
-                No sessions yet. Create one to get started.
+                {t("workspace.session.empty")}
               </p>
             </div>
           </div>

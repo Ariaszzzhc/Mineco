@@ -1,4 +1,5 @@
 import { createSignal, For, onMount, Show } from "solid-js";
+import { useI18n } from "../../i18n/index.tsx";
 import { api } from "../../lib/api-client";
 import { Button } from "../ui/button";
 
@@ -14,6 +15,7 @@ interface DirBrowserProps {
 
 export function DirBrowser(props: DirBrowserProps) {
   const [currentPath, setCurrentPath] = createSignal("");
+  const { t } = useI18n();
   const [parentPath, setParentPath] = createSignal<string | null>(null);
   const [directories, setDirectories] = createSignal<DirEntry[]>([]);
   const [loading, setLoading] = createSignal(false);
@@ -28,7 +30,7 @@ export function DirBrowser(props: DirBrowserProps) {
       setParentPath(result.parentPath);
       setDirectories(result.directories);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to browse");
+      setError(err instanceof Error ? err.message : t("dir.failedBrowse"));
     } finally {
       setLoading(false);
     }
@@ -53,7 +55,7 @@ export function DirBrowser(props: DirBrowserProps) {
         {/* Header */}
         <div class="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h2 class="text-sm font-semibold text-[var(--text-primary)]">
-            Select Directory
+            {t("dir.selectDirectory")}
           </h2>
           <button
             type="button"
@@ -84,7 +86,7 @@ export function DirBrowser(props: DirBrowserProps) {
               type="button"
               onClick={goUp}
               class="rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--hover)]"
-              aria-label="Go up"
+              aria-label={t("nav.goUp")}
             >
               <svg
                 width="16"
@@ -115,12 +117,12 @@ export function DirBrowser(props: DirBrowserProps) {
           </Show>
           <Show when={loading()}>
             <div class="px-3 py-2 text-xs text-[var(--text-muted)]">
-              Loading...
+              {t("common.loading")}
             </div>
           </Show>
           <Show when={!loading() && directories().length === 0}>
             <div class="px-3 py-2 text-xs text-[var(--text-muted)]">
-              No directories found
+              {t("dir.noDirectories")}
             </div>
           </Show>
           <For each={directories()}>
@@ -160,7 +162,7 @@ export function DirBrowser(props: DirBrowserProps) {
             onClick={() => props.onSelect(currentPath())}
             disabled={!currentPath()}
           >
-            Select This Directory
+            {t("dir.selectThis")}
           </Button>
         </div>
       </div>

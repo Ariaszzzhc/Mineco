@@ -1,11 +1,14 @@
 import { fireEvent, render } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { ChatInput } from "../../../src/components/chat/chat-input";
+import { I18nProvider } from "../../../src/i18n/index.tsx";
 
 describe("ChatInput", () => {
   it("should render textarea and send button", () => {
     const { container } = render(() => (
-      <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
+      <I18nProvider>
+        <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
+      </I18nProvider>
     ));
     expect(container.querySelector("textarea")).toBeTruthy();
     expect(
@@ -15,7 +18,9 @@ describe("ChatInput", () => {
 
   it("should show stop button when isStreaming", () => {
     const { container } = render(() => (
-      <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={true} />
+      <I18nProvider>
+        <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={true} />
+      </I18nProvider>
     ));
     expect(
       container.querySelector('button[aria-label="Stop streaming"]'),
@@ -27,7 +32,9 @@ describe("ChatInput", () => {
 
   it("should show send button when not streaming", () => {
     const { container } = render(() => (
-      <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
+      <I18nProvider>
+        <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
+      </I18nProvider>
     ));
     expect(
       container.querySelector('button[aria-label="Send message"]'),
@@ -39,12 +46,14 @@ describe("ChatInput", () => {
 
   it("should disable textarea when disabled prop is true", () => {
     const { container } = render(() => (
-      <ChatInput
-        onSend={vi.fn()}
-        onStop={vi.fn()}
-        isStreaming={false}
-        disabled={true}
-      />
+      <I18nProvider>
+        <ChatInput
+          onSend={vi.fn()}
+          onStop={vi.fn()}
+          isStreaming={false}
+          disabled={true}
+        />
+      </I18nProvider>
     ));
     expect(
       (container.querySelector("textarea") as HTMLTextAreaElement).disabled,
@@ -53,7 +62,9 @@ describe("ChatInput", () => {
 
   it("should disable textarea when isStreaming", () => {
     const { container } = render(() => (
-      <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={true} />
+      <I18nProvider>
+        <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={true} />
+      </I18nProvider>
     ));
     expect(
       (container.querySelector("textarea") as HTMLTextAreaElement).disabled,
@@ -62,7 +73,9 @@ describe("ChatInput", () => {
 
   it("should disable send button when textarea is empty", () => {
     const { container } = render(() => (
-      <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
+      <I18nProvider>
+        <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
+      </I18nProvider>
     ));
     const btn = container.querySelector(
       'button[aria-label="Send message"]',
@@ -73,7 +86,9 @@ describe("ChatInput", () => {
   it("should call onSend with trimmed value on send button click", () => {
     const onSend = vi.fn();
     const { container } = render(() => (
-      <ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />
+      <I18nProvider>
+        <ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />
+      </I18nProvider>
     ));
 
     const textarea = container.querySelector("textarea")!;
@@ -87,7 +102,9 @@ describe("ChatInput", () => {
 
   it("should clear textarea after sending", () => {
     const { container } = render(() => (
-      <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
+      <I18nProvider>
+        <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
+      </I18nProvider>
     ));
 
     const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
@@ -102,7 +119,9 @@ describe("ChatInput", () => {
   it("should call onSend on Enter without Shift", () => {
     const onSend = vi.fn();
     const { container } = render(() => (
-      <ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />
+      <I18nProvider>
+        <ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />
+      </I18nProvider>
     ));
 
     const textarea = container.querySelector("textarea")!;
@@ -115,7 +134,9 @@ describe("ChatInput", () => {
   it("should not call onSend on Shift+Enter", () => {
     const onSend = vi.fn();
     const { container } = render(() => (
-      <ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />
+      <I18nProvider>
+        <ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />
+      </I18nProvider>
     ));
 
     const textarea = container.querySelector("textarea")!;
@@ -128,12 +149,14 @@ describe("ChatInput", () => {
   it("should not send when disabled", () => {
     const onSend = vi.fn();
     const { container } = render(() => (
-      <ChatInput
-        onSend={onSend}
-        onStop={vi.fn()}
-        isStreaming={false}
-        disabled={true}
-      />
+      <I18nProvider>
+        <ChatInput
+          onSend={onSend}
+          onStop={vi.fn()}
+          isStreaming={false}
+          disabled={true}
+        />
+      </I18nProvider>
     ));
 
     const textarea = container.querySelector("textarea")!;
@@ -145,7 +168,9 @@ describe("ChatInput", () => {
   it("should not send empty/whitespace message", () => {
     const onSend = vi.fn();
     const { container } = render(() => (
-      <ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />
+      <I18nProvider>
+        <ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />
+      </I18nProvider>
     ));
 
     const textarea = container.querySelector("textarea")!;
@@ -162,7 +187,9 @@ describe("ChatInput", () => {
   it("should call onStop when stop button is clicked", () => {
     const onStop = vi.fn();
     const { container } = render(() => (
-      <ChatInput onSend={vi.fn()} onStop={onStop} isStreaming={true} />
+      <I18nProvider>
+        <ChatInput onSend={vi.fn()} onStop={onStop} isStreaming={true} />
+      </I18nProvider>
     ));
 
     const btn = container.querySelector('button[aria-label="Stop streaming"]')!;

@@ -1,5 +1,6 @@
 import { ArrowUp, Square } from "lucide-solid";
 import { createSignal } from "solid-js";
+import { useI18n } from "../../i18n/index.tsx";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -10,6 +11,7 @@ interface ChatInputProps {
 
 export function ChatInput(props: ChatInputProps) {
   const [value, setValue] = createSignal("");
+  const { t } = useI18n();
   let textareaRef!: HTMLTextAreaElement;
 
   function resize() {
@@ -49,7 +51,7 @@ export function ChatInput(props: ChatInputProps) {
           value={value()}
           onInput={handleInput}
           onKeyDown={handleKeydown}
-          placeholder="Send a message..."
+          placeholder={t("chat.placeholder")}
           disabled={props.disabled || props.isStreaming}
           rows={1}
           class="max-h-[200px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
@@ -59,7 +61,7 @@ export function ChatInput(props: ChatInputProps) {
             type="button"
             onClick={props.onStop}
             class="rounded-lg bg-[var(--error)] p-2 text-[var(--on-error)] transition-colors hover:opacity-90"
-            aria-label="Stop streaming"
+            aria-label={t("chat.stopStreaming")}
           >
             <Square size={16} />
           </button>
@@ -69,7 +71,7 @@ export function ChatInput(props: ChatInputProps) {
             onClick={handleSend}
             disabled={!value().trim() || props.disabled}
             class="rounded-lg bg-[var(--primary)] p-2 text-[var(--on-primary)] transition-colors hover:bg-[var(--primary-hover)] disabled:opacity-40"
-            aria-label="Send message"
+            aria-label={t("chat.sendMessage")}
           >
             <ArrowUp size={16} />
           </button>
