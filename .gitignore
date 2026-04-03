@@ -96,3 +96,4 @@ dist
 .idea
 .turbo
 packages/core/sea-config.json
+.claude/worktrees/
