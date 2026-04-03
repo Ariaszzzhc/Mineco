@@ -73,8 +73,10 @@ export function microCompact(
     // Build set of indices to preserve: system, all user messages, recent messages
     const preservedIndices = new Set<number>();
     for (let i = 0; i < result.length; i++) {
-      if (result[i].role === "system") preservedIndices.add(i);
-      if (result[i].role === "user") preservedIndices.add(i);
+      const msg = result[i];
+      if (!msg) continue;
+      if (msg.role === "system") preservedIndices.add(i);
+      if (msg.role === "user") preservedIndices.add(i);
       if (i >= recentStart) preservedIndices.add(i);
     }
 
@@ -82,20 +84,20 @@ export function microCompact(
     const filtered: Message[] = [];
     let i = 0;
     while (i < result.length) {
+      const msg = result[i];
+      if (!msg) { i++; continue; }
       if (preservedIndices.has(i)) {
-        filtered.push(result[i]);
+        filtered.push(msg);
         i++;
         continue;
       }
 
       // Skip removable assistant+tool block
-      if (result[i].role === "assistant") {
+      if (msg.role === "assistant") {
         let j = i + 1;
-        while (
-          j < result.length &&
-          result[j].role === "tool" &&
-          !preservedIndices.has(j)
-        ) {
+        while (j < result.length) {
+          const nextMsg = result[j];
+          if (!nextMsg || nextMsg.role !== "tool" || preservedIndices.has(j)) break;
           j++;
         }
         // Only remove the block if we won't break chain into preserved tail
@@ -106,7 +108,7 @@ export function microCompact(
         }
       }
 
-      filtered.push(result[i]);
+      filtered.push(msg);
       i++;
     }
 
