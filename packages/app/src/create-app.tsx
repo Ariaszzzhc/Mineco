@@ -1,4 +1,4 @@
-import type { Platform } from "@mineco/platform";
+import type { Platform } from "./lib/platform-types";
 import type { JSX } from "solid-js";
 import App from "./App";
 import { initHighlighter } from "./lib/markdown";

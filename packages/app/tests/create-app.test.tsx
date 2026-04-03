@@ -1,4 +1,7 @@
-import { NoOpNotificationAdapter, type Platform } from "@mineco/platform";
+import {
+  NoOpNotificationAdapter,
+  type Platform,
+} from "../src/lib/platform-types";
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/create-app";
 import { getPlatform } from "../src/lib/platform";

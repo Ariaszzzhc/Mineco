@@ -1,4 +1,4 @@
-import type { Platform } from "@mineco/platform";
+import type { Platform } from "@mineco/app";
 import { TauriNotificationAdapter } from "./notification";
 
 /**

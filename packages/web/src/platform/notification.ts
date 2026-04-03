@@ -3,7 +3,7 @@ import type {
   NotificationClickHandler,
   NotificationPermission,
   NotifyOptions,
-} from "@mineco/platform";
+} from "@mineco/app";
 
 /**
  * Browser notification adapter using the Web Notification API.
