@@ -1,6 +1,6 @@
 {
   "main": "sea-dist/mineco-core.mjs",
-  "output": "sea-dist/mineco-core",
+  "output": "sea-dist/mineco-core.exe",
   "disableExperimentalSEAWarning": true,
   "useCodeCache": false,
   "mainFormat": "module"

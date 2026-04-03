@@ -105,7 +105,7 @@ if (statSync(sidecarSrc, { throwIfNoEntry: false })?.isFile()) {
 }
 
 // 4c: Copy SPA resources for web mode
-const spaSource = join(ROOT, "packages/app/dist");
+const spaSource = join(ROOT, "packages/mineco/dist");
 const spaDestDir = join(appDir, "resources/web");
 if (statSync(spaSource, { throwIfNoEntry: false })?.isDirectory()) {
   cpSync(spaSource, spaDestDir, { recursive: true });
