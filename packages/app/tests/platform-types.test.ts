@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  NoOpDirectoryPickerAdapter,
   NoOpNotificationAdapter,
+  type DirectoryPickerAdapter,
   type NotificationAdapter,
   type NotificationPermission,
   type NotifyOptions,
@@ -51,12 +53,14 @@ describe("type exports", () => {
     const capabilities: PlatformCapabilities = {
       notification: false,
       tray: false,
+      directoryPicker: false,
     };
     const platform: Platform = {
       name: "web",
       apiBaseUrl: "",
       capabilities,
       notification: adapter,
+      directoryPicker: new NoOpDirectoryPickerAdapter(),
     };
     expect(platform.name).toBe("web");
     expect(platform.capabilities.notification).toBe(false);

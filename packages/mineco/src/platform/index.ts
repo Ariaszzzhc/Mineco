@@ -1,4 +1,5 @@
 import type { Platform } from "@mineco/app";
+import { TauriDirectoryPickerAdapter } from "./directory-picker";
 import { TauriNotificationAdapter } from "./notification";
 
 /**
@@ -10,7 +11,8 @@ export function createTauriPlatform(apiUrl: string): Platform {
   return {
     name: "desktop",
     apiBaseUrl: apiUrl,
-    capabilities: { notification: true, tray: true },
+    capabilities: { notification: true, tray: true, directoryPicker: true },
     notification: new TauriNotificationAdapter(),
+    directoryPicker: new TauriDirectoryPickerAdapter(),
   };
 }

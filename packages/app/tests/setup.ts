@@ -1,14 +1,15 @@
 import { vi } from "vitest";
 import type { Platform } from "../src/lib/platform-types";
-import { NoOpNotificationAdapter } from "../src/lib/platform-types";
+import { NoOpDirectoryPickerAdapter, NoOpNotificationAdapter } from "../src/lib/platform-types";
 import { setPlatform } from "../src/lib/platform";
 
 // Initialize Platform singleton for tests
 const testPlatform: Platform = {
   name: "web",
   apiBaseUrl: "",
-  capabilities: { notification: false, tray: false },
+  capabilities: { notification: false, tray: false, directoryPicker: false },
   notification: new NoOpNotificationAdapter(),
+  directoryPicker: new NoOpDirectoryPickerAdapter(),
 };
 setPlatform(testPlatform);
 

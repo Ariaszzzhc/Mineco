@@ -1,10 +1,12 @@
 import { useNavigate } from "@solidjs/router";
 import { createSignal, For, onMount, Show } from "solid-js";
 import { DirBrowser } from "../components/workspace/dir-browser";
+import { usePlatform } from "../lib/platform";
 import { workspaceStore } from "../stores/workspace";
 
 export function WorkspacePickerPage() {
   const navigate = useNavigate();
+  const platform = usePlatform();
   const [showBrowser, setShowBrowser] = createSignal(false);
 
   onMount(() => {
@@ -17,6 +19,21 @@ export function WorkspacePickerPage() {
     if (ws) {
       navigate(`/workspaces/${ws.id}`);
     }
+  }
+
+  async function handleOpenDirectory() {
+    if (platform.capabilities.directoryPicker) {
+      const path = await platform.directoryPicker.pickDirectory();
+      if (path) {
+        const ws = await workspaceStore.createWorkspace(path);
+        navigate(`/workspaces/${ws.id}`);
+        return;
+      }
+      // User cancelled native dialog — do nothing
+      return;
+    }
+    // Fallback: show JS directory browser
+    setShowBrowser(true);
   }
 
   async function handleSelectDirectory(path: string) {
@@ -53,7 +70,7 @@ export function WorkspacePickerPage() {
         <div class="mt-6">
           <button
             type="button"
-            onClick={() => setShowBrowser(true)}
+            onClick={handleOpenDirectory}
             class="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary-subtle)] hover:text-[var(--primary)]"
           >
             <svg
