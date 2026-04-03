@@ -38,6 +38,13 @@ export function createActivateSkillTool(
         };
       }
 
+      if (store.isActivated(params.name)) {
+        return {
+          output: `Skill "${params.name}" is already active in this session.`,
+        };
+      }
+      store.markActivated(params.name);
+
       const resources = await listResources(skill.sourcePath);
       return {
         output: formatSkillOutput(skill, resources),

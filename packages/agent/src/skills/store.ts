@@ -2,6 +2,7 @@ import type { SkillManifest } from "./types.js";
 
 export class SkillStore {
   private skills = new Map<string, SkillManifest>();
+  private activated = new Set<string>();
 
   constructor(skills: SkillManifest[]) {
     for (const skill of skills) {
@@ -27,5 +28,13 @@ export class SkillStore {
 
   has(name: string): boolean {
     return this.skills.has(name);
+  }
+
+  isActivated(name: string): boolean {
+    return this.activated.has(name);
+  }
+
+  markActivated(name: string): void {
+    this.activated.add(name);
   }
 }

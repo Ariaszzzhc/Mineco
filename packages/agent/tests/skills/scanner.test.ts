@@ -126,6 +126,16 @@ describe("SkillStore", () => {
     ]);
     expect(store.get("review")!.description).toBe("project review");
   });
+
+  it("should track activation state", () => {
+    const store = new SkillStore([
+      { name: "commit", description: "Smart commits", instructions: "do it", sourcePath: "/a", source: "user" },
+    ]);
+    expect(store.isActivated("commit")).toBe(false);
+    store.markActivated("commit");
+    expect(store.isActivated("commit")).toBe(true);
+    expect(store.isActivated("unknown")).toBe(false);
+  });
 });
 
 describe("buildSkillCatalogText", () => {
