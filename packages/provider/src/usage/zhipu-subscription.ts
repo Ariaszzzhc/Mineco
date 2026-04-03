@@ -2,7 +2,6 @@ import type {
   QuotaUsage,
   SubscriptionClient,
   SubscriptionInfo,
-  UsageSummary,
 } from "./subscription.js";
 
 // Zhipu-specific API response types (internal)
@@ -25,18 +24,6 @@ interface QuotaLimitResponse {
     limits: QuotaLimitItem[];
     level?: string;
   };
-  success: boolean;
-}
-
-interface ModelUsageResponse {
-  code: number;
-  msg: string;
-  data: {
-    totalUsage: {
-      totalModelCallCount: number;
-      totalTokensUsage: number;
-    };
-  } | null;
   success: boolean;
 }
 
@@ -107,39 +94,4 @@ export class ZhipuSubscriptionClient implements SubscriptionClient {
     };
   }
 
-  async getUsage(startTime: number, endTime: number): Promise<UsageSummary> {
-    // Zhipu API expects Beijing time (UTC+8) in yyyy-MM-dd HH:mm:ss format
-    const tz = 8 * 3600 * 1000;
-    const fmt = (ts: number) => {
-      const d = new Date(ts + tz);
-      const pad = (n: number) => n.toString().padStart(2, "0");
-      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
-    };
-
-    const params = new URLSearchParams({
-      startTime: fmt(startTime),
-      endTime: fmt(endTime),
-    });
-
-    const response = await fetch(
-      `${this.baseURL}/monitor/usage/model-usage?${params}`,
-      {
-        headers: { Authorization: `Bearer ${this.apiKey}` },
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch model usage: ${response.status}`);
-    }
-
-    const body = (await response.json()) as ModelUsageResponse;
-    if (!body.success || !body.data) {
-      return { callCount: 0, totalTokens: 0 };
-    }
-
-    return {
-      callCount: body.data.totalUsage.totalModelCallCount,
-      totalTokens: body.data.totalUsage.totalTokensUsage,
-    };
-  }
 }

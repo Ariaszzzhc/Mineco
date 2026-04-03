@@ -38,7 +38,6 @@ describe("hasSubscription", () => {
     if (hasSubscription(provider)) {
       // TypeScript should allow accessing subscription
       expect(typeof provider.subscription.getSubscriptionInfo).toBe("function");
-      expect(typeof provider.subscription.getUsage).toBe("function");
     }
   });
 });

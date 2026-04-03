@@ -47,7 +47,6 @@ export type {
   QuotaUsage,
   SubscriptionClient,
   SubscriptionInfo,
-  UsageSummary,
 } from "./usage/subscription.js";
 export type {
   ModelUsageStats,
