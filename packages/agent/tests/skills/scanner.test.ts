@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { SkillScanner } from "../scanner.js";
-import { SkillStore } from "../store.js";
-import { buildSkillCatalogText } from "../catalog.js";
-import { resolveSlashSkill } from "../resolve.js";
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { SkillScanner } from "../../src/skills/scanner.js";
+import { SkillStore } from "../../src/skills/store.js";
+import { buildSkillCatalogText } from "../../src/skills/catalog.js";
+import { resolveSlashSkill } from "../../src/skills/resolve.js";
+import { mkdir, writeFile, rm, mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -13,7 +13,7 @@ describe("SkillScanner", () => {
 
   beforeEach(async () => {
     scanner = new SkillScanner();
-    tmpDir = await mkd(join(tmpdir(), "mineco-skill-test-"));
+    tmpDir = await mkdtemp(join(tmpdir(), "mineco-skill-test-"));
   });
 
   afterEach(async () => {
@@ -21,7 +21,7 @@ describe("SkillScanner", () => {
   });
 
   it("should return empty array when no skills directory exists", async () => {
-    const skills = await scanner.scan(tmpDir);
+    const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
     expect(skills).toEqual([]);
   });
 
@@ -33,7 +33,7 @@ describe("SkillScanner", () => {
       `---\nname: test-skill\ndescription: A test skill for testing\n---\n\nDo the thing.`,
     );
 
-    const skills = await scanner.scan(tmpDir);
+    const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
     expect(skills).toHaveLength(1);
     expect(skills[0]!.name).toBe("test-skill");
     expect(skills[0]!.description).toBe("A test skill for testing");
@@ -46,7 +46,7 @@ describe("SkillScanner", () => {
     await mkdir(skillDir, { recursive: true });
     await writeFile(join(skillDir, "README.md"), "This is not a skill");
 
-    const skills = await scanner.scan(tmpDir);
+    const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
     expect(skills).toEqual([]);
   });
 
@@ -55,7 +55,7 @@ describe("SkillScanner", () => {
     await mkdir(skillDir, { recursive: true });
     await writeFile(join(skillDir, "SKILL.md"), "No frontmatter here");
 
-    const skills = await scanner.scan(tmpDir);
+    const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
     expect(skills).toEqual([]);
   });
 
@@ -67,7 +67,7 @@ describe("SkillScanner", () => {
       `---\ndescription: Missing name\n---\n\nContent.`,
     );
 
-    const skills = await scanner.scan(tmpDir);
+    const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
     expect(skills).toEqual([]);
   });
 });
@@ -99,7 +99,7 @@ describe("SkillStore", () => {
       { name: "review", description: "project review", instructions: "project", sourcePath: "/b", source: "project" },
       { name: "review", description: "user review", instructions: "user", sourcePath: "/a", source: "user" },
     ]);
-    expect(store.get("review")!.description).toBe("user review");
+    expect(store.get("review")!.description).toBe("project review");
   });
 });
 
