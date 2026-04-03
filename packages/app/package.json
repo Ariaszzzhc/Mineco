@@ -19,6 +19,7 @@
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@mineco/core": "workspace:*",
     "@mineco/provider": "workspace:*",
+    "@solid-primitives/i18n": "^2.2.1",
     "@solidjs/router": "^0.16.1",
     "dompurify": "^3.3.3",
     "lucide-solid": "^1.7.0",

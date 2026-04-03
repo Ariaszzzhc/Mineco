@@ -1,5 +1,6 @@
 import { ArrowLeft } from "lucide-solid";
 import { For, Show } from "solid-js";
+import { useI18n } from "../../i18n/index.tsx";
 import { renderMarkdown } from "../../lib/markdown";
 import type { StreamingSegment, SubagentRunState } from "../../stores/chat";
 import { ThinkingBlock } from "./thinking-block";
@@ -53,6 +54,7 @@ function StreamingSegmentView(props: {
 }
 
 export function SubagentView(props: SubagentViewProps) {
+  const { t } = useI18n();
   const isRunning = () => props.run.status === "running";
 
   const currentSegment = () => {
@@ -82,7 +84,7 @@ export function SubagentView(props: SubagentViewProps) {
           class="flex items-center gap-1 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
         >
           <ArrowLeft size={14} />
-          返回主对话
+          {t("subagent.backToMain")}
         </button>
         <span class="text-xs text-[var(--text-muted)]">/</span>
         <span class="text-xs font-medium text-[var(--text-secondary)]">
@@ -97,7 +99,7 @@ export function SubagentView(props: SubagentViewProps) {
           <Show when={props.run.summary === null && isRunning()}>
             <div class="py-3">
               <div class="rounded-xl bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--text-primary)] italic text-[var(--text-muted)]">
-                Subagent is running...
+                {t("subagent.running")}
               </div>
             </div>
           </Show>
@@ -120,7 +122,7 @@ export function SubagentView(props: SubagentViewProps) {
 
       {/* Read-only footer */}
       <div class="border-t border-[var(--border)] px-4 py-3 text-center text-xs text-[var(--text-muted)]">
-        查看子 Agent 运行详情 · 点击上方返回主对话
+        {t("subagent.viewDetails")}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { fireEvent, render } from "@solidjs/testing-library";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { I18nProvider } from "../../../src/i18n/index.tsx";
 
 vi.mock("../../../src/stores/config", () => ({
   configStore: {
@@ -19,13 +20,21 @@ describe("ProviderForm", () => {
   });
 
   it("should render with zhipu type selected by default", () => {
-    const { container } = render(() => <ProviderForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <ProviderForm />
+      </I18nProvider>
+    ));
     const zhipuBtn = container.querySelector("button");
     expect(zhipuBtn?.textContent).toContain("Zhipu");
   });
 
   it("should show zhipu fields initially", () => {
-    const { container } = render(() => <ProviderForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <ProviderForm />
+      </I18nProvider>
+    ));
     // Zhipu fields: API Key input + Platform select + Endpoint select
     const inputs = container.querySelectorAll("input");
     const selects = container.querySelectorAll("select");
@@ -34,7 +43,11 @@ describe("ProviderForm", () => {
   });
 
   it("should show openai-compatible fields on toggle", () => {
-    const { container } = render(() => <ProviderForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <ProviderForm />
+      </I18nProvider>
+    ));
     // Click "OpenAI Compatible" toggle
     const buttons = container.querySelectorAll("button");
     const compatBtn = Array.from(buttons).find((b) =>
@@ -48,7 +61,11 @@ describe("ProviderForm", () => {
   });
 
   it("should submit zhipu provider with correct data", async () => {
-    const { container } = render(() => <ProviderForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <ProviderForm />
+      </I18nProvider>
+    ));
 
     // Fill API key
     const apiKeyInput = container.querySelector(
@@ -71,7 +88,11 @@ describe("ProviderForm", () => {
   });
 
   it("should submit openai-compatible provider with correct data", async () => {
-    const { container } = render(() => <ProviderForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <ProviderForm />
+      </I18nProvider>
+    ));
 
     // Switch to OpenAI Compatible
     const buttons = container.querySelectorAll("button");
@@ -106,7 +127,11 @@ describe("ProviderForm", () => {
   });
 
   it("should omit apiKey when empty for openai-compatible", async () => {
-    const { container } = render(() => <ProviderForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <ProviderForm />
+      </I18nProvider>
+    ));
 
     // Switch to OpenAI Compatible
     const buttons = container.querySelectorAll("button");
@@ -137,7 +162,11 @@ describe("ProviderForm", () => {
   });
 
   it("should reset form after successful submit", async () => {
-    const { container } = render(() => <ProviderForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <ProviderForm />
+      </I18nProvider>
+    ));
 
     const apiKeyInput = container.querySelector(
       "input[type='password']",
@@ -159,7 +188,11 @@ describe("ProviderForm", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockAddProvider.mockRejectedValue(new Error("API error"));
 
-    const { container } = render(() => <ProviderForm />);
+    const { container } = render(() => (
+      <I18nProvider>
+        <ProviderForm />
+      </I18nProvider>
+    ));
 
     const apiKeyInput = container.querySelector(
       "input[type='password']",

@@ -9,6 +9,7 @@ import {
   onMount,
   Show,
 } from "solid-js";
+import { useI18n } from "../i18n/index.tsx";
 import type { DailyStats } from "../stores/stats";
 import { statsStore } from "../stores/stats";
 
@@ -130,6 +131,7 @@ function StatCard(props: {
 
 export function StatsPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   let dailyCanvasRef: HTMLCanvasElement | undefined;
   let pieCanvasRef: HTMLCanvasElement | undefined;
@@ -276,7 +278,7 @@ export function StatsPage() {
           <ArrowLeft size={18} />
         </button>
         <h1 class="text-sm font-semibold text-[var(--text-primary)]">
-          Usage Stats
+          {t("stats.title")}
         </h1>
         <div class="ml-auto flex items-center gap-1 rounded-lg border border-[var(--border)] p-0.5">
           <For each={DATE_RANGE_OPTIONS}>
@@ -306,18 +308,18 @@ export function StatsPage() {
             {(s) => (
               <div class="grid grid-cols-3 gap-4">
                 <StatCard
-                  title="Total Tokens"
+                  title={t("stats.totalTokens")}
                   value={formatTokens(s().totalTokens)}
-                  subtitle={`${s().totalRequests} requests`}
+                  subtitle={t("stats.requests", { count: s().totalRequests })}
                   sparkData={sparkTokens()}
                 />
                 <StatCard
-                  title="Total Cost"
+                  title={t("stats.totalCost")}
                   value={formatCost(s().totalCost)}
                   sparkData={sparkCost()}
                 />
                 <StatCard
-                  title="Total Requests"
+                  title={t("stats.totalRequests")}
                   value={s().totalRequests.toString()}
                   sparkData={sparkRequests()}
                 />
@@ -328,14 +330,14 @@ export function StatsPage() {
           {/* Daily cost line chart */}
           <section>
             <h2 class="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-              Daily Cost
+              {t("stats.dailyCost")}
             </h2>
             <div class="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
               <Show
                 when={daily().length > 0}
                 fallback={
                   <p class="py-8 text-center text-sm text-[var(--text-muted)]">
-                    No data for this period
+                    {t("stats.noData")}
                   </p>
                 }
               >
@@ -349,14 +351,14 @@ export function StatsPage() {
           {/* Model distribution pie chart */}
           <section>
             <h2 class="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-              Model Distribution
+              {t("stats.modelDistribution")}
             </h2>
             <div class="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
               <Show
                 when={byModel().length > 0}
                 fallback={
                   <p class="py-8 text-center text-sm text-[var(--text-muted)]">
-                    No data for this period
+                    {t("stats.noData")}
                   </p>
                 }
               >

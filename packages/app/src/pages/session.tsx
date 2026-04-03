@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { createEffect, on, Show } from "solid-js";
+import { useI18n } from "../i18n/index.tsx";
 import { ChatView } from "../components/chat/chat-view";
 import { chatStore } from "../stores/chat";
 import { configStore } from "../stores/config";
@@ -8,6 +9,7 @@ import { sessionStore } from "../stores/session";
 export function SessionPage() {
   const params = useParams();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   createEffect(
     on(
@@ -43,7 +45,7 @@ export function SessionPage() {
       when={sessionStore.currentSession()}
       fallback={
         <div class="flex h-full items-center justify-center">
-          <div class="text-sm text-[var(--text-muted)]">Loading...</div>
+          <div class="text-sm text-[var(--text-muted)]">{t("common.loading")}</div>
         </div>
       }
     >

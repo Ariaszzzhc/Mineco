@@ -1,6 +1,7 @@
 import "./index.css";
 import type { RouteSectionProps } from "@solidjs/router";
 import { Route, Router } from "@solidjs/router";
+import { I18nProvider } from "./i18n/index.tsx";
 import { AppLayout } from "./components/layout/app-layout";
 import { SessionPage } from "./pages/session";
 import { SettingsPage } from "./pages/settings";
@@ -14,15 +15,17 @@ function LayoutWrapper(props: RouteSectionProps) {
 
 export default function App() {
   return (
-    <Router root={LayoutWrapper}>
-      <Route path="/" component={WorkspacePickerPage} />
-      <Route path="/workspaces/:id" component={WorkspacePage} />
-      <Route
-        path="/workspaces/:workspaceId/sessions/:sessionId"
-        component={SessionPage}
-      />
-      <Route path="/settings" component={SettingsPage} />
-      <Route path="/stats" component={StatsPage} />
-    </Router>
+    <I18nProvider>
+      <Router root={LayoutWrapper}>
+        <Route path="/" component={WorkspacePickerPage} />
+        <Route path="/workspaces/:id" component={WorkspacePage} />
+        <Route
+          path="/workspaces/:workspaceId/sessions/:sessionId"
+          component={SessionPage}
+        />
+        <Route path="/settings" component={SettingsPage} />
+        <Route path="/stats" component={StatsPage} />
+      </Router>
+    </I18nProvider>
   );
 }

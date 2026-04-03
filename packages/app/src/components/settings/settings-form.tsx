@@ -1,9 +1,11 @@
 import { createEffect, createSignal, For, Show } from "solid-js";
+import { useI18n } from "../../i18n/index.tsx";
 import type { ProviderConfig } from "../../lib/types";
 import { configStore } from "../../stores/config";
 import { Button } from "../ui/button";
 
 export function SettingsForm() {
+  const { t } = useI18n();
   const [providerId, setProviderId] = createSignal("");
   const [model, setModel] = createSignal("");
   const [saving, setSaving] = createSignal(false);
@@ -51,7 +53,7 @@ export function SettingsForm() {
     <div class="space-y-4">
       <label class="block">
         <span class="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-          Default Provider
+          {t("settings.defaultProvider")}
         </span>
         <select
           value={providerId()}
@@ -61,7 +63,7 @@ export function SettingsForm() {
           }}
           class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--border-focus)] focus:outline-none"
         >
-          <option value="">Select provider</option>
+          <option value="">{t("settings.selectProvider")}</option>
           <For each={providers()}>
             {(p) => (
               <option value={p.type === "zhipu" ? "zhipu" : p.id}>
@@ -75,14 +77,14 @@ export function SettingsForm() {
       <Show when={availableModels().length > 0}>
         <label class="block">
           <span class="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-            Default Model
+            {t("settings.defaultModel")}
           </span>
           <select
             value={model()}
             onChange={(e) => setModel(e.currentTarget.value)}
             class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--border-focus)] focus:outline-none"
           >
-            <option value="">Select model</option>
+            <option value="">{t("settings.selectModel")}</option>
             <For each={availableModels()}>
               {(m) => <option value={m.id}>{m.name}</option>}
             </For>
@@ -91,7 +93,7 @@ export function SettingsForm() {
       </Show>
 
       <Button variant="primary" onClick={handleSave} disabled={saving()}>
-        {saving() ? "Saving..." : "Save Defaults"}
+        {saving() ? t("settings.saving") : t("settings.saveDefaults")}
       </Button>
     </div>
   );

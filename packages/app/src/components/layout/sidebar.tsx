@@ -7,6 +7,7 @@ import {
   Trash2,
 } from "lucide-solid";
 import { createEffect, createSignal, For, on, Show } from "solid-js";
+import { useI18n } from "../../i18n/index.tsx";
 import { api } from "../../lib/api-client";
 import type { Session } from "../../lib/types";
 import { sessionStore } from "../../stores/session";
@@ -14,6 +15,7 @@ import { workspaceStore } from "../../stores/workspace";
 
 export function Sidebar() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const location = useLocation();
   const [editingId, setEditingId] = createSignal<string | null>(null);
   const [editingTitle, setEditingTitle] = createSignal("");
@@ -104,7 +106,7 @@ export function Sidebar() {
           when={workspace()}
           fallback={
             <span class="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
-              Mineco
+              {t("app.name")}
             </span>
           }
         >
@@ -118,7 +120,7 @@ export function Sidebar() {
               class="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
             >
               <ArrowLeft size={10} />
-              Workspaces
+              {t("nav.workspaces")}
             </button>
             <div class="truncate text-sm font-semibold text-[var(--text-primary)]">
               {workspace()?.name}
@@ -130,7 +132,7 @@ export function Sidebar() {
             type="button"
             onClick={handleCreate}
             class="rounded-md p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
-            aria-label="New session"
+            aria-label={t("sidebar.newSessionAria")}
           >
             <Plus size={16} />
           </button>
@@ -199,7 +201,7 @@ export function Sidebar() {
           class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
         >
           <ChartColumnBig size={16} />
-          <span>Stats</span>
+          <span>{t("nav.stats")}</span>
         </button>
         <button
           type="button"
@@ -207,7 +209,7 @@ export function Sidebar() {
           class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
         >
           <Settings size={16} />
-          <span>Settings</span>
+          <span>{t("nav.settings")}</span>
         </button>
       </div>
     </aside>
