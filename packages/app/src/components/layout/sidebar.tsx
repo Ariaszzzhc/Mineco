@@ -4,9 +4,10 @@ import {
   ChartColumnBig,
   Plus,
   Settings,
+  Sparkles,
   Trash2,
 } from "lucide-solid";
-import { createEffect, createSignal, For, on, Show } from "solid-js";
+import { Show, createEffect, createSignal, For, on } from "solid-js";
 import { useI18n } from "../../i18n/index.tsx";
 import { api } from "../../lib/api-client";
 import type { Session } from "../../lib/types";
@@ -203,6 +204,16 @@ export function Sidebar() {
           <ChartColumnBig size={16} />
           <span>{t("nav.stats")}</span>
         </button>
+        <Show when={workspaceId()}>
+          <button
+            type="button"
+            onClick={() => navigate(`/workspaces/${workspaceId()}/skills`)}
+            class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+          >
+            <Sparkles size={16} />
+            <span>{t("nav.skills")}</span>
+          </button>
+        </Show>
         <button
           type="button"
           onClick={() => navigate("/settings")}

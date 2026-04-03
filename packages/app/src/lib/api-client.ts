@@ -213,6 +213,16 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
+
+  // Skills
+  async listSkills(workspacePath: string) {
+    const client = getClient();
+    const res = await client.api.skills.$get({
+      query: { workspacePath },
+    });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
+  },
 };
 
 async function extractError(res: Response): Promise<string> {
