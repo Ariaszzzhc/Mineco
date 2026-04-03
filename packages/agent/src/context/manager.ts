@@ -43,6 +43,7 @@ interface SessionState {
 	cachedNotes: ExtractedNotes | null;
 	sessionMemoryInitialized: boolean;
 	tokensAtLastExtraction: number;
+	toolCallsAtLastExtraction: number;
 }
 
 export class ContextManager {
@@ -57,6 +58,7 @@ export class ContextManager {
 				cachedNotes: null,
 				sessionMemoryInitialized: false,
 				tokensAtLastExtraction: 0,
+				toolCallsAtLastExtraction: 0,
 			};
 			this.sessionStates.set(sessionId, state);
 		}
@@ -90,13 +92,15 @@ export class ContextManager {
 			);
 			if (extracted) {
 				notes = extracted;
-				state.cachedNotes = extracted;
 				memoryExtracted = true;
 			}
-			state.tokensAtLastExtraction = tokenEstimate;
-			if (!state.sessionMemoryInitialized) {
-				state.sessionMemoryInitialized = true;
-			}
+			this.updateState(sessionId, {
+				...state,
+				cachedNotes: extracted ?? state.cachedNotes,
+				tokensAtLastExtraction: tokenEstimate,
+				toolCallsAtLastExtraction: countToolCalls(sessionMessages),
+				sessionMemoryInitialized: true,
+			});
 		}
 
 		// --- Micro-compact (gated by high token threshold) ---
@@ -143,6 +147,10 @@ export class ContextManager {
 		};
 	}
 
+	private updateState(sessionId: string, state: SessionState): void {
+		this.sessionStates.set(sessionId, state);
+	}
+
 	/**
 	 * Check if session memory should be extracted.
 	 * Matches Claude Code's shouldExtractMemory() logic:
@@ -173,8 +181,10 @@ export class ContextManager {
 			return false;
 		}
 
-		// Check tool calls since last extraction (count tool messages after recent messages)
-		const toolCallsSinceLast = countToolCalls(messages);
+		// Check tool calls since last extraction (delta, not total)
+		const totalToolCalls = countToolCalls(messages);
+		const toolCallsSinceLast =
+			totalToolCalls - state.toolCallsAtLastExtraction;
 		const hasMetToolCallThreshold =
 			toolCallsSinceLast >= this.config.sessionMemoryToolCalls;
 
