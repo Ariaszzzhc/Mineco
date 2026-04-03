@@ -11,6 +11,7 @@ export class TauriDirectoryPickerAdapter implements DirectoryPickerAdapter {
 
   async pickDirectory(): Promise<string | null> {
     const selected = await open({ directory: true, multiple: false });
-    return selected as string | null;
+    if (typeof selected === "string") return selected;
+    return null;
   }
 }
