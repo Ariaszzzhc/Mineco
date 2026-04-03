@@ -4,6 +4,7 @@ import { chatStore } from "../../stores/chat";
 import { configStore } from "../../stores/config";
 import { sessionStore } from "../../stores/session";
 import { ChatInput } from "./chat-input";
+import { ActiveSkillBadge } from "./active-skill-badge";
 import { HeroPrompt } from "./hero-prompt";
 import { MessageList } from "./message-list";
 import { SubagentView } from "./subagent-view";
@@ -31,6 +32,8 @@ export function ChatView() {
     if (!runId) return null;
     return chatStore.subagentRuns()[runId] ?? null;
   };
+
+  const [activeSkillName, setActiveSkillName] = createSignal<string | null>(null);
 
   const [sessionUsage, setSessionUsage] = createSignal<{
     totalTokens: number;
@@ -118,11 +121,21 @@ export function ChatView() {
               )}
             </Show>
 
+            <Show when={activeSkillName()}>
+              {(name) => (
+                <ActiveSkillBadge
+                  skillName={name()}
+                  onDismiss={() => setActiveSkillName(null)}
+                />
+              )}
+            </Show>
+
             <ChatInput
               onSend={handleSend}
               onStop={() => chatStore.stopStream()}
               isStreaming={chatStore.isStreaming()}
               disabled={hasNoProvider()}
+              onSkillActivate={(name) => setActiveSkillName(name)}
             />
           </>
         }

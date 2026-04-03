@@ -72,6 +72,14 @@ export interface AppConfig {
   settings: AppSettings;
 }
 
+export interface SkillManifest {
+  name: string;
+  description: string;
+  instructions: string;
+  sourcePath: string;
+  source: "project" | "user";
+}
+
 // SSE event types (mirrors @mineco/agent AgentEvent)
 
 export type TextDeltaEvent = { type: "text-delta"; delta: string };

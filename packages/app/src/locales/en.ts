@@ -118,6 +118,23 @@ const en = {
   // Language options
   "language.en": "English",
   "language.zhCN": "简体中文",
+
+  // Navigation
+  "nav.skills": "Skills",
+
+  // Skills
+  "skills.title": "Skills",
+  "skills.projectSkills": "Project Skills",
+  "skills.userSkills": "User Skills",
+  "skills.noSkills": "No skills found for this workspace.",
+  "skills.loading": "Loading skills...",
+  "skills.sourceProject": "PROJECT",
+  "skills.sourceUser": "USER",
+  "skills.viewInstructions": "View Instructions",
+  "skills.hideInstructions": "Hide Instructions",
+  "skills.activeSkill": "Active skill",
+  "skills.paletteTitle": "Skills",
+  "skills.paletteNoResults": "No matching skills",
 };
 
 export default en;

@@ -117,6 +117,23 @@ const zhCN = {
   // Language options
   "language.en": "English",
   "language.zhCN": "简体中文",
+
+  // Navigation
+  "nav.skills": "技能",
+
+  // Skills
+  "skills.title": "技能",
+  "skills.projectSkills": "项目技能",
+  "skills.userSkills": "用户技能",
+  "skills.noSkills": "该工作区未找到技能。",
+  "skills.loading": "加载技能中...",
+  "skills.sourceProject": "项目",
+  "skills.sourceUser": "用户",
+  "skills.viewInstructions": "查看指令",
+  "skills.hideInstructions": "收起指令",
+  "skills.activeSkill": "当前技能",
+  "skills.paletteTitle": "技能",
+  "skills.paletteNoResults": "无匹配的技能",
 };
 
 export default zhCN;

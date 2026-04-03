@@ -21,6 +21,7 @@ import { createChatRoutes } from "./routes/chat.js";
 import { createConfigRoutes } from "./routes/config.js";
 import { createFsRoutes } from "./routes/fs.js";
 import { createSessionRoutes } from "./routes/session.js";
+import { createSkillsRoutes } from "./routes/skills.js";
 import { createStatsRoutes } from "./routes/stats.js";
 import { createWorkspaceRoutes } from "./routes/workspace.js";
 import {
@@ -82,7 +83,8 @@ function buildRoutes(deps: {
         deps.sessionNotesStore,
       ),
     )
-    .route("/api/stats", createStatsRoutes(deps.usageStore));
+    .route("/api/stats", createStatsRoutes(deps.usageStore))
+    .route("/api/skills", createSkillsRoutes());
 
   return routes;
 }
