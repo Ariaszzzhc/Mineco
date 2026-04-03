@@ -1,6 +1,7 @@
 /* @refresh reload */
-import { render } from "solid-js/web";
+
 import { createApp } from "@mineco/app";
+import { render } from "solid-js/web";
 import { createTauriPlatform } from "./platform";
 import "@mineco/app/index.css";
 

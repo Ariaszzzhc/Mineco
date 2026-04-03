@@ -1,7 +1,10 @@
 import { vi } from "vitest";
-import type { Platform } from "../src/lib/platform-types";
-import { NoOpDirectoryPickerAdapter, NoOpNotificationAdapter } from "../src/lib/platform-types";
 import { setPlatform } from "../src/lib/platform";
+import type { Platform } from "../src/lib/platform-types";
+import {
+  NoOpDirectoryPickerAdapter,
+  NoOpNotificationAdapter,
+} from "../src/lib/platform-types";
 
 // Mock localStorage for tests (needed by I18nProvider)
 const localStorageStore: Record<string, string> = {};

@@ -1,10 +1,10 @@
+import { describe, expect, it, vi } from "vitest";
+import { getPlatform } from "../src/lib/platform";
 import {
   NoOpDirectoryPickerAdapter,
   NoOpNotificationAdapter,
   type Platform,
 } from "../src/lib/platform-types";
-import { describe, expect, it, vi } from "vitest";
-import { getPlatform } from "../src/lib/platform";
 
 // Prevent shiki async loading and full App tree creation
 vi.mock("../src/lib/markdown", () => ({
