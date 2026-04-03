@@ -1,5 +1,5 @@
 import type { ProviderRegistry } from "@mineco/provider";
-import { ZhipuProvider } from "@mineco/provider";
+import { MiniMaxProvider, ZhipuProvider } from "@mineco/provider";
 import { loadConfig, saveConfig } from "./loader.js";
 import { maskApiKey } from "./mask.js";
 import type {
@@ -60,6 +60,14 @@ export class ConfigService {
         this.registry.register(provider);
         break;
       }
+      case "minimax": {
+        const provider = new MiniMaxProvider({
+          apiKey: config.apiKey,
+          platform: config.platform,
+        });
+        this.registry.register(provider);
+        break;
+      }
       case "openai-compatible": {
         const mapped: OpenAICompatProviderConfig = config;
         this.registry.registerFromConfig({
@@ -79,6 +87,8 @@ export class ConfigService {
 function maskProvider(config: ProviderConfig): ProviderConfig {
   switch (config.type) {
     case "zhipu":
+      return { ...config, apiKey: maskApiKey(config.apiKey) };
+    case "minimax":
       return { ...config, apiKey: maskApiKey(config.apiKey) };
     case "openai-compatible":
       return { ...config, apiKey: maskApiKey(config.apiKey) };

@@ -9,6 +9,12 @@ export const zhipuProviderSchema = z.object({
   endpoint: z.enum(["general", "coding"]).default("general"),
 });
 
+export const minimaxProviderSchema = z.object({
+  type: z.literal("minimax"),
+  apiKey: z.string().min(1),
+  platform: z.enum(["cn", "intl"]).default("intl"),
+});
+
 export const modelSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -25,6 +31,7 @@ export const openaiCompatProviderSchema = z.object({
 
 export const providerSchema = z.discriminatedUnion("type", [
   zhipuProviderSchema,
+  minimaxProviderSchema,
   openaiCompatProviderSchema,
 ]);
 
@@ -71,6 +78,7 @@ export const configSchema = z.object({
 // --- Inferred types ---
 
 export type ZhipuProviderConfig = z.infer<typeof zhipuProviderSchema>;
+export type MiniMaxProviderConfig = z.infer<typeof minimaxProviderSchema>;
 export type OpenAICompatProviderConfig = z.infer<
   typeof openaiCompatProviderSchema
 >;

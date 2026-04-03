@@ -8,12 +8,14 @@ export { maskApiKey } from "./mask.js";
 export type {
   AppConfig,
   AppSettings,
+  MiniMaxProviderConfig,
   OpenAICompatProviderConfig,
   ProviderConfig,
   ZhipuProviderConfig,
 } from "./schema.js";
 export {
   configSchema,
+  minimaxProviderSchema,
   openaiCompatProviderSchema,
   providerSchema,
   settingsSchema,
