@@ -26,6 +26,7 @@ export interface SubagentRunState {
 
 interface ChatState {
   isStreaming: boolean;
+  streamingSessionId: string | null;
   pendingUserMessage: string;
   streamingText: string;
   streamingThinking: string;
@@ -44,6 +45,7 @@ interface ChatState {
 
 const initialState: ChatState = {
   isStreaming: false,
+  streamingSessionId: null,
   pendingUserMessage: "",
   streamingText: "",
   streamingThinking: "",
@@ -173,6 +175,7 @@ async function startStream(sessionId: string, message: string) {
   batch(() => {
     setState({
       isStreaming: true,
+      streamingSessionId: sessionId,
       pendingUserMessage: message,
       streamingText: "",
       streamingThinking: "",
@@ -261,6 +264,7 @@ async function startStream(sessionId: string, message: string) {
     batch(() => {
       setState({
         isStreaming: false,
+        streamingSessionId: null,
         pendingUserMessage: "",
         streamingText: "",
         streamingThinking: "",
@@ -287,6 +291,7 @@ function resetStreamState() {
   batch(() => {
     setState({
       isStreaming: false,
+      streamingSessionId: null,
       pendingUserMessage: "",
       streamingText: "",
       streamingThinking: "",
@@ -302,6 +307,13 @@ function resetStreamState() {
   });
 }
 
+function resetIfSessionChanged(sessionId: string) {
+  if (state.streamingSessionId === sessionId && state.isStreaming) {
+    return;
+  }
+  resetStreamState();
+}
+
 function viewSubagent(runId: string) {
   setState("activeSubagentRunId", runId);
 }
@@ -312,6 +324,7 @@ function exitSubagentView() {
 
 export const chatStore = {
   isStreaming: () => state.isStreaming,
+  streamingSessionId: () => state.streamingSessionId,
   pendingUserMessage: () => state.pendingUserMessage,
   streamingText: () => state.streamingText,
   streamingThinking: () => state.streamingThinking,
@@ -325,6 +338,7 @@ export const chatStore = {
   startStream,
   stopStream,
   resetStreamState,
+  resetIfSessionChanged,
   viewSubagent,
   exitSubagentView,
 };
