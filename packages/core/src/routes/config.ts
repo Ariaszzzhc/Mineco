@@ -137,6 +137,8 @@ function getProviderId(p: ProviderConfig): string {
   switch (p.type) {
     case "zhipu":
       return "zhipu";
+    case "minimax":
+      return "minimax";
     case "openai-compatible":
       return p.id;
   }
