@@ -13,7 +13,6 @@ export const minimaxProviderSchema = z.object({
   type: z.literal("minimax"),
   apiKey: z.string().min(1),
   platform: z.enum(["cn", "intl"]).default("intl"),
-  cookie: z.string().optional(),
 });
 
 export const modelSchema = z.object({

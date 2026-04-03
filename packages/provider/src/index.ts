@@ -55,5 +55,5 @@ export type {
   UsageStats,
 } from "./usage/tracker.js";
 export { UsageTracker } from "./usage/tracker.js";
-export { MiniMaxSubscriptionClient } from "./usage/minimax-subscription.js";
+
 export { ZhipuSubscriptionClient } from "./usage/zhipu-subscription.js";
