@@ -1,4 +1,4 @@
-import type { Platform } from "@mineco/app";
+import { NoOpDirectoryPickerAdapter, type Platform } from "@mineco/app";
 import { BrowserNotificationAdapter } from "./notification";
 
 /**
@@ -21,7 +21,8 @@ export function createBrowserPlatform(): Platform {
     name: "web",
     apiBaseUrl: "",
     ...(token ? { token } : {}),
-    capabilities: { notification: true, tray: false },
+    capabilities: { notification: true, tray: false, directoryPicker: false },
     notification: new BrowserNotificationAdapter(),
+    directoryPicker: new NoOpDirectoryPickerAdapter(),
   };
 }

@@ -1,7 +1,9 @@
 export { createApp } from "./create-app";
 export { default as App } from "./App";
 export {
+  NoOpDirectoryPickerAdapter,
   NoOpNotificationAdapter,
+  type DirectoryPickerAdapter,
   type NotificationAdapter,
   type NotificationClickHandler,
   type NotificationPermission,

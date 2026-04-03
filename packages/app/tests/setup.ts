@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import type { Platform } from "../src/lib/platform-types";
-import { NoOpNotificationAdapter } from "../src/lib/platform-types";
+import { NoOpDirectoryPickerAdapter, NoOpNotificationAdapter } from "../src/lib/platform-types";
 import { setPlatform } from "../src/lib/platform";
 
 // Mock localStorage for tests (needed by I18nProvider)
@@ -27,8 +27,9 @@ vi.stubGlobal("navigator", { ...globalThis.navigator, language: "en" });
 const testPlatform: Platform = {
   name: "web",
   apiBaseUrl: "",
-  capabilities: { notification: false, tray: false },
+  capabilities: { notification: false, tray: false, directoryPicker: false },
   notification: new NoOpNotificationAdapter(),
+  directoryPicker: new NoOpDirectoryPickerAdapter(),
 };
 setPlatform(testPlatform);
 

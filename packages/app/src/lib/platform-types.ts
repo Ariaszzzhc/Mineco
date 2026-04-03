@@ -15,12 +15,14 @@ export interface Platform {
   readonly token?: string;
   readonly capabilities: PlatformCapabilities;
   readonly notification: NotificationAdapter;
+  readonly directoryPicker: DirectoryPickerAdapter;
 }
 
 /** Feature flags that vary by platform. */
 export interface PlatformCapabilities {
   readonly notification: boolean;
   readonly tray: boolean;
+  readonly directoryPicker: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,5 +76,30 @@ export class NoOpNotificationAdapter implements NotificationAdapter {
   close(_id: string): void {}
   onClick(_handler: NotificationClickHandler): () => void {
     return () => {};
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Directory picker adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Platform-specific directory picker.
+ *
+ * - Desktop: uses tauri-plugin-dialog (native OS dialog)
+ * - Fallback: {@link NoOpDirectoryPickerAdapter} (falls back to JS browser)
+ */
+export interface DirectoryPickerAdapter {
+  isSupported(): boolean;
+  pickDirectory(): Promise<string | null>;
+}
+
+/** No-op adapter — components should fall back to the JS DirBrowser. */
+export class NoOpDirectoryPickerAdapter implements DirectoryPickerAdapter {
+  isSupported(): boolean {
+    return false;
+  }
+  async pickDirectory(): Promise<null> {
+    return null;
   }
 }
