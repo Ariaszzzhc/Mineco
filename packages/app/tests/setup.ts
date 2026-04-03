@@ -14,12 +14,14 @@ vi.stubGlobal("localStorage", {
     delete localStorageStore[key];
   }),
   clear: vi.fn(() => {
-    Object.keys(localStorageStore).forEach((k) => delete localStorageStore[k]);
+    for (const k of Object.keys(localStorageStore)) {
+      delete localStorageStore[k];
+    }
   }),
 });
 
 // Mock navigator.language for tests (needed by I18nProvider)
-vi.stubGlobal("navigator", { language: "en" });
+vi.stubGlobal("navigator", { ...globalThis.navigator, language: "en" });
 
 // Initialize Platform singleton for tests
 const testPlatform: Platform = {

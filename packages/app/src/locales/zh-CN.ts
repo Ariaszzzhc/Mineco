@@ -106,6 +106,7 @@ const zhCN = {
   "stats.noData": "该时段暂无数据",
   "stats.costLabel": "费用 ($)",
   "stats.requests": "{{count}} 次请求",
+  "stats.tokens": "{{count}} tokens",
 
   // Date ranges
   "dateRange.today": "今天",
