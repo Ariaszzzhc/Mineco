@@ -51,6 +51,10 @@ export function microCompact(
   const truncated: Message[] = [];
   for (const msg of result) {
     if (msg.role === "tool" && typeof msg.content === "string") {
+      if (msg.content.includes("<skill-content")) {
+        truncated.push(msg);
+        continue;
+      }
       if (msg.content.length > opts.maxToolOutputChars) {
         const kept = msg.content.slice(0, opts.maxToolOutputTruncation);
         truncated.push({
@@ -78,6 +82,9 @@ export function microCompact(
       if (msg.role === "system") preservedIndices.add(i);
       if (msg.role === "user") preservedIndices.add(i);
       if (i >= recentStart) preservedIndices.add(i);
+      if (msg.role === "tool" && typeof msg.content === "string" && msg.content.includes("<skill-content")) {
+        preservedIndices.add(i);
+      }
     }
 
     // Remove oldest assistant+tool blocks not in preserved set

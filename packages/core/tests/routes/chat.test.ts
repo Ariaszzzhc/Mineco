@@ -44,6 +44,22 @@ vi.mock("@mineco/agent", () => ({
     parameters: {},
     execute: vi.fn(),
   })),
+  createActivateSkillTool: vi.fn(() => ({
+    name: "activate_skill",
+    description: "mock skill tool",
+    parameters: {},
+    execute: vi.fn(),
+  })),
+  SkillScanner: class {
+    scan = vi.fn(async () => []);
+  },
+  SkillStore: class {
+    get = vi.fn(() => undefined);
+    getAll = vi.fn(() => []);
+    has = vi.fn(() => false);
+  },
+  buildSkillCatalogText: vi.fn(() => ""),
+  resolveSlashSkill: vi.fn(() => null),
   agentDefinitions: new Map(),
 }));
 

@@ -4,11 +4,16 @@ import {
   AgentLoop,
   agentDefinitions,
   buildSystemPrompt,
+  buildSkillCatalogText,
   ContextManager,
+  createActivateSkillTool,
   createAgentTool,
   createDefaultToolRegistry,
   type SessionMessage,
   type SessionStore,
+  SkillScanner,
+  SkillStore,
+  resolveSlashSkill,
 } from "@mineco/agent";
 import type { ProviderRegistry } from "@mineco/provider";
 import { Hono } from "hono";
@@ -30,6 +35,25 @@ export function createChatRoutes(
       sessionStore: store,
     }),
   );
+
+  const skillScanner = new SkillScanner();
+  const skillStoreCache = new Map<string, SkillStore>();
+
+  async function getSkillStore(workingDir: string): Promise<SkillStore> {
+    const cached = skillStoreCache.get(workingDir);
+    if (cached) return cached;
+    const manifests = await skillScanner.scan(workingDir);
+    const skillStore = new SkillStore(manifests);
+    skillStoreCache.set(workingDir, skillStore);
+    return skillStore;
+  }
+
+  tools.register(
+    createActivateSkillTool((workingDir) =>
+      skillStoreCache.get(workingDir),
+    ),
+  );
+
   const contextManager = new ContextManager();
   const loop = new AgentLoop(providerRegistry, tools, contextManager);
 
@@ -98,21 +122,39 @@ export function createChatRoutes(
     const workspace = await workspaceStore.get(session.workspaceId);
     const workingDir = workspace?.path ?? process.cwd();
 
+    // Resolve skills for this workspace
+    const skillStore = await getSkillStore(workingDir);
+    const skillCatalog = buildSkillCatalogText(skillStore);
+
+    // Check for /skill-name syntax in user message
+    let actualMessage = body.message;
+    let skillInjection: string | undefined;
+    const resolved = resolveSlashSkill(body.message, skillStore);
+    if (resolved) {
+      actualMessage = resolved.remaining || body.message;
+      skillInjection = `<skill-content data-name="${resolved.skill.name}">\n# Skill: ${resolved.skill.name}\n\n${resolved.skill.instructions}\n</skill-content>`;
+    }
+
     const userMsg: SessionMessage = {
       id: randomUUID(),
       role: "user",
-      content: body.message,
+      content: actualMessage,
       createdAt: Date.now(),
     };
     await store.addMessage(sessionId, userMsg);
     session.messages.push(userMsg);
 
-    const systemPrompt = buildSystemPrompt({
+    let systemPrompt = buildSystemPrompt({
       workingDir,
       platform: process.platform,
       date: new Date().toISOString().split("T")[0] ?? new Date().toDateString(),
       model: body.model!,
+      skillCatalog,
     });
+
+    if (skillInjection) {
+      systemPrompt += `\n${skillInjection}`;
+    }
 
     const isFirstMessage = session.messages.length === 1;
 
