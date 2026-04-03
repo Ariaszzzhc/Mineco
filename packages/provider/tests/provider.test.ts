@@ -71,7 +71,6 @@ describe("hasSubscription", () => {
           expiresAt: null,
           primaryPercentage: 0,
         }),
-        getUsage: async () => ({ callCount: 0, totalTokens: 0 }),
       } satisfies SubscriptionClient,
       chat: async () => ({}) as never,
       chatStream: async function* () {},

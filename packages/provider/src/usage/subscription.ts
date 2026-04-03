@@ -26,16 +26,7 @@ export interface SubscriptionInfo {
   expiresAt: number | null;
 }
 
-/** Usage summary for a time range */
-export interface UsageSummary {
-  /** Total API call count */
-  callCount: number;
-  /** Total tokens consumed */
-  totalTokens: number;
-}
-
-/** Interface for querying subscription/usage from a provider */
+/** Interface for querying subscription info from a provider */
 export interface SubscriptionClient {
   getSubscriptionInfo(): Promise<SubscriptionInfo>;
-  getUsage(startTime: number, endTime: number): Promise<UsageSummary>;
 }

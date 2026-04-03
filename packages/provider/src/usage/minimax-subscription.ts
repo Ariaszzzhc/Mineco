@@ -1,4 +1,4 @@
-import type { QuotaUsage, SubscriptionClient, SubscriptionInfo, UsageSummary } from "./subscription.js";
+import type { QuotaUsage, SubscriptionClient, SubscriptionInfo } from "./subscription.js";
 
 // MiniMax API response types (internal)
 
@@ -117,8 +117,4 @@ export class MiniMaxSubscriptionClient implements SubscriptionClient {
     };
   }
 
-  async getUsage(_startTime: number, _endTime: number): Promise<UsageSummary> {
-    // MiniMax doesn't expose a usage history endpoint via token plan API
-    return { callCount: 0, totalTokens: 0 };
-  }
 }
