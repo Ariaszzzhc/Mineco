@@ -1,8 +1,8 @@
 /* @refresh reload */
 import { render } from "solid-js/web";
 import { createApp } from "@mineco/app";
-import { createBrowserPlatform } from "./platform";
 import "@mineco/app/index.css";
+import { createBrowserPlatform } from "./platform";
 
 const platform = createBrowserPlatform();
 const AppRoot = createApp(platform);

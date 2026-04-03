@@ -1,3 +1,4 @@
+import "./index.css";
 import type { RouteSectionProps } from "@solidjs/router";
 import { Route, Router } from "@solidjs/router";
 import { AppLayout } from "./components/layout/app-layout";
