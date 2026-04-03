@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import matter from "gray-matter";
 import type { SkillManifest } from "./types.js";
 import { SkillFrontmatterSchema } from "./types.js";
 
@@ -54,8 +55,12 @@ export class SkillScanner {
       return null;
     }
 
-    const parsed = parseFrontmatter(raw);
-    if (!parsed) return null;
+    let parsed;
+    try {
+      parsed = matter(raw);
+    } catch {
+      return null;
+    }
 
     const frontmatter = SkillFrontmatterSchema.safeParse(parsed.data);
     if (!frontmatter.success) {
@@ -65,37 +70,9 @@ export class SkillScanner {
     return {
       name: frontmatter.data.name,
       description: frontmatter.data.description,
-      instructions: parsed.body.trim(),
+      instructions: parsed.content.trim(),
       sourcePath: filePath,
       source,
     };
   }
-}
-
-function parseFrontmatter(
-  content: string,
-): { data: Record<string, unknown>; body: string } | null {
-  const match = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
-  if (!match) return null;
-
-  const data: Record<string, unknown> = {};
-  const lines = match[1]!.split("\n");
-  for (const line of lines) {
-    const colonIdx = line.indexOf(":");
-    if (colonIdx === -1) continue;
-    const key = line.slice(0, colonIdx).trim();
-    const rawValue = line.slice(colonIdx + 1).trim();
-    if (!rawValue) continue;
-
-    if (rawValue.startsWith("[") && rawValue.endsWith("]")) {
-      data[key] = rawValue
-        .slice(1, -1)
-        .split(",")
-        .map((s) => s.trim());
-    } else {
-      data[key] = rawValue;
-    }
-  }
-
-  return { data, body: match[2] ?? "" };
 }

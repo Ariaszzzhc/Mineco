@@ -60,6 +60,7 @@ vi.mock("@mineco/agent", () => ({
   },
   buildSkillCatalogText: vi.fn(() => ""),
   resolveSlashSkill: vi.fn(() => null),
+  injectSkillCatalog: vi.fn((_sp: string, _cat: string) => _sp),
   agentDefinitions: new Map(),
 }));
 

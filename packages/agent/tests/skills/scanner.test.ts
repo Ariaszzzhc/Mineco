@@ -70,6 +70,31 @@ describe("SkillScanner", () => {
     const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
     expect(skills).toEqual([]);
   });
+
+  it("should parse description containing colons", async () => {
+    const skillDir = join(tmpDir, ".agents", "skills", "pdf-skill");
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(
+      join(skillDir, "SKILL.md"),
+      `---\nname: pdf-skill\ndescription: "Use this skill when: the user asks about PDFs"\n---\n\nProcess PDFs.`,
+    );
+
+    const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
+    expect(skills).toHaveLength(1);
+    expect(skills[0]!.description).toContain("the user asks about PDFs");
+  });
+
+  it("should reject names with consecutive hyphens", async () => {
+    const skillDir = join(tmpDir, ".agents", "skills", "bad--name");
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(
+      join(skillDir, "SKILL.md"),
+      `---\nname: bad--name\ndescription: Invalid name\n---\n\nContent.`,
+    );
+
+    const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
+    expect(skills).toEqual([]);
+  });
 });
 
 describe("SkillStore", () => {
