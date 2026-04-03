@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { TauriNotificationAdapter } from "../../src/platform/notification";
 
-const mockOnNotificationActionPerformed = vi.fn().mockResolvedValue(vi.fn());
+const mockOnAction = vi.fn().mockResolvedValue({ unregister: vi.fn() });
 
 // Mock the Tauri notification plugin
 vi.mock("@tauri-apps/plugin-notification", () => ({
-  sendNotification: vi.fn(),
+  isPermissionGranted: vi.fn().mockResolvedValue(true),
   requestPermission: vi.fn().mockResolvedValue("granted"),
-  onNotificationActionPerformed: (..._args: unknown[]) =>
-    mockOnNotificationActionPerformed(..._args),
+  sendNotification: vi.fn(),
+  onAction: (...args: unknown[]) => mockOnAction(...args),
 }));
 
 describe("TauriNotificationAdapter", () => {
@@ -59,7 +59,7 @@ describe("TauriNotificationAdapter", () => {
 
     // Wait for dynamic import + event subscription
     await vi.waitFor(() => {
-      expect(mockOnNotificationActionPerformed).toHaveBeenCalled();
+      expect(mockOnAction).toHaveBeenCalled();
     });
   });
 });
