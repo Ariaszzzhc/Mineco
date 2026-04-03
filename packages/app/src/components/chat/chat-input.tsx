@@ -72,14 +72,15 @@ export function ChatInput(props: ChatInputProps) {
   }
 
   function selectSkill(skill: SkillManifest) {
-    setValue(`/${skill.name} `);
+    const newValue = `/${skill.name} `;
+    setValue(newValue);
     closePalette();
     props.onSkillActivate?.(skill.name);
-    // Focus back and place cursor at end
+    // Focus back and place cursor at end (use local value to avoid signal race)
     setTimeout(() => {
       if (textareaRef) {
         textareaRef.focus();
-        textareaRef.setSelectionRange(value().length, value().length);
+        textareaRef.setSelectionRange(newValue.length, newValue.length);
       }
     }, 0);
   }

@@ -10,20 +10,48 @@ interface SlashCommandPaletteProps {
   onHover: (index: number) => void;
 }
 
+/**
+ * Split text into parts around the first match of query.
+ * Returns an array of { text, highlight } objects for safe rendering.
+ * Safe: uses text nodes only, no innerHTML. Skill name is Zod-validated
+ * to [a-z0-9-] only; description is a plain string from backend schema.
+ */
+function highlightParts(text: string, query: string): Array<{ text: string; highlight: boolean }> {
+  if (!query) return [{ text, highlight: false }];
+  const lower = text.toLowerCase();
+  const q = query.toLowerCase();
+  const idx = lower.indexOf(q);
+  if (idx === -1) return [{ text, highlight: false }];
+
+  const parts: Array<{ text: string; highlight: boolean }> = [];
+  if (idx > 0) parts.push({ text: text.slice(0, idx), highlight: false });
+  parts.push({ text: text.slice(idx, idx + q.length), highlight: true });
+  const after = text.slice(idx + q.length);
+  if (after) parts.push({ text: after, highlight: false });
+  return parts;
+}
+
+function HighlightText(props: { text: string; query: string; class: string }) {
+  const parts = () => highlightParts(props.text, props.query);
+  return (
+    <span class={props.class}>
+      <For each={parts()}>
+        {(part) =>
+          part.highlight ? (
+            <mark class="rounded bg-[var(--primary-subtle)] text-[var(--text-primary)]">
+              {part.text}
+            </mark>
+          ) : (
+            <>{part.text}</>
+          )
+        }
+      </For>
+    </span>
+  );
+}
+
 export function SlashCommandPalette(props: SlashCommandPaletteProps) {
   const { t } = useI18n();
-
-  function highlightMatch(text: string, query: string): string {
-    if (!query) return text;
-    const lower = text.toLowerCase();
-    const q = query.toLowerCase();
-    const idx = lower.indexOf(q);
-    if (idx === -1) return text;
-    const before = text.slice(0, idx);
-    const match = text.slice(idx, idx + q.length);
-    const after = text.slice(idx + q.length);
-    return `${before}<mark class="rounded bg-[var(--primary-subtle)] text-[var(--text-primary)]">${match}</mark>${after}`;
-  }
 
   return (
     <div class="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg">
@@ -52,9 +80,10 @@ export function SlashCommandPalette(props: SlashCommandPaletteProps) {
               onMouseEnter={() => props.onHover(index())}
             >
               <div class="flex items-center gap-2">
-                <span
+                <HighlightText
+                  text={`> ${skill.name}`}
+                  query={props.query}
                   class="font-mono text-sm font-medium text-[var(--text-primary)]"
-                  innerHTML={highlightMatch(`> ${skill.name}`, props.query)}
                 />
                 <span
                   class={`ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium ${
@@ -68,9 +97,10 @@ export function SlashCommandPalette(props: SlashCommandPaletteProps) {
                     : t("skills.sourceUser")}
                 </span>
               </div>
-              <span
+              <HighlightText
+                text={skill.description}
+                query={props.query}
                 class="line-clamp-2 text-xs leading-relaxed text-[var(--text-secondary)]"
-                innerHTML={highlightMatch(skill.description, props.query)}
               />
             </button>
           )}
