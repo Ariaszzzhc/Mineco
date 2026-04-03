@@ -23,13 +23,16 @@ export function WorkspacePickerPage() {
 
   async function handleOpenDirectory() {
     if (platform.capabilities.directoryPicker) {
-      const path = await platform.directoryPicker.pickDirectory();
-      if (path) {
-        const ws = await workspaceStore.createWorkspace(path);
-        navigate(`/workspaces/${ws.id}`);
-        return;
+      try {
+        const path = await platform.directoryPicker.pickDirectory();
+        if (path) {
+          const ws = await workspaceStore.createWorkspace(path);
+          navigate(`/workspaces/${ws.id}`);
+        }
+      } catch {
+        // Native dialog failed — fall back to JS browser
+        setShowBrowser(true);
       }
-      // User cancelled native dialog — do nothing
       return;
     }
     // Fallback: show JS directory browser
