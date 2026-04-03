@@ -1,3 +1,5 @@
+import { readdir } from "node:fs/promises";
+import { join, dirname } from "node:path";
 import { z } from "zod";
 import { defineTool } from "../tools/define.js";
 import type { SkillManifest } from "./types.js";
@@ -36,17 +38,56 @@ export function createActivateSkillTool(
         };
       }
 
+      const resources = await listResources(skill.sourcePath);
       return {
-        output: formatSkillOutput(skill),
+        output: formatSkillOutput(skill, resources),
       };
     },
   });
 }
 
-function formatSkillOutput(skill: SkillManifest): string {
+async function listResources(
+  skillPath: string,
+): Promise<{ dir: string; files: string[] } | null> {
+  const skillDir = dirname(skillPath);
+  const files: string[] = [];
+
+  const resourceDirs = ["scripts", "references", "assets"];
+  for (const sub of resourceDirs) {
+    const subDir = join(skillDir, sub);
+    let entries;
+    try {
+      entries = await readdir(subDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.isFile()) {
+        files.push(`${sub}/${entry.name}`);
+      }
+    }
+  }
+
+  return files.length > 0 ? { dir: skillDir, files } : null;
+}
+
+function formatSkillOutput(
+  skill: SkillManifest,
+  resources: { dir: string; files: string[] } | null,
+): string {
   const parts: string[] = [];
   parts.push(`# Skill: ${skill.name}`);
   parts.push("");
   parts.push(skill.instructions);
+
+  if (resources) {
+    parts.push("");
+    parts.push(`Skill directory: ${resources.dir}`);
+    parts.push(
+      "Relative paths in this skill are relative to the skill directory.",
+    );
+    parts.push(...resources.files);
+  }
+
   return `<skill-content data-name="${skill.name}">\n${parts.join("\n")}\n</skill-content>`;
 }

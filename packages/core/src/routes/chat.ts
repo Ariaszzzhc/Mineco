@@ -14,6 +14,7 @@ import {
   SkillScanner,
   SkillStore,
   resolveSlashSkill,
+  injectSkillCatalog,
 } from "@mineco/agent";
 import type { ProviderRegistry } from "@mineco/provider";
 import { Hono } from "hono";
@@ -131,7 +132,7 @@ export function createChatRoutes(
     let skillInjection: string | undefined;
     const resolved = resolveSlashSkill(body.message, skillStore);
     if (resolved) {
-      actualMessage = resolved.remaining || body.message;
+      actualMessage = resolved.remaining || resolved.skill.description;
       skillInjection = `<skill-content data-name="${resolved.skill.name}">\n# Skill: ${resolved.skill.name}\n\n${resolved.skill.instructions}\n</skill-content>`;
     }
 
@@ -149,8 +150,8 @@ export function createChatRoutes(
       platform: process.platform,
       date: new Date().toISOString().split("T")[0] ?? new Date().toDateString(),
       model: body.model!,
-      skillCatalog,
     });
+    systemPrompt = injectSkillCatalog(systemPrompt, skillCatalog);
 
     if (skillInjection) {
       systemPrompt += `\n${skillInjection}`;

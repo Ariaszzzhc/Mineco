@@ -9,6 +9,9 @@ export class SkillStore {
       if (!existing) {
         this.skills.set(skill.name, skill);
       } else if (skill.source === "project" && existing.source === "user") {
+        console.warn(
+          `[skills] "${skill.name}" from project overrides user-level skill`,
+        );
         this.skills.set(skill.name, skill);
       }
     }
