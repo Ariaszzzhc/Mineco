@@ -1,6 +1,6 @@
 import { vi } from "vitest";
-import type { Platform } from "@mineco/platform";
-import { NoOpNotificationAdapter } from "@mineco/platform";
+import type { Platform } from "../src/lib/platform-types";
+import { NoOpNotificationAdapter } from "../src/lib/platform-types";
 import { setPlatform } from "../src/lib/platform";
 
 // Initialize Platform singleton for tests

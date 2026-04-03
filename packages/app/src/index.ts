@@ -1,6 +1,14 @@
 export { createApp } from "./create-app";
 export { default as App } from "./App";
-export type { Platform } from "@mineco/platform";
+export {
+  NoOpNotificationAdapter,
+  type NotificationAdapter,
+  type NotificationClickHandler,
+  type NotificationPermission,
+  type NotifyOptions,
+  type Platform,
+  type PlatformCapabilities,
+} from "./lib/platform-types";
 export {
   usePlatform,
   getPlatform,

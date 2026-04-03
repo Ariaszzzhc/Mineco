@@ -1,4 +1,4 @@
-import type { Platform } from "@mineco/platform";
+import type { Platform } from "./platform-types";
 import { createContext, type JSX, useContext } from "solid-js";
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@ import type {
   NotificationClickHandler,
   NotificationPermission,
   NotifyOptions,
-} from "@mineco/platform";
+} from "@mineco/app";
 import {
   isPermissionGranted,
   onAction,
