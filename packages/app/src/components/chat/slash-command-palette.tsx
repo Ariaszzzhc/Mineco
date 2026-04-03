@@ -16,7 +16,10 @@ interface SlashCommandPaletteProps {
  * Safe: uses text nodes only, no innerHTML. Skill name is Zod-validated
  * to [a-z0-9-] only; description is a plain string from backend schema.
  */
-function highlightParts(text: string, query: string): Array<{ text: string; highlight: boolean }> {
+function highlightParts(
+  text: string,
+  query: string,
+): Array<{ text: string; highlight: boolean }> {
   if (!query) return [{ text, highlight: false }];
   const lower = text.toLowerCase();
   const q = query.toLowerCase();
@@ -42,7 +45,7 @@ function HighlightText(props: { text: string; query: string; class: string }) {
               {part.text}
             </mark>
           ) : (
-            <>{part.text}</>
+            part.text
           )
         }
       </For>

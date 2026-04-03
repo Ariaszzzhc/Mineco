@@ -31,7 +31,10 @@ function detectLocale(): Locale {
 interface I18nContextValue {
   locale: () => Locale;
   setLocale: (l: Locale) => void;
-  t: (key: TranslationKey, args?: Record<string, string | number | boolean>) => string;
+  t: (
+    key: TranslationKey,
+    args?: Record<string, string | number | boolean>,
+  ) => string;
 }
 
 const I18nContext = createContext<I18nContextValue>();
@@ -42,8 +45,10 @@ export const I18nProvider: ParentComponent = (props) => {
   const dict = () => dictionaries[locale()];
 
   const rawT = i18n.translator(dict, i18n.resolveTemplate);
-  const t = (key: TranslationKey, args?: Record<string, string | number | boolean>) =>
-    rawT(key, args) as string;
+  const t = (
+    key: TranslationKey,
+    args?: Record<string, string | number | boolean>,
+  ) => rawT(key, args) as string;
 
   const setLocale = (l: Locale) => {
     setLocaleRaw(l);

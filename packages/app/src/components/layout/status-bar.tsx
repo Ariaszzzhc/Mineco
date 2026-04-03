@@ -28,16 +28,22 @@ export function StatusBar() {
     if (!config || config.providers.length === 0) return null;
     const defaultId = config.settings.defaultProvider;
     const provider = config.providers.find((p) =>
-      p.type === "zhipu" ? defaultId === "zhipu" : p.id === defaultId,
+      p.type === "zhipu" || p.type === "minimax"
+        ? defaultId === p.type
+        : p.id === defaultId,
     );
     if (provider) {
       return provider.type === "zhipu"
         ? "Zhipu"
-        : (provider as { type: "openai-compatible"; id: string }).id;
+        : provider.type === "minimax"
+          ? "Minimax"
+          : (provider as { type: "openai-compatible"; id: string }).id;
     }
     return config.providers[0]?.type === "zhipu"
       ? "Zhipu"
-      : (config.providers[0] as { type: "openai-compatible"; id: string })?.id;
+      : config.providers[0]?.type === "minimax"
+        ? "Minimax"
+        : (config.providers[0] as { type: "openai-compatible"; id: string })?.id;
   };
 
   const modelName = () => configStore.config()?.settings.defaultModel ?? "";

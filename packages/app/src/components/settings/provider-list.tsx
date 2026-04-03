@@ -20,6 +20,12 @@ export function ProviderList() {
         detail: `${p.platform} / ${p.endpoint}`,
       };
     }
+    if (p.type === "minimax") {
+      return {
+        name: "Minimax",
+        detail: p.platform,
+      };
+    }
     return {
       name: p.id,
       detail: p.baseURL,
@@ -62,7 +68,7 @@ export function ProviderList() {
                   </div>
                   <Show when={getApiKey(p)}>
                     <div class="mt-0.5 font-mono text-[10px] text-[var(--text-muted)]">
-                      {t("provider.key")} {maskKey(getApiKey(p)!)}
+                      {t("provider.key")} {maskKey(getApiKey(p) ?? "")}
                     </div>
                   </Show>
                 </div>
@@ -70,7 +76,13 @@ export function ProviderList() {
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    handleDelete(p.type === "zhipu" ? "zhipu" : p.id)
+                    handleDelete(
+                      p.type === "zhipu"
+                        ? "zhipu"
+                        : p.type === "minimax"
+                          ? "minimax"
+                          : p.id,
+                    )
                   }
                 >
                   <Trash2 size={14} />

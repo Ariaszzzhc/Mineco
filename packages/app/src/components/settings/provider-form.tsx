@@ -120,7 +120,9 @@ export function ProviderForm() {
                 }
                 class="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--border-focus)] focus:outline-none"
               >
-                <option value="general">{t("provider.endpoint.general")}</option>
+                <option value="general">
+                  {t("provider.endpoint.general")}
+                </option>
                 <option value="coding">{t("provider.endpoint.coding")}</option>
               </select>
             </label>

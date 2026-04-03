@@ -13,7 +13,9 @@ export function HomePage() {
 
   return (
     <div class="flex h-full items-center justify-center">
-      <div class="text-sm text-[var(--text-muted)]">{t("common.redirecting")}</div>
+      <div class="text-sm text-[var(--text-muted)]">
+        {t("common.redirecting")}
+      </div>
     </div>
   );
 }

@@ -51,6 +51,12 @@ export interface ZhipuProviderConfig {
   endpoint: "general" | "coding";
 }
 
+export interface MinimaxProviderConfig {
+  type: "minimax";
+  apiKey: string;
+  platform: "cn" | "intl";
+}
+
 export interface OpenAICompatProviderConfig {
   type: "openai-compatible";
   id: string;
@@ -60,7 +66,10 @@ export interface OpenAICompatProviderConfig {
   models: Array<{ id: string; name: string }>;
 }
 
-export type ProviderConfig = ZhipuProviderConfig | OpenAICompatProviderConfig;
+export type ProviderConfig =
+  | ZhipuProviderConfig
+  | MinimaxProviderConfig
+  | OpenAICompatProviderConfig;
 
 export interface AppSettings {
   defaultProvider?: string | undefined;

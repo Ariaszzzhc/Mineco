@@ -14,7 +14,11 @@ export function SettingsForm() {
   const providers = () => config()?.providers ?? [];
 
   function providerLabel(p: ProviderConfig): string {
-    return p.type === "zhipu" ? t("provider.zhipu") : p.id;
+    return p.type === "zhipu"
+      ? t("provider.zhipu")
+      : p.type === "minimax"
+        ? "Minimax"
+        : p.id;
   }
 
   function availableModels(): Array<{ id: string; name: string }> {
@@ -28,8 +32,8 @@ export function SettingsForm() {
     setSaving(true);
     try {
       const settings: Record<string, string> = {};
-      if (providerId()) settings.defaultProvider = providerId()!;
-      if (model()) settings.defaultModel = model()!;
+      if (providerId()) settings.defaultProvider = providerId() as string;
+      if (model()) settings.defaultModel = model() as string;
       await configStore.updateSettings(
         settings as Partial<import("../../lib/types").AppSettings>,
       );
@@ -66,7 +70,15 @@ export function SettingsForm() {
           <option value="">{t("settings.selectProvider")}</option>
           <For each={providers()}>
             {(p) => (
-              <option value={p.type === "zhipu" ? "zhipu" : p.id}>
+              <option
+                value={
+                  p.type === "zhipu"
+                    ? "zhipu"
+                    : p.type === "minimax"
+                      ? "minimax"
+                      : p.id
+                }
+              >
                 {providerLabel(p)}
               </option>
             )}

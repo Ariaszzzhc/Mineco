@@ -25,7 +25,7 @@ Detailed skill instructions that should be preserved.
   }
 
   it("should not truncate skill-content tool outputs", () => {
-    const longSkillContent = skillContent + "\n" + "x".repeat(10000);
+    const longSkillContent = `${skillContent}\n${"x".repeat(10000)}`;
     const messages = makeMessages(longSkillContent);
     const result = microCompact(messages, {
       maxToolOutputChars: 200,
@@ -33,10 +33,13 @@ Detailed skill instructions that should be preserved.
     });
     expect(result.wasCompressed).toBe(true);
     const toolMsg = result.messages.find(
-      (m) => m.role === "tool" && m.content.includes("<skill-content"),
+      (m) =>
+        m.role === "tool" &&
+        typeof m.content === "string" &&
+        m.content.includes("<skill-content"),
     );
     expect(toolMsg).toBeDefined();
-    expect(toolMsg!.content).toBe(longSkillContent);
+    expect(toolMsg?.content as string).toBe(longSkillContent);
   });
 
   it("should not remove skill-content messages in pass 2", () => {
@@ -46,7 +49,7 @@ Detailed skill instructions that should be preserved.
         role: "user" as const,
         content: `user message ${i}`,
       })),
-      ...Array.from({ length: 20 }, (_, i) => ({
+      ...Array.from({ length: 20 }, (_, _i) => ({
         role: "assistant" as const,
         content: "",
       })),
@@ -56,8 +59,7 @@ Detailed skill instructions that should be preserved.
         toolCallId: "call-skill",
         toolName: "activate_skill",
       } as Message,
-      { role: "user" as const, content: "final message",
-      },
+      { role: "user" as const, content: "final message" },
     ];
     const result = microCompact(messages, {
       maxToolOutputChars: 999999,
@@ -65,9 +67,12 @@ Detailed skill instructions that should be preserved.
       recentMessageCount: 2,
     });
     const skillMsg = result.messages.find(
-      (m) => "content" in m && typeof m.content === "string" && m.content.includes("<skill-content"),
+      (m) =>
+        "content" in m &&
+        typeof m.content === "string" &&
+        m.content.includes("<skill-content"),
     );
     expect(skillMsg).toBeDefined();
-    expect(skillMsg!.content).toContain("test-skill");
+    expect(skillMsg?.content).toContain("test-skill");
   });
 });

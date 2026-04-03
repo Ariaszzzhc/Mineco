@@ -33,7 +33,9 @@ export function ChatView() {
     return chatStore.subagentRuns()[runId] ?? null;
   };
 
-  const [activeSkillName, setActiveSkillName] = createSignal<string | null>(null);
+  const [activeSkillName, setActiveSkillName] = createSignal<string | null>(
+    null,
+  );
 
   const [sessionUsage, setSessionUsage] = createSignal<{
     totalTokens: number;

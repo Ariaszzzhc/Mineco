@@ -38,7 +38,11 @@ function activeProviderId(): string | null {
   if (config.settings.defaultProvider) return config.settings.defaultProvider;
   const first = config.providers[0];
   if (!first) return null;
-  return first.type === "zhipu" ? "zhipu" : first.id;
+  return first.type === "zhipu"
+    ? "zhipu"
+    : first.type === "minimax"
+      ? "minimax"
+      : first.id;
 }
 
 function activeModel(): string | null {

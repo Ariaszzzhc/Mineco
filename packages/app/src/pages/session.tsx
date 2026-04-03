@@ -45,7 +45,9 @@ export function SessionPage() {
       when={sessionStore.currentSession()}
       fallback={
         <div class="flex h-full items-center justify-center">
-          <div class="text-sm text-[var(--text-muted)]">{t("common.loading")}</div>
+          <div class="text-sm text-[var(--text-muted)]">
+            {t("common.loading")}
+          </div>
         </div>
       }
     >

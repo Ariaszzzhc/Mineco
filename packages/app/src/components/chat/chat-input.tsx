@@ -41,9 +41,7 @@ export function ChatInput(props: ChatInputProps) {
     const all = skillStore.skills();
 
     // Sort: name matches first, then description matches
-    const nameMatches = all.filter(
-      (s) => s.name.toLowerCase().includes(q),
-    );
+    const nameMatches = all.filter((s) => s.name.toLowerCase().includes(q));
     const descMatches = all
       .filter((s) => !s.name.toLowerCase().includes(q))
       .filter((s) => s.description.toLowerCase().includes(q));

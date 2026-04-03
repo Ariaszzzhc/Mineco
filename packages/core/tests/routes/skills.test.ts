@@ -3,9 +3,7 @@ import { createSkillsRoutes } from "../../src/routes/skills.js";
 
 vi.mock("@mineco/agent", () => {
   return {
-    SkillScanner: vi.fn().mockImplementation(function () {
-      return { scan: vi.fn() };
-    }),
+    SkillScanner: vi.fn(),
   };
 });
 
@@ -22,7 +20,7 @@ describe("Skills Routes", () => {
   });
 
   function getScannerInstance() {
-    return MockedSkillScanner.mock.results[0].value;
+    return MockedSkillScanner.mock.results[0]?.value;
   }
 
   describe("GET /", () => {

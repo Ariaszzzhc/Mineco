@@ -1,7 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import matter from "gray-matter";
+import { parseFrontmatter } from "./frontmatter.js";
 import type { SkillManifest } from "./types.js";
 import { SkillFrontmatterSchema } from "./types.js";
 
@@ -26,7 +27,7 @@ export class SkillScanner {
     source: "user" | "project",
   ): Promise<SkillManifest[]> {
     const skills: SkillManifest[] = [];
-    let entries;
+    let entries: Dirent[];
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch {
@@ -55,9 +56,9 @@ export class SkillScanner {
       return null;
     }
 
-    let parsed;
+    let parsed: ReturnType<typeof parseFrontmatter>;
     try {
-      parsed = matter(raw);
+      parsed = parseFrontmatter(raw);
     } catch {
       return null;
     }
