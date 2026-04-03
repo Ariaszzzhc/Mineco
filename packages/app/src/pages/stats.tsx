@@ -9,6 +9,7 @@ import {
   onMount,
   Show,
 } from "solid-js";
+import type { TranslationKey } from "../i18n/index.tsx";
 import { useI18n } from "../i18n/index.tsx";
 import type { DailyStats } from "../stores/stats";
 import { statsStore } from "../stores/stats";
@@ -27,12 +28,12 @@ type DateRangeOption = "today" | "7d" | "30d" | "all";
 
 const DATE_RANGE_OPTIONS: Array<{
   value: DateRangeOption;
-  label: string;
+  labelKey: TranslationKey;
 }> = [
-  { value: "today", label: "Today" },
-  { value: "7d", label: "7 Days" },
-  { value: "30d", label: "30 Days" },
-  { value: "all", label: "All" },
+  { value: "today", labelKey: "dateRange.today" },
+  { value: "7d", labelKey: "dateRange.7days" },
+  { value: "30d", labelKey: "dateRange.30days" },
+  { value: "all", labelKey: "dateRange.all" },
 ];
 
 function formatTokens(n: number): string {
@@ -179,7 +180,7 @@ export function StatsPage() {
         labels: aggregated.map((d) => d.date.slice(5)),
         datasets: [
           {
-            label: "Cost ($)",
+            label: t("stats.costLabel"),
             data: aggregated.map((d) => d.cost),
             borderColor: COLORS.primary,
             backgroundColor: COLORS.primaryLight,
@@ -252,7 +253,7 @@ export function StatsPage() {
             callbacks: {
               label: (ctx) => {
                 const tokens = ctx.parsed;
-                return ` ${ctx.label}: ${formatTokens(tokens)} tokens`;
+                return ` ${ctx.label}: ${t("stats.tokens", { count: formatTokens(tokens) })}`;
               },
             },
           },
@@ -294,7 +295,7 @@ export function StatsPage() {
                 }}
                 onClick={() => statsStore.setDateRange(option.value)}
               >
-                {option.label}
+                {t(option.labelKey)}
               </button>
             )}
           </For>

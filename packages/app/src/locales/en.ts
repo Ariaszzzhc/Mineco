@@ -83,14 +83,12 @@ const en = {
   "workspace.subtitle": "Select a workspace to get started",
   "workspace.openDirectory": "Open Directory",
   "workspace.recent": "Recent",
-  "workspace.empty":
-    "No workspaces yet. Open a directory to create one.",
+  "workspace.empty": "No workspaces yet. Open a directory to create one.",
   "workspace.allWorkspaces": "All Workspaces",
 
   // Workspace page
   "workspace.newSession": "New Session",
-  "workspace.session.empty":
-    "No sessions yet. Create one to get started.",
+  "workspace.session.empty": "No sessions yet. Create one to get started.",
 
   // Dir browser
   "dir.selectDirectory": "Select Directory",
@@ -109,6 +107,7 @@ const en = {
   "stats.noData": "No data for this period",
   "stats.costLabel": "Cost ($)",
   "stats.requests": "{{count}} requests",
+  "stats.tokens": "{{count}} tokens",
 
   // Date ranges
   "dateRange.today": "Today",

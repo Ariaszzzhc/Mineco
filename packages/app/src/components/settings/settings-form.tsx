@@ -14,7 +14,7 @@ export function SettingsForm() {
   const providers = () => config()?.providers ?? [];
 
   function providerLabel(p: ProviderConfig): string {
-    return p.type === "zhipu" ? "Zhipu" : p.id;
+    return p.type === "zhipu" ? t("provider.zhipu") : p.id;
   }
 
   function availableModels(): Array<{ id: string; name: string }> {
