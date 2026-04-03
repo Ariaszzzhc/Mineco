@@ -1,6 +1,4 @@
 import type { ChatRequest, ChatResponse, ChatStreamChunk, ModelInfo } from "../types.js";
-import type { SubscriptionClient } from "../usage/subscription.js";
-import { MiniMaxSubscriptionClient } from "../usage/minimax-subscription.js";
 import { OpenAICompatAdapter } from "./openai-compat.js";
 
 export type MiniMaxPlatform = "cn" | "intl";
@@ -9,8 +7,6 @@ export interface MiniMaxConfig {
   apiKey: string;
   /** Domestic ("cn") or international ("intl"). Default: "intl" */
   platform?: MiniMaxPlatform;
-  /** Optional cookie for token plan API (e.g. "HERTZ-SESSION=xxx") */
-  cookie?: string;
 }
 
 const PLATFORM_URLS: Record<MiniMaxPlatform, string> = {
@@ -96,7 +92,6 @@ const MINIMAX_MODELS: ModelInfo[] = [
 ];
 
 export class MiniMaxProvider extends OpenAICompatAdapter {
-  readonly subscription: SubscriptionClient;
   private reasoningBuffer = "";
 
   constructor(config: string | MiniMaxConfig) {
@@ -111,13 +106,6 @@ export class MiniMaxProvider extends OpenAICompatAdapter {
       headers: { Authorization: `Bearer ${resolved.apiKey}` },
       models: MINIMAX_MODELS,
     });
-
-    const domain = baseURL.replace(/\/v1$/, "");
-    this.subscription = new MiniMaxSubscriptionClient(
-      resolved.apiKey,
-      domain,
-      resolved.cookie,
-    );
   }
 
   protected override transformRequest(req: ChatRequest): unknown {
