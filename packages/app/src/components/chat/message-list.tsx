@@ -9,6 +9,7 @@ import { ToolCard } from "./tool-card";
 
 interface MessageListProps {
   messages: SessionMessage[];
+  sessionId: string;
 }
 
 function StreamingSegmentView(props: {
@@ -51,31 +52,13 @@ function StreamingSegmentView(props: {
             if (!isAgent()) return null;
             const args = item.call.args as { agent_type?: string };
             // Find the subagent run that matches this tool call
-            const runs = chatStore.subagentRuns();
-            const matchingRun = Object.values(runs).find(
-              (r) => r.agentType === (args.agent_type ?? ""),
-            );
-            return matchingRun ?? null;
+            return null; // Will be handled by parent with sessionId context
           };
 
           return (
-            <Show
-              when={isAgent() && subagentRun()}
-              fallback={
-                <div class="py-3">
-                  <ToolCard call={item.call} result={item.result} />
-                </div>
-              }
-            >
-              {(run) => (
-                <div class="py-3">
-                  <SubagentCard
-                    run={run()}
-                    onClick={() => chatStore.viewSubagent(run().runId)}
-                  />
-                </div>
-              )}
-            </Show>
+            <div class="py-3">
+              <ToolCard call={item.call} result={item.result} />
+            </div>
           );
         }}
       </For>
@@ -86,11 +69,13 @@ function StreamingSegmentView(props: {
 export function MessageList(props: MessageListProps) {
   let scrollRef!: HTMLDivElement;
 
+  const sid = () => props.sessionId;
+
   const currentSegment = (): StreamingSegment | null => {
-    const text = chatStore.streamingText();
-    const thinking = chatStore.streamingThinking();
-    const calls = chatStore.streamingToolCalls();
-    const results = chatStore.streamingToolResults();
+    const text = chatStore.streamingText(sid());
+    const thinking = chatStore.streamingThinking(sid());
+    const calls = chatStore.streamingToolCalls(sid());
+    const results = chatStore.streamingToolResults(sid());
     if (!text && !thinking && calls.length === 0) return null;
     return { text, thinking, toolCalls: calls, toolResults: results };
   };
@@ -99,10 +84,10 @@ export function MessageList(props: MessageListProps) {
     on(
       () => [
         props.messages.length,
-        chatStore.streamingThinking(),
-        chatStore.streamingText(),
-        chatStore.streamingToolCalls().length,
-        chatStore.streamingMessages().length,
+        chatStore.streamingThinking(sid()),
+        chatStore.streamingText(sid()),
+        chatStore.streamingToolCalls(sid()).length,
+        chatStore.streamingMessages(sid()).length,
       ],
       () => {
         requestAnimationFrame(() => {
@@ -122,16 +107,16 @@ export function MessageList(props: MessageListProps) {
         </For>
 
         {/* Optimistic user message shown during streaming */}
-        <Show when={chatStore.pendingUserMessage()}>
+        <Show when={chatStore.pendingUserMessage(sid())}>
           <div class="py-3">
             <div class="rounded-xl bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--text-primary)]">
-              {chatStore.pendingUserMessage()}
+              {chatStore.pendingUserMessage(sid())}
             </div>
           </div>
         </Show>
 
         {/* Completed streaming segments */}
-        <For each={chatStore.streamingMessages()}>
+        <For each={chatStore.streamingMessages(sid())}>
           {(seg) => <StreamingSegmentView segment={seg} isStreaming={false} />}
         </For>
 

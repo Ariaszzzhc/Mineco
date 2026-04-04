@@ -8,6 +8,7 @@ import { ToolCard } from "./tool-card";
 
 interface MessageItemProps {
   message: SessionMessage;
+  sessionId: string;
   streamingCalls?: Array<{
     call?: import("../../lib/types").ToolCallEvent;
     result?: import("../../lib/types").ToolResultEvent;
@@ -65,7 +66,7 @@ export function MessageItem(props: MessageItemProps) {
         >
           {(() => {
             // For persisted agent tool messages, find the matching subagent run
-            const runs = chatStore.subagentRuns();
+            const runs = chatStore.subagentRuns(props.sessionId);
             const matchingRun = Object.values(runs).find(
               (r) => r.agentType === props.message.content,
             );
@@ -73,7 +74,7 @@ export function MessageItem(props: MessageItemProps) {
               return (
                 <SubagentCard
                   run={matchingRun}
-                  onClick={() => chatStore.viewSubagent(matchingRun.runId)}
+                  onClick={() => chatStore.viewSubagent(props.sessionId, matchingRun.runId)}
                 />
               );
             }

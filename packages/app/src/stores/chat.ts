@@ -24,9 +24,8 @@ export interface SubagentRunState {
   streamingSegments: StreamingSegment[];
 }
 
-interface ChatState {
+interface PerSessionStreamState {
   isStreaming: boolean;
-  streamingSessionId: string | null;
   pendingUserMessage: string;
   streamingText: string;
   streamingThinking: string;
@@ -43,52 +42,73 @@ interface ChatState {
   };
 }
 
-const initialState: ChatState = {
-  isStreaming: false,
-  streamingSessionId: null,
-  pendingUserMessage: "",
-  streamingText: "",
-  streamingThinking: "",
-  streamingToolCalls: [],
-  streamingToolResults: [],
-  streamingMessages: [],
-  error: null,
-  subagentRuns: {},
-  activeSubagentRunId: null,
-  sessionUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-};
+interface ChatState {
+  streams: Record<string, PerSessionStreamState>;
+  activeSessionId: string | null;
+}
 
-const [state, setState] = createStore<ChatState>({ ...initialState });
+function emptyStreamState(): PerSessionStreamState {
+  return {
+    isStreaming: false,
+    pendingUserMessage: "",
+    streamingText: "",
+    streamingThinking: "",
+    streamingToolCalls: [],
+    streamingToolResults: [],
+    streamingMessages: [],
+    error: null,
+    subagentRuns: {},
+    activeSubagentRunId: null,
+    sessionUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+  };
+}
 
-let currentAbort: (() => void) | null = null;
+const [state, setState] = createStore<ChatState>({
+  streams: {},
+  activeSessionId: null,
+});
 
-function archiveCurrentSegment() {
+const abortControllers = new Map<string, { abort: () => void }>();
+
+function getStream(sessionId: string): PerSessionStreamState {
+  return state.streams[sessionId] ?? emptyStreamState();
+}
+
+function ensureStream(sessionId: string): void {
+  if (!state.streams[sessionId]) {
+    setState("streams", sessionId, emptyStreamState());
+  }
+}
+
+function archiveCurrentSegment(sessionId: string) {
+  const s = getStream(sessionId);
   if (
-    !state.streamingText &&
-    !state.streamingThinking &&
-    state.streamingToolCalls.length === 0
+    !s.streamingText &&
+    !s.streamingThinking &&
+    s.streamingToolCalls.length === 0
   ) {
     return;
   }
-  setState("streamingMessages", (prev) => [
+  setState("streams", sessionId, "streamingMessages", (prev) => [
     ...prev,
     {
-      text: state.streamingText,
-      thinking: state.streamingThinking,
-      toolCalls: [...state.streamingToolCalls],
-      toolResults: [...state.streamingToolResults],
+      text: s.streamingText,
+      thinking: s.streamingThinking,
+      toolCalls: [...s.streamingToolCalls],
+      toolResults: [...s.streamingToolResults],
     },
   ]);
   batch(() => {
-    setState("streamingText", "");
-    setState("streamingThinking", "");
-    setState("streamingToolCalls", []);
-    setState("streamingToolResults", []);
+    setState("streams", sessionId, "streamingText", "");
+    setState("streams", sessionId, "streamingThinking", "");
+    setState("streams", sessionId, "streamingToolCalls", []);
+    setState("streams", sessionId, "streamingToolResults", []);
   });
 }
 
-function archiveSubagentSegment(runId: string) {
-  const run = state.subagentRuns[runId];
+function archiveSubagentSegment(sessionId: string, runId: string) {
+  const s = getStream(sessionId);
+  const run = s.subagentRuns[runId];
   if (!run) return;
   if (
     !run.streamingText &&
@@ -97,7 +117,7 @@ function archiveSubagentSegment(runId: string) {
   ) {
     return;
   }
-  setState("subagentRuns", runId, "streamingSegments", (prev) => [
+  setState("streams", sessionId, "subagentRuns", runId, "streamingSegments", (prev) => [
     ...prev,
     {
       text: run.streamingText,
@@ -107,52 +127,44 @@ function archiveSubagentSegment(runId: string) {
     },
   ]);
   batch(() => {
-    setState("subagentRuns", runId, "streamingText", "");
-    setState("subagentRuns", runId, "streamingThinking", "");
-    setState("subagentRuns", runId, "streamingToolCalls", []);
-    setState("subagentRuns", runId, "streamingToolResults", []);
+    setState("streams", sessionId, "subagentRuns", runId, "streamingText", "");
+    setState("streams", sessionId, "subagentRuns", runId, "streamingThinking", "");
+    setState("streams", sessionId, "subagentRuns", runId, "streamingToolCalls", []);
+    setState("streams", sessionId, "subagentRuns", runId, "streamingToolResults", []);
   });
 }
 
-function processSubagentEvent(runId: string, event: AgentEvent) {
+function processSubagentEvent(sessionId: string, runId: string, event: AgentEvent) {
   switch (event.type) {
     case "text-delta":
       setState(
-        "subagentRuns",
-        runId,
-        "streamingText",
+        "streams", sessionId, "subagentRuns", runId, "streamingText",
         (prev: string) => prev + event.delta,
       );
       break;
     case "thinking-delta":
       setState(
-        "subagentRuns",
-        runId,
-        "streamingThinking",
+        "streams", sessionId, "subagentRuns", runId, "streamingThinking",
         (prev: string) => prev + event.delta,
       );
       break;
     case "tool-call":
       setState(
-        "subagentRuns",
-        runId,
-        "streamingToolCalls",
+        "streams", sessionId, "subagentRuns", runId, "streamingToolCalls",
         (prev: ToolCallEvent[]) => [...prev, event],
       );
       break;
     case "tool-result":
       setState(
-        "subagentRuns",
-        runId,
-        "streamingToolResults",
+        "streams", sessionId, "subagentRuns", runId, "streamingToolResults",
         (prev: ToolResultEvent[]) => [...prev, event],
       );
       break;
     case "step":
-      archiveSubagentSegment(runId);
+      archiveSubagentSegment(sessionId, runId);
       break;
     case "error":
-      setState("subagentRuns", runId, {
+      setState("streams", sessionId, "subagentRuns", runId, {
         status: "error",
         summary: event.error,
       });
@@ -161,21 +173,22 @@ function processSubagentEvent(runId: string, event: AgentEvent) {
 }
 
 async function startStream(sessionId: string, message: string) {
-  // Guard against concurrent streams
-  if (currentAbort) return;
+  // Guard: only block if THIS specific session is already streaming
+  if (abortControllers.has(sessionId)) return;
 
   const providerId = configStore.activeProviderId();
   const model = configStore.activeModel();
 
   if (!providerId || !model) {
-    setState("error", "No provider or model configured");
+    ensureStream(sessionId);
+    setState("streams", sessionId, "error", "No provider or model configured");
     return;
   }
 
+  ensureStream(sessionId);
   batch(() => {
-    setState({
+    setState("streams", sessionId, {
       isStreaming: true,
-      streamingSessionId: sessionId,
       pendingUserMessage: message,
       streamingText: "",
       streamingThinking: "",
@@ -197,22 +210,22 @@ async function startStream(sessionId: string, message: string) {
     (event: AgentEvent) => {
       switch (event.type) {
         case "text-delta":
-          setState("streamingText", (prev) => prev + event.delta);
+          setState("streams", sessionId, "streamingText", (prev) => prev + event.delta);
           break;
         case "thinking-delta":
-          setState("streamingThinking", (prev) => prev + event.delta);
+          setState("streams", sessionId, "streamingThinking", (prev) => prev + event.delta);
           break;
         case "tool-call":
-          setState("streamingToolCalls", (prev) => [...prev, event]);
+          setState("streams", sessionId, "streamingToolCalls", (prev) => [...prev, event]);
           break;
         case "tool-result":
-          setState("streamingToolResults", (prev) => [...prev, event]);
+          setState("streams", sessionId, "streamingToolResults", (prev) => [...prev, event]);
           break;
         case "step":
-          archiveCurrentSegment();
+          archiveCurrentSegment(sessionId);
           break;
         case "usage":
-          setState("sessionUsage", (prev) => ({
+          setState("streams", sessionId, "sessionUsage", (prev) => ({
             promptTokens: prev.promptTokens + event.usage.promptTokens,
             completionTokens:
               prev.completionTokens + event.usage.completionTokens,
@@ -223,10 +236,10 @@ async function startStream(sessionId: string, message: string) {
           sessionStore.updateTitle(sessionId, event.title);
           break;
         case "error":
-          setState("error", event.error);
+          setState("streams", sessionId, "error", event.error);
           break;
         case "subagent-start":
-          setState("subagentRuns", event.runId, {
+          setState("streams", sessionId, "subagentRuns", event.runId, {
             runId: event.runId,
             agentType: event.agentType,
             status: "running",
@@ -239,12 +252,12 @@ async function startStream(sessionId: string, message: string) {
           });
           break;
         case "subagent-event":
-          processSubagentEvent(event.runId, event.event);
+          processSubagentEvent(sessionId, event.runId, event.event);
           break;
         case "subagent-end":
           // Archive any remaining segment before marking complete
-          archiveSubagentSegment(event.runId);
-          setState("subagentRuns", event.runId, {
+          archiveSubagentSegment(sessionId, event.runId);
+          setState("streams", sessionId, "subagentRuns", event.runId, {
             status: "completed",
             summary: event.summary,
           });
@@ -253,92 +266,80 @@ async function startStream(sessionId: string, message: string) {
     },
   );
 
-  currentAbort = abort;
+  abortControllers.set(sessionId, { abort });
 
   try {
     await promise;
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") return;
-    setState("error", err instanceof Error ? err.message : "Stream failed");
+    setState("streams", sessionId, "error", err instanceof Error ? err.message : "Stream failed");
   } finally {
-    batch(() => {
-      setState({
-        isStreaming: false,
-        streamingSessionId: null,
-        pendingUserMessage: "",
-        streamingText: "",
-        streamingThinking: "",
-        streamingToolCalls: [],
-        streamingToolResults: [],
-        streamingMessages: [],
-        activeSubagentRunId: null,
-      });
-      currentAbort = null;
-    });
+    setState("streams", sessionId, "isStreaming", false);
+    setState("streams", sessionId, "pendingUserMessage", "");
+    abortControllers.delete(sessionId);
+    // Refresh session from server to pick up persisted messages
     await sessionStore.refreshCurrentSession();
   }
 }
 
-function stopStream() {
-  // Let the finally block in startStream clean up state
-  currentAbort?.();
+function stopStream(sessionId: string) {
+  const handle = abortControllers.get(sessionId);
+  handle?.abort();
 }
 
-function resetStreamState() {
-  if (currentAbort) {
-    currentAbort();
-  }
-  batch(() => {
-    setState({
-      isStreaming: false,
-      streamingSessionId: null,
-      pendingUserMessage: "",
-      streamingText: "",
-      streamingThinking: "",
-      streamingToolCalls: [],
-      streamingToolResults: [],
-      streamingMessages: [],
-      error: null,
-      subagentRuns: {},
-      activeSubagentRunId: null,
-      sessionUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-    });
-    currentAbort = null;
-  });
+function resetStreamState(sessionId: string) {
+  const handle = abortControllers.get(sessionId);
+  handle?.abort();
+  abortControllers.delete(sessionId);
+  setState("streams", sessionId, emptyStreamState());
 }
 
-function resetIfSessionChanged(sessionId: string) {
-  if (state.streamingSessionId === sessionId && state.isStreaming) {
-    return;
-  }
-  resetStreamState();
+function cleanupSession(sessionId: string) {
+  const handle = abortControllers.get(sessionId);
+  handle?.abort();
+  abortControllers.delete(sessionId);
+  setState("streams", sessionId, emptyStreamState());
 }
 
-function viewSubagent(runId: string) {
-  setState("activeSubagentRunId", runId);
+function setActiveSession(id: string | null) {
+  setState("activeSessionId", id);
 }
 
-function exitSubagentView() {
-  setState("activeSubagentRunId", null);
+function viewSubagent(sessionId: string, runId: string) {
+  setState("streams", sessionId, "activeSubagentRunId", runId);
+}
+
+function exitSubagentView(sessionId: string) {
+  setState("streams", sessionId, "activeSubagentRunId", null);
 }
 
 export const chatStore = {
-  isStreaming: () => state.isStreaming,
-  streamingSessionId: () => state.streamingSessionId,
-  pendingUserMessage: () => state.pendingUserMessage,
-  streamingText: () => state.streamingText,
-  streamingThinking: () => state.streamingThinking,
-  streamingToolCalls: () => state.streamingToolCalls,
-  streamingToolResults: () => state.streamingToolResults,
-  streamingMessages: () => state.streamingMessages,
-  error: () => state.error,
-  subagentRuns: () => state.subagentRuns,
-  activeSubagentRunId: () => state.activeSubagentRunId,
-  sessionUsage: () => state.sessionUsage,
+  // Per-session accessors
+  isStreaming: (sessionId: string) => getStream(sessionId).isStreaming,
+  pendingUserMessage: (sessionId: string) => getStream(sessionId).pendingUserMessage,
+  streamingText: (sessionId: string) => getStream(sessionId).streamingText,
+  streamingThinking: (sessionId: string) => getStream(sessionId).streamingThinking,
+  streamingToolCalls: (sessionId: string) => getStream(sessionId).streamingToolCalls,
+  streamingToolResults: (sessionId: string) => getStream(sessionId).streamingToolResults,
+  streamingMessages: (sessionId: string) => getStream(sessionId).streamingMessages,
+  error: (sessionId: string) => getStream(sessionId).error,
+  subagentRuns: (sessionId: string) => getStream(sessionId).subagentRuns,
+  activeSubagentRunId: (sessionId: string) => getStream(sessionId).activeSubagentRunId,
+  sessionUsage: (sessionId: string) => getStream(sessionId).sessionUsage,
+
+  // Multi-session helpers
+  anyStreaming: () => Object.values(state.streams).some((s) => s.isStreaming),
+  streamingSessionIds: () =>
+    Object.entries(state.streams)
+      .filter(([, s]) => s.isStreaming)
+      .map(([id]) => id),
+
+  // Actions
+  setActiveSession,
   startStream,
   stopStream,
   resetStreamState,
-  resetIfSessionChanged,
+  cleanupSession,
   viewSubagent,
   exitSubagentView,
 };

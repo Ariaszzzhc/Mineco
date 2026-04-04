@@ -107,6 +107,20 @@ export const api = {
     return res.json();
   },
 
+  async abortSession(id: string) {
+    const client = getClient();
+    const res = await client.api.sessions[":id"].abort.$post({ param: { id } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
+  },
+
+  async getSessionStatus(id: string) {
+    const client = getClient();
+    const res = await client.api.sessions[":id"].status.$get({ param: { id } });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
+  },
+
   // Config
   async getConfig() {
     const client = getClient();

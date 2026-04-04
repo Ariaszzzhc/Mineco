@@ -3,6 +3,8 @@ export type { Database } from "./schema.js";
 export { initializeSchema } from "./schema.js";
 export type { SessionNote } from "./session-notes-store.js";
 export { SqliteSessionNotesStore } from "./session-notes-store.js";
+export { SessionRunManager } from "./session-run-manager.js";
+export type { SessionRunState } from "./session-run-manager.js";
 export { SqliteSessionStore } from "./session-store.js";
 export type {
   DailyStats,

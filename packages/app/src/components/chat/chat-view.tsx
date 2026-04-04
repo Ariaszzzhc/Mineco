@@ -21,16 +21,17 @@ function formatUsageCost(n: number): string {
 
 export function ChatView() {
   const session = () => sessionStore.currentSession();
+  const sessionId = () => session()?.id ?? "";
   const messages = () => session()?.messages ?? [];
   const hasNoProvider = () => {
     const config = configStore.config();
     return !config || config.providers.length === 0;
   };
-  const activeSubagentRunId = () => chatStore.activeSubagentRunId();
+  const activeSubagentRunId = () => chatStore.activeSubagentRunId(sessionId());
   const activeSubagentRun = () => {
     const runId = activeSubagentRunId();
     if (!runId) return null;
-    return chatStore.subagentRuns()[runId] ?? null;
+    return chatStore.subagentRuns(sessionId())[runId] ?? null;
   };
 
   const [activeSkillName, setActiveSkillName] = createSignal<string | null>(
@@ -65,7 +66,7 @@ export function ChatView() {
   // Refresh usage after streaming completes
   createEffect(
     on(
-      () => chatStore.isStreaming(),
+      () => chatStore.isStreaming(sessionId()),
       async (streaming, prev) => {
         const s = session();
         if (prev === true && streaming === false && s) {
@@ -94,17 +95,17 @@ export function ChatView() {
         when={activeSubagentRun()}
         fallback={
           <>
-            <Show when={messages().length === 0 && !chatStore.isStreaming()}>
+            <Show when={messages().length === 0 && !chatStore.isStreaming(sessionId())}>
               <HeroPrompt />
             </Show>
-            <Show when={messages().length > 0 || chatStore.isStreaming()}>
-              <MessageList messages={messages()} />
+            <Show when={messages().length > 0 || chatStore.isStreaming(sessionId())}>
+              <MessageList messages={messages()} sessionId={sessionId()} />
             </Show>
 
-            <Show when={chatStore.error()}>
+            <Show when={chatStore.error(sessionId())}>
               <div class="mx-auto max-w-3xl px-4 pb-2">
                 <div class="rounded-lg border border-[var(--error)] bg-red-50 px-3 py-2 text-xs text-[var(--error)]">
-                  {chatStore.error()}
+                  {chatStore.error(sessionId())}
                 </div>
               </div>
             </Show>
@@ -134,8 +135,8 @@ export function ChatView() {
 
             <ChatInput
               onSend={handleSend}
-              onStop={() => chatStore.stopStream()}
-              isStreaming={chatStore.isStreaming()}
+              onStop={() => chatStore.stopStream(sessionId())}
+              isStreaming={chatStore.isStreaming(sessionId())}
               disabled={hasNoProvider()}
               onSkillActivate={(name) => setActiveSkillName(name)}
             />
@@ -145,7 +146,7 @@ export function ChatView() {
         {(run) => (
           <SubagentView
             run={run()}
-            onBack={() => chatStore.exitSubagentView()}
+            onBack={() => chatStore.exitSubagentView(sessionId())}
           />
         )}
       </Show>

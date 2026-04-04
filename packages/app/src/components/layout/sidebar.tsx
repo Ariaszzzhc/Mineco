@@ -11,6 +11,7 @@ import { Show, createEffect, createSignal, For, on } from "solid-js";
 import { useI18n } from "../../i18n/index.tsx";
 import { api } from "../../lib/api-client";
 import type { Session } from "../../lib/types";
+import { chatStore } from "../../stores/chat";
 import { sessionStore } from "../../stores/session";
 import { workspaceStore } from "../../stores/workspace";
 
@@ -160,6 +161,9 @@ export function Sidebar() {
                 )
               }
             >
+              <Show when={chatStore.isStreaming(session.id)}>
+                <span class="inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--primary)] animate-pulse" />
+              </Show>
               <Show
                 when={editingId() === session.id}
                 fallback={

@@ -19,6 +19,7 @@ import {
 import type { ProviderRegistry } from "@mineco/provider";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import type { SessionRunManager } from "../storage/session-run-manager.js";
 import type { SqliteSessionNotesStore } from "../storage/session-notes-store.js";
 import type { SqliteWorkspaceStore } from "../storage/workspace-store.js";
 
@@ -27,6 +28,7 @@ export function createChatRoutes(
   store: SessionStore,
   workspaceStore: SqliteWorkspaceStore,
   notesStore: SqliteSessionNotesStore,
+  runManager: SessionRunManager,
 ) {
   const tools = createDefaultToolRegistry();
   tools.register(
@@ -114,8 +116,14 @@ export function createChatRoutes(
       return c.json({ error: "providerId and model are required" }, 400);
     }
 
+    // Acquire per-session mutex to serialize requests to the same session
+    const mutex = runManager.getMutex(sessionId);
+    await mutex.lock();
+
+    // Read session fresh from DB inside mutex to avoid TOCTOU race
     const session = await store.get(sessionId);
     if (!session) {
+      mutex.unlock();
       return c.json({ error: "Session not found" }, 404);
     }
 
@@ -159,6 +167,15 @@ export function createChatRoutes(
 
     const isFirstMessage = session.messages.length === 1;
 
+    // Register run with the manager
+    const runResult = runManager.start(sessionId);
+    // start() returns false only if already running, but the mutex prevents that
+    if (!runResult) {
+      mutex.unlock();
+      return c.json({ error: "Session is already processing a request" }, 409);
+    }
+    const { abortController } = runResult;
+
     return streamSSE(c, async (stream) => {
       let currentText = "";
       let currentThinking = "";
@@ -184,6 +201,7 @@ export function createChatRoutes(
           workingDir,
           maxSteps: 50,
           emitEvent,
+          signal: abortController.signal,
         })) {
           // Subagent events are emitted directly via emitEvent callback;
           // skip them in the main loop to avoid double-write
@@ -268,6 +286,9 @@ export function createChatRoutes(
             error: error instanceof Error ? error.message : "Unknown error",
           }),
         });
+      } finally {
+        runManager.finish(sessionId);
+        mutex.unlock();
       }
 
       // Await title generation result and send via SSE

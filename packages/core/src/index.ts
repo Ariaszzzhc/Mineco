@@ -26,6 +26,7 @@ import { createStatsRoutes } from "./routes/stats.js";
 import { createWorkspaceRoutes } from "./routes/workspace.js";
 import {
   NodeSqliteDialect,
+  SessionRunManager,
   SqliteSessionNotesStore,
   SqliteSessionStore,
   SqliteUsageStore,
@@ -48,6 +49,7 @@ function buildRoutes(deps: {
   workspaceStore: SqliteWorkspaceStore;
   registry: ProviderRegistry;
   usageStore: SqliteUsageStore;
+  runManager: SessionRunManager;
 }) {
   const app = new Hono<Env>();
 
@@ -72,7 +74,7 @@ function buildRoutes(deps: {
     .route("/api/fs", createFsRoutes())
     .route(
       "/api/sessions",
-      createSessionRoutes(deps.sessionStore, deps.sessionNotesStore),
+      createSessionRoutes(deps.sessionStore, deps.sessionNotesStore, deps.runManager),
     )
     .route(
       "/api/sessions",
@@ -81,6 +83,7 @@ function buildRoutes(deps: {
         deps.sessionStore,
         deps.workspaceStore,
         deps.sessionNotesStore,
+        deps.runManager,
       ),
     )
     .route("/api/stats", createStatsRoutes(deps.usageStore))
@@ -132,6 +135,9 @@ async function main() {
     },
   });
 
+  // --- Session run management ---
+  const runManager = new SessionRunManager();
+
   // --- Routes ---
   const app = buildRoutes({
     configService,
@@ -141,6 +147,7 @@ async function main() {
     workspaceStore,
     registry,
     usageStore,
+    runManager,
   });
 
   const port = parseInt(process.env.MINECO_PORT ?? "3000", 10);

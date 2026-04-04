@@ -3,11 +3,13 @@ import type { SessionStore } from "@mineco/agent";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createSessionSchema, updateSessionSchema } from "../config/schema.js";
+import type { SessionRunManager } from "../storage/session-run-manager.js";
 import type { SqliteSessionNotesStore } from "../storage/session-notes-store.js";
 
 export function createSessionRoutes(
   store: SessionStore,
   notesStore?: SqliteSessionNotesStore,
+  runManager?: SessionRunManager,
 ) {
   return new Hono()
     .post("/", zValidator("json", createSessionSchema), async (c) => {
@@ -17,17 +19,43 @@ export function createSessionRoutes(
     })
     .get("/", async (c) => {
       const workspaceId = c.req.query("workspaceId");
-      if (workspaceId) {
-        const sessions = await store.listByWorkspace(workspaceId);
-        return c.json(sessions);
-      }
-      const sessions = await store.list();
-      return c.json(sessions);
+      const sessions = workspaceId
+        ? await store.listByWorkspace(workspaceId)
+        : await store.list();
+      return c.json(
+        sessions.map((s) => ({
+          ...s,
+          running: runManager?.isRunning(s.id) ?? false,
+        })),
+      );
+    })
+    .get("/:id/status", async (c) => {
+      const sessionId = c.req.param("id");
+      const run = runManager?.getRun(sessionId);
+      return c.json({
+        sessionId,
+        running: !!run,
+        startedAt: run?.startedAt ?? null,
+      });
     })
     .get("/:id", async (c) => {
       const session = await store.get(c.req.param("id"));
       if (!session) return c.json({ error: "Session not found" }, 404);
-      return c.json(session);
+      return c.json({
+        ...session,
+        running: runManager?.isRunning(session.id) ?? false,
+      });
+    })
+    .post("/:id/abort", async (c) => {
+      const sessionId = c.req.param("id");
+      if (!runManager) {
+        return c.json({ error: "Run manager not available" }, 503);
+      }
+      const aborted = runManager.abort(sessionId);
+      if (!aborted) {
+        return c.json({ error: "Session is not running" }, 404);
+      }
+      return c.json({ ok: true });
     })
     .patch("/:id", zValidator("json", updateSessionSchema), async (c) => {
       const { title } = c.req.valid("json");
@@ -35,6 +63,8 @@ export function createSessionRoutes(
       return c.json({ ok: true });
     })
     .delete("/:id", async (c) => {
+      // Abort if running before deleting
+      runManager?.abort(c.req.param("id"));
       await store.delete(c.req.param("id"));
       return c.json({ ok: true });
     })

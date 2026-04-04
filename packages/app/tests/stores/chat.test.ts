@@ -22,6 +22,8 @@ vi.mock("../../src/stores/session", () => ({
 
 import { chatStore } from "../../src/stores/chat";
 
+const SID = "s1";
+
 describe("chatStore", () => {
   let capturedOnEvent: (event: AgentEvent) => void;
   let mockAbort: ReturnType<typeof vi.fn>;
@@ -53,13 +55,13 @@ describe("chatStore", () => {
   });
 
   it("should have correct initial state", () => {
-    expect(chatStore.isStreaming()).toBe(false);
-    expect(chatStore.streamingText()).toBe("");
-    expect(chatStore.streamingThinking()).toBe("");
-    expect(chatStore.streamingToolCalls()).toEqual([]);
-    expect(chatStore.streamingToolResults()).toEqual([]);
-    expect(chatStore.error()).toBeNull();
-    expect(chatStore.sessionUsage()).toEqual({
+    expect(chatStore.isStreaming(SID)).toBe(false);
+    expect(chatStore.streamingText(SID)).toBe("");
+    expect(chatStore.streamingThinking(SID)).toBe("");
+    expect(chatStore.streamingToolCalls(SID)).toEqual([]);
+    expect(chatStore.streamingToolResults(SID)).toEqual([]);
+    expect(chatStore.error(SID)).toBeNull();
+    expect(chatStore.sessionUsage(SID)).toEqual({
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: 0,
@@ -67,7 +69,7 @@ describe("chatStore", () => {
   });
 
   describe("startStream", () => {
-    it("should return early when stream already in progress", async () => {
+    it("should return early when stream already in progress for same session", async () => {
       // Set up a stream that never resolves
       let resolveStream: () => void = () => {};
       mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
@@ -81,11 +83,11 @@ describe("chatStore", () => {
       });
 
       // Start first stream
-      const p1 = chatStore.startStream("s1", "hello");
-      expect(chatStore.isStreaming()).toBe(true);
+      const p1 = chatStore.startStream(SID, "hello");
+      expect(chatStore.isStreaming(SID)).toBe(true);
 
-      // Try to start second - should be no-op
-      await chatStore.startStream("s1", "hello again");
+      // Try to start second on same session - should be no-op
+      await chatStore.startStream(SID, "hello again");
       expect(mockStreamChat).toHaveBeenCalledOnce();
 
       // Clean up
@@ -93,23 +95,53 @@ describe("chatStore", () => {
       await p1;
     });
 
+    it("should allow concurrent streams for different sessions", async () => {
+      let resolveStream1: () => void = () => {};
+      let resolveStream2: () => void = () => {};
+      let callCount = 0;
+      mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
+        callCount++;
+        if (callCount === 1) {
+          capturedOnEvent = onEvent;
+          return {
+            promise: new Promise<void>((r) => { resolveStream1 = r; }),
+            abort: mockAbort,
+          };
+        }
+        return {
+          promise: new Promise<void>((r) => { resolveStream2 = r; }),
+          abort: mockAbort,
+        };
+      });
+
+      const p1 = chatStore.startStream("s1", "hello");
+      const p2 = chatStore.startStream("s2", "hello from s2");
+
+      expect(chatStore.isStreaming("s1")).toBe(true);
+      expect(chatStore.isStreaming("s2")).toBe(true);
+
+      resolveStream1?.();
+      resolveStream2?.();
+      await Promise.all([p1, p2]);
+    });
+
     it("should set error when no active provider", async () => {
       mockConfigStore.activeProviderId.mockReturnValue(null);
-      await chatStore.startStream("s1", "hello");
-      expect(chatStore.error()).toBe("No provider or model configured");
-      expect(chatStore.isStreaming()).toBe(false);
+      await chatStore.startStream(SID, "hello");
+      expect(chatStore.error(SID)).toBe("No provider or model configured");
+      expect(chatStore.isStreaming(SID)).toBe(false);
     });
 
     it("should set error when no active model", async () => {
       mockConfigStore.activeModel.mockReturnValue(null);
-      await chatStore.startStream("s1", "hello");
-      expect(chatStore.error()).toBe("No provider or model configured");
+      await chatStore.startStream(SID, "hello");
+      expect(chatStore.error(SID)).toBe("No provider or model configured");
     });
 
     it("should call streamChat with correct arguments", async () => {
-      await chatStore.startStream("s1", "hello");
+      await chatStore.startStream(SID, "hello");
       expect(mockStreamChat).toHaveBeenCalledWith(
-        "s1",
+        SID,
         "hello",
         "zhipu",
         "glm-4",
@@ -129,10 +161,10 @@ describe("chatStore", () => {
         };
       });
 
-      const p = chatStore.startStream("s1", "hello");
+      const p = chatStore.startStream(SID, "hello");
       capturedOnEvent({ type: "text-delta", delta: "Hello" });
       capturedOnEvent({ type: "text-delta", delta: " world" });
-      expect(chatStore.streamingText()).toBe("Hello world");
+      expect(chatStore.streamingText(SID)).toBe("Hello world");
 
       resolveStream?.();
       await p;
@@ -150,10 +182,10 @@ describe("chatStore", () => {
         };
       });
 
-      const p = chatStore.startStream("s1", "hello");
+      const p = chatStore.startStream(SID, "hello");
       capturedOnEvent({ type: "thinking-delta", delta: "Let me" });
       capturedOnEvent({ type: "thinking-delta", delta: " think" });
-      expect(chatStore.streamingThinking()).toBe("Let me think");
+      expect(chatStore.streamingThinking(SID)).toBe("Let me think");
 
       resolveStream?.();
       await p;
@@ -171,7 +203,7 @@ describe("chatStore", () => {
         };
       });
 
-      const p = chatStore.startStream("s1", "hello");
+      const p = chatStore.startStream(SID, "hello");
       const tc = {
         type: "tool-call" as const,
         toolCallId: "tc1",
@@ -179,8 +211,8 @@ describe("chatStore", () => {
         args: {},
       };
       capturedOnEvent(tc);
-      expect(chatStore.streamingToolCalls()).toHaveLength(1);
-      expect(chatStore.streamingToolCalls()[0]).toEqual(tc);
+      expect(chatStore.streamingToolCalls(SID)).toHaveLength(1);
+      expect(chatStore.streamingToolCalls(SID)[0]).toEqual(tc);
 
       resolveStream?.();
       await p;
@@ -198,7 +230,7 @@ describe("chatStore", () => {
         };
       });
 
-      const p = chatStore.startStream("s1", "hello");
+      const p = chatStore.startStream(SID, "hello");
       const tr = {
         type: "tool-result" as const,
         toolCallId: "tc1",
@@ -207,7 +239,7 @@ describe("chatStore", () => {
         isError: false,
       };
       capturedOnEvent(tr);
-      expect(chatStore.streamingToolResults()).toHaveLength(1);
+      expect(chatStore.streamingToolResults(SID)).toHaveLength(1);
 
       resolveStream?.();
       await p;
@@ -225,25 +257,21 @@ describe("chatStore", () => {
         };
       });
 
-      const p = chatStore.startStream("s1", "hello");
+      const p = chatStore.startStream(SID, "hello");
       capturedOnEvent({ type: "error", error: "boom" });
-      expect(chatStore.error()).toBe("boom");
+      expect(chatStore.error(SID)).toBe("boom");
 
       resolveStream?.();
       await p;
     });
 
-    it("should clear streaming state in finally", async () => {
-      await chatStore.startStream("s1", "hello");
-      expect(chatStore.isStreaming()).toBe(false);
-      expect(chatStore.streamingText()).toBe("");
-      expect(chatStore.streamingThinking()).toBe("");
-      expect(chatStore.streamingToolCalls()).toEqual([]);
-      expect(chatStore.streamingToolResults()).toEqual([]);
+    it("should clear isStreaming in finally", async () => {
+      await chatStore.startStream(SID, "hello");
+      expect(chatStore.isStreaming(SID)).toBe(false);
     });
 
     it("should call refreshCurrentSession in finally", async () => {
-      await chatStore.startStream("s1", "hello");
+      await chatStore.startStream(SID, "hello");
       expect(mockSessionStore.refreshCurrentSession).toHaveBeenCalled();
     });
 
@@ -252,9 +280,9 @@ describe("chatStore", () => {
         promise: Promise.reject(new DOMException("Aborted", "AbortError")),
         abort: mockAbort,
       }));
-      await chatStore.startStream("s1", "hello");
-      expect(chatStore.error()).toBeNull();
-      expect(chatStore.isStreaming()).toBe(false);
+      await chatStore.startStream(SID, "hello");
+      expect(chatStore.error(SID)).toBeNull();
+      expect(chatStore.isStreaming(SID)).toBe(false);
     });
 
     it("should set error on non-AbortError exceptions", async () => {
@@ -262,15 +290,15 @@ describe("chatStore", () => {
         promise: Promise.reject(new Error("Network error")),
         abort: mockAbort,
       }));
-      await chatStore.startStream("s1", "hello");
-      expect(chatStore.error()).toBe("Network error");
+      await chatStore.startStream(SID, "hello");
+      expect(chatStore.error(SID)).toBe("Network error");
     });
 
-    it("should reset currentAbort in finally allowing next stream", async () => {
-      await chatStore.startStream("s1", "hello");
-      expect(chatStore.isStreaming()).toBe(false);
-      // Should be able to start another stream
-      await chatStore.startStream("s1", "hello again");
+    it("should allow next stream after completion", async () => {
+      await chatStore.startStream(SID, "hello");
+      expect(chatStore.isStreaming(SID)).toBe(false);
+      // Should be able to start another stream for the same session
+      await chatStore.startStream(SID, "hello again");
       expect(mockStreamChat).toHaveBeenCalledTimes(2);
     });
 
@@ -286,12 +314,12 @@ describe("chatStore", () => {
         };
       });
 
-      const p = chatStore.startStream("s1", "hello");
+      const p = chatStore.startStream(SID, "hello");
       capturedOnEvent({
         type: "usage",
         usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       });
-      expect(chatStore.sessionUsage()).toEqual({
+      expect(chatStore.sessionUsage(SID)).toEqual({
         promptTokens: 100,
         completionTokens: 50,
         totalTokens: 150,
@@ -301,7 +329,7 @@ describe("chatStore", () => {
         type: "usage",
         usage: { promptTokens: 200, completionTokens: 100, totalTokens: 300 },
       });
-      expect(chatStore.sessionUsage()).toEqual({
+      expect(chatStore.sessionUsage(SID)).toEqual({
         promptTokens: 300,
         completionTokens: 150,
         totalTokens: 450,
@@ -324,12 +352,12 @@ describe("chatStore", () => {
         };
       });
 
-      const p1 = chatStore.startStream("s1", "hello");
+      const p1 = chatStore.startStream(SID, "hello");
       capturedOnEvent({
         type: "usage",
         usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       });
-      expect(chatStore.sessionUsage().totalTokens).toBe(150);
+      expect(chatStore.sessionUsage(SID).totalTokens).toBe(150);
 
       resolveStream1?.();
       await p1;
@@ -346,8 +374,8 @@ describe("chatStore", () => {
         };
       });
 
-      const p2 = chatStore.startStream("s1", "new message");
-      expect(chatStore.sessionUsage()).toEqual({
+      const p2 = chatStore.startStream(SID, "new message");
+      expect(chatStore.sessionUsage(SID)).toEqual({
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
@@ -371,8 +399,8 @@ describe("chatStore", () => {
         };
       });
 
-      const p = chatStore.startStream("s1", "hello");
-      chatStore.stopStream();
+      const p = chatStore.startStream(SID, "hello");
+      chatStore.stopStream(SID);
       expect(mockAbort).toHaveBeenCalled();
 
       resolveStream?.();
@@ -380,7 +408,7 @@ describe("chatStore", () => {
     });
 
     it("should be no-op when no stream is active", () => {
-      chatStore.stopStream(); // should not throw
+      chatStore.stopStream(SID); // should not throw
       expect(mockAbort).not.toHaveBeenCalled();
     });
   });

@@ -20,7 +20,7 @@ export function SessionPage() {
           return;
         }
 
-        chatStore.resetIfSessionChanged(id);
+        chatStore.setActiveSession(id);
 
         await Promise.all([
           sessionStore.selectSession(id),
