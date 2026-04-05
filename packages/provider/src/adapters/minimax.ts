@@ -1,4 +1,9 @@
-import type { ChatRequest, ChatResponse, ChatStreamChunk, ModelInfo } from "../types.js";
+import type {
+  ChatRequest,
+  ChatResponse,
+  ChatStreamChunk,
+  ModelInfo,
+} from "../types.js";
 import { OpenAICompatAdapter } from "./openai-compat.js";
 
 export type MiniMaxPlatform = "cn" | "intl";
@@ -132,7 +137,8 @@ export class MiniMaxProvider extends OpenAICompatAdapter {
       ? `<thinking>\n${thinkingText}\n</thinking>\n\n${content}`
       : content;
 
-    const finishReason = (choice.finish_reason as ChatResponse["finishReason"]) ?? "stop";
+    const finishReason =
+      (choice.finish_reason as ChatResponse["finishReason"]) ?? "stop";
     const toolCalls = message.tool_calls as
       | Array<Record<string, unknown>>
       | undefined;
@@ -157,9 +163,15 @@ export class MiniMaxProvider extends OpenAICompatAdapter {
           : {}),
       },
       usage: {
-        promptTokens: (data.usage as Record<string, unknown>)?.prompt_tokens as number ?? 0,
-        completionTokens: (data.usage as Record<string, unknown>)?.completion_tokens as number ?? 0,
-        totalTokens: (data.usage as Record<string, unknown>)?.total_tokens as number ?? 0,
+        promptTokens:
+          ((data.usage as Record<string, unknown>)?.prompt_tokens as number) ??
+          0,
+        completionTokens:
+          ((data.usage as Record<string, unknown>)
+            ?.completion_tokens as number) ?? 0,
+        totalTokens:
+          ((data.usage as Record<string, unknown>)?.total_tokens as number) ??
+          0,
       },
       finishReason,
     };
@@ -178,7 +190,8 @@ export class MiniMaxProvider extends OpenAICompatAdapter {
 
     const result: ChatStreamChunk = {
       delta: {},
-      finishReason: (choice.finish_reason as ChatStreamChunk["finishReason"]) ?? null,
+      finishReason:
+        (choice.finish_reason as ChatStreamChunk["finishReason"]) ?? null,
     };
 
     if (typeof delta.content === "string") {
@@ -214,7 +227,9 @@ export class MiniMaxProvider extends OpenAICompatAdapter {
           index: (tc.index as number) ?? index,
           ...(tc.id != null ? { id: tc.id as string } : {}),
           ...(fn?.name != null ? { name: fn.name as string } : {}),
-          ...(fn?.arguments != null ? { arguments: fn.arguments as string } : {}),
+          ...(fn?.arguments != null
+            ? { arguments: fn.arguments as string }
+            : {}),
         };
       });
     }

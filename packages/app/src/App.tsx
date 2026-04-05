@@ -1,8 +1,8 @@
 import "./index.css";
 import type { RouteSectionProps } from "@solidjs/router";
 import { Route, Router } from "@solidjs/router";
-import { I18nProvider } from "./i18n/index.tsx";
 import { AppLayout } from "./components/layout/app-layout";
+import { I18nProvider } from "./i18n/index.tsx";
 import { SessionPage } from "./pages/session";
 import { SettingsPage } from "./pages/settings";
 import { SkillsPage } from "./pages/skills";

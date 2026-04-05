@@ -101,7 +101,7 @@ async function walk(
 ): Promise<void> {
   if (files.length >= MAX_RESULTS * 2) return;
 
-  let entries;
+  let entries: import("node:fs").Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {

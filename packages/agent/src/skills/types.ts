@@ -13,7 +13,10 @@ export const SkillFrontmatterSchema = z.object({
   license: z.string().optional(),
   compatibility: z.string().max(500).optional(),
   metadata: z.record(z.string(), z.string()).optional(),
-  "allowed-tools": z.string().transform((v) => v.split(/\s+/).filter(Boolean)).optional(),
+  "allowed-tools": z
+    .string()
+    .transform((v) => v.split(/\s+/).filter(Boolean))
+    .optional(),
 });
 
 export type SkillFrontmatter = z.infer<typeof SkillFrontmatterSchema>;

@@ -109,8 +109,6 @@ export function WorkspacePage() {
           <For each={sessions()}>
             {(session) => (
               <div
-                role="button"
-                tabIndex={0}
                 class="group flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--hover)]"
                 onClick={() =>
                   navigate(

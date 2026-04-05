@@ -43,7 +43,8 @@ export function StatusBar() {
       ? "Zhipu"
       : config.providers[0]?.type === "minimax"
         ? "Minimax"
-        : (config.providers[0] as { type: "openai-compatible"; id: string })?.id;
+        : (config.providers[0] as { type: "openai-compatible"; id: string })
+            ?.id;
   };
 
   const modelName = () => configStore.config()?.settings.defaultModel ?? "";
@@ -67,7 +68,9 @@ export function StatusBar() {
   const usagePercent = createMemo(() => {
     const cw = contextWindow();
     const sid = activeSessionId();
-    const usage = sid ? chatStore.sessionUsage(sid) : { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+    const usage = sid
+      ? chatStore.sessionUsage(sid)
+      : { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
     if (!cw || cw === 0) return 0;
     return Math.min((usage.totalTokens / cw) * 100, 100);
   });
@@ -110,29 +113,34 @@ export function StatusBar() {
 
       {/* Center: Context window progress */}
       <Show when={contextWindow()}>
-        {(cw) => (
-          <div class="flex items-center gap-2 min-w-0 shrink">
-            <Cpu size={12} class="shrink-0 text-[var(--text-muted)]" />
-            <div class="flex items-center gap-1.5">
-              <span class="whitespace-nowrap tabular-nums">
-                {formatTokens(activeSessionId() ? chatStore.sessionUsage(activeSessionId()!).totalTokens : 0)}
-              </span>
-              <span class="text-[var(--text-muted)]">/</span>
-              <span class="whitespace-nowrap tabular-nums">
-                {formatTokens(cw())}
-              </span>
+        {(cw) => {
+          const sid = activeSessionId();
+          return (
+            <div class="flex items-center gap-2 min-w-0 shrink">
+              <Cpu size={12} class="shrink-0 text-[var(--text-muted)]" />
+              <div class="flex items-center gap-1.5">
+                <span class="whitespace-nowrap tabular-nums">
+                  {formatTokens(
+                    sid ? chatStore.sessionUsage(sid).totalTokens : 0,
+                  )}
+                </span>
+                <span class="text-[var(--text-muted)]">/</span>
+                <span class="whitespace-nowrap tabular-nums">
+                  {formatTokens(cw())}
+                </span>
+              </div>
+              <div class="h-1.5 w-20 rounded-full bg-[var(--surface-elevated)]">
+                <div
+                  class="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${usagePercent()}%`,
+                    "background-color": progressColor(),
+                  }}
+                />
+              </div>
             </div>
-            <div class="h-1.5 w-20 rounded-full bg-[var(--surface-elevated)]">
-              <div
-                class="h-full rounded-full transition-all duration-300"
-                style={{
-                  width: `${usagePercent()}%`,
-                  "background-color": progressColor(),
-                }}
-              />
-            </div>
-          </div>
-        )}
+          );
+        }}
       </Show>
 
       {/* Right: Subscription / Token info */}
@@ -140,11 +148,19 @@ export function StatusBar() {
         <Show
           when={subscriptionStore.info()}
           fallback={
-            <Show when={activeSessionId() && chatStore.sessionUsage(activeSessionId()!).totalTokens > 0}>
-              <span class="tabular-nums">
-                {formatTokens(chatStore.sessionUsage(activeSessionId()!).promptTokens)} in +{" "}
-                {formatTokens(chatStore.sessionUsage(activeSessionId()!).completionTokens)} out
-              </span>
+            <Show when={activeSessionId()}>
+              {(sid) => (
+                <Show when={chatStore.sessionUsage(sid()).totalTokens > 0}>
+                  <span class="tabular-nums">
+                    {formatTokens(chatStore.sessionUsage(sid()).promptTokens)}{" "}
+                    in +{" "}
+                    {formatTokens(
+                      chatStore.sessionUsage(sid()).completionTokens,
+                    )}{" "}
+                    out
+                  </span>
+                </Show>
+              )}
             </Show>
           }
         >

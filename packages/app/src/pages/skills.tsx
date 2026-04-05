@@ -1,10 +1,10 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { ArrowLeft } from "lucide-solid";
 import { createEffect, createMemo, on, Show } from "solid-js";
+import { SkillGroupSection } from "../components/skills/skill-group-section";
 import { useI18n } from "../i18n/index.tsx";
 import { skillStore } from "../stores/skill-store";
 import { workspaceStore } from "../stores/workspace";
-import { SkillGroupSection } from "../components/skills/skill-group-section";
 
 export function SkillsPage() {
   const params = useParams();

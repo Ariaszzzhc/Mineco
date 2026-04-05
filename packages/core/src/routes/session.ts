@@ -3,8 +3,8 @@ import type { SessionStore } from "@mineco/agent";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createSessionSchema, updateSessionSchema } from "../config/schema.js";
-import type { SessionRunManager } from "../storage/session-run-manager.js";
 import type { SqliteSessionNotesStore } from "../storage/session-notes-store.js";
+import type { SessionRunManager } from "../storage/session-run-manager.js";
 
 export function createSessionRoutes(
   store: SessionStore,

@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { createEffect, on, Show } from "solid-js";
-import { useI18n } from "../i18n/index.tsx";
 import { ChatView } from "../components/chat/chat-view";
+import { useI18n } from "../i18n/index.tsx";
 import { chatStore } from "../stores/chat";
 import { configStore } from "../stores/config";
 import { sessionStore } from "../stores/session";

@@ -16,6 +16,7 @@ import { type RequestIdVariables, requestId } from "hono/request-id";
 import { trimTrailingSlash } from "hono/trailing-slash";
 import { Kysely } from "kysely";
 import { ConfigService } from "./config/service.js";
+import { migrateToLatest } from "./db/migrator.js";
 import { tokenAuth } from "./middleware/auth.js";
 import { createChatRoutes } from "./routes/chat.js";
 import { createConfigRoutes } from "./routes/config.js";
@@ -32,7 +33,7 @@ import {
   SqliteUsageStore,
   SqliteWorkspaceStore,
 } from "./storage/index.js";
-import { type Database, initializeSchema } from "./storage/schema.js";
+import type { Database } from "./storage/schema.js";
 
 type Env = {
   Variables: RequestIdVariables;
@@ -74,7 +75,11 @@ function buildRoutes(deps: {
     .route("/api/fs", createFsRoutes())
     .route(
       "/api/sessions",
-      createSessionRoutes(deps.sessionStore, deps.sessionNotesStore, deps.runManager),
+      createSessionRoutes(
+        deps.sessionStore,
+        deps.sessionNotesStore,
+        deps.runManager,
+      ),
     )
     .route(
       "/api/sessions",
@@ -108,7 +113,7 @@ async function main() {
   const db = new Kysely<Database>({
     dialect: new NodeSqliteDialect(dbPath),
   });
-  await initializeSchema(db);
+  await migrateToLatest(db);
 
   const sessionStore = new SqliteSessionStore(db);
   const sessionNotesStore = new SqliteSessionNotesStore(db);

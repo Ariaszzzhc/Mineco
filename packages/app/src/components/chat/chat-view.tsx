@@ -3,8 +3,8 @@ import { api } from "../../lib/api-client";
 import { chatStore } from "../../stores/chat";
 import { configStore } from "../../stores/config";
 import { sessionStore } from "../../stores/session";
-import { ChatInput } from "./chat-input";
 import { ActiveSkillBadge } from "./active-skill-badge";
+import { ChatInput } from "./chat-input";
 import { HeroPrompt } from "./hero-prompt";
 import { MessageList } from "./message-list";
 import { SubagentView } from "./subagent-view";
@@ -95,10 +95,16 @@ export function ChatView() {
         when={activeSubagentRun()}
         fallback={
           <>
-            <Show when={messages().length === 0 && !chatStore.isStreaming(sessionId())}>
+            <Show
+              when={
+                messages().length === 0 && !chatStore.isStreaming(sessionId())
+              }
+            >
               <HeroPrompt />
             </Show>
-            <Show when={messages().length > 0 || chatStore.isStreaming(sessionId())}>
+            <Show
+              when={messages().length > 0 || chatStore.isStreaming(sessionId())}
+            >
               <MessageList messages={messages()} sessionId={sessionId()} />
             </Show>
 

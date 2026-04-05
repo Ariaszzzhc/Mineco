@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { SkillScanner } from "../../src/skills/scanner.js";
-import { SkillStore } from "../../src/skills/store.js";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildSkillCatalogText } from "../../src/skills/catalog.js";
 import { resolveSlashSkill } from "../../src/skills/resolve.js";
-import { mkdir, writeFile, rm, mkdtemp } from "node:fs/promises";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { SkillScanner } from "../../src/skills/scanner.js";
+import { SkillStore } from "../../src/skills/store.js";
 
 describe("SkillScanner", () => {
   let scanner: SkillScanner;
@@ -35,10 +35,10 @@ describe("SkillScanner", () => {
 
     const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
     expect(skills).toHaveLength(1);
-    expect(skills[0]!.name).toBe("test-skill");
-    expect(skills[0]!.description).toBe("A test skill for testing");
-    expect(skills[0]!.instructions).toBe("Do the thing.");
-    expect(skills[0]!.sourcePath).toBe(join(skillDir, "SKILL.md"));
+    expect(skills[0]?.name).toBe("test-skill");
+    expect(skills[0]?.description).toBe("A test skill for testing");
+    expect(skills[0]?.instructions).toBe("Do the thing.");
+    expect(skills[0]?.sourcePath).toBe(join(skillDir, "SKILL.md"));
   });
 
   it("should skip directories without SKILL.md", async () => {
@@ -81,7 +81,7 @@ describe("SkillScanner", () => {
 
     const skills = await scanner.scan(tmpDir, { userSkillsDir: tmpDir });
     expect(skills).toHaveLength(1);
-    expect(skills[0]!.description).toContain("the user asks about PDFs");
+    expect(skills[0]?.description).toContain("the user asks about PDFs");
   });
 
   it("should reject names with consecutive hyphens", async () => {
@@ -100,10 +100,16 @@ describe("SkillScanner", () => {
 describe("SkillStore", () => {
   it("should retrieve skills by name", () => {
     const store = new SkillStore([
-      { name: "commit", description: "Smart commits", instructions: "do it", sourcePath: "/a", source: "user" },
+      {
+        name: "commit",
+        description: "Smart commits",
+        instructions: "do it",
+        sourcePath: "/a",
+        source: "user",
+      },
     ]);
     expect(store.get("commit")).toBeDefined();
-    expect(store.get("commit")!.name).toBe("commit");
+    expect(store.get("commit")?.name).toBe("commit");
   });
 
   it("should return undefined for unknown skill", () => {
@@ -113,23 +119,53 @@ describe("SkillStore", () => {
 
   it("should override user skill with project skill on collision", () => {
     const store = new SkillStore([
-      { name: "review", description: "user review", instructions: "user", sourcePath: "/a", source: "user" },
-      { name: "review", description: "project review", instructions: "project", sourcePath: "/b", source: "project" },
+      {
+        name: "review",
+        description: "user review",
+        instructions: "user",
+        sourcePath: "/a",
+        source: "user",
+      },
+      {
+        name: "review",
+        description: "project review",
+        instructions: "project",
+        sourcePath: "/b",
+        source: "project",
+      },
     ]);
-    expect(store.get("review")!.description).toBe("project review");
+    expect(store.get("review")?.description).toBe("project review");
   });
 
   it("should not override project skill with user skill", () => {
     const store = new SkillStore([
-      { name: "review", description: "project review", instructions: "project", sourcePath: "/b", source: "project" },
-      { name: "review", description: "user review", instructions: "user", sourcePath: "/a", source: "user" },
+      {
+        name: "review",
+        description: "project review",
+        instructions: "project",
+        sourcePath: "/b",
+        source: "project",
+      },
+      {
+        name: "review",
+        description: "user review",
+        instructions: "user",
+        sourcePath: "/a",
+        source: "user",
+      },
     ]);
-    expect(store.get("review")!.description).toBe("project review");
+    expect(store.get("review")?.description).toBe("project review");
   });
 
   it("should track activation state", () => {
     const store = new SkillStore([
-      { name: "commit", description: "Smart commits", instructions: "do it", sourcePath: "/a", source: "user" },
+      {
+        name: "commit",
+        description: "Smart commits",
+        instructions: "do it",
+        sourcePath: "/a",
+        source: "user",
+      },
     ]);
     expect(store.isActivated("commit")).toBe(false);
     store.markActivated("commit");
@@ -146,8 +182,20 @@ describe("buildSkillCatalogText", () => {
 
   it("should format skills as compact list", () => {
     const store = new SkillStore([
-      { name: "commit", description: "Smart commits", instructions: "do it", sourcePath: "/a", source: "user" },
-      { name: "review", description: "Code review", instructions: "review it", sourcePath: "/b", source: "project" },
+      {
+        name: "commit",
+        description: "Smart commits",
+        instructions: "do it",
+        sourcePath: "/a",
+        source: "user",
+      },
+      {
+        name: "review",
+        description: "Code review",
+        instructions: "review it",
+        sourcePath: "/b",
+        source: "project",
+      },
     ]);
     const text = buildSkillCatalogText(store);
     expect(text).toContain('"commit": Smart commits');
@@ -157,21 +205,27 @@ describe("buildSkillCatalogText", () => {
 
 describe("resolveSlashSkill", () => {
   const store = new SkillStore([
-    { name: "commit", description: "Smart commits", instructions: "Commit instructions", sourcePath: "/a", source: "user" },
+    {
+      name: "commit",
+      description: "Smart commits",
+      instructions: "Commit instructions",
+      sourcePath: "/a",
+      source: "user",
+    },
   ]);
 
   it("should resolve /skill-name with remaining args", () => {
     const result = resolveSlashSkill("/commit fix the bug", store);
     expect(result).not.toBeNull();
-    expect(result!.skill.name).toBe("commit");
-    expect(result!.remaining).toBe("fix the bug");
+    expect(result?.skill.name).toBe("commit");
+    expect(result?.remaining).toBe("fix the bug");
   });
 
   it("should resolve /skill-name without args", () => {
     const result = resolveSlashSkill("/commit", store);
     expect(result).not.toBeNull();
-    expect(result!.skill.name).toBe("commit");
-    expect(result!.remaining).toBe("");
+    expect(result?.skill.name).toBe("commit");
+    expect(result?.remaining).toBe("");
   });
 
   it("should return null for non-slash messages", () => {

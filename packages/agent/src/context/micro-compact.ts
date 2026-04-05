@@ -82,7 +82,11 @@ export function microCompact(
       if (msg.role === "system") preservedIndices.add(i);
       if (msg.role === "user") preservedIndices.add(i);
       if (i >= recentStart) preservedIndices.add(i);
-      if (msg.role === "tool" && typeof msg.content === "string" && msg.content.includes("<skill-content")) {
+      if (
+        msg.role === "tool" &&
+        typeof msg.content === "string" &&
+        msg.content.includes("<skill-content")
+      ) {
         preservedIndices.add(i);
       }
     }
@@ -92,7 +96,10 @@ export function microCompact(
     let i = 0;
     while (i < result.length) {
       const msg = result[i];
-      if (!msg) { i++; continue; }
+      if (!msg) {
+        i++;
+        continue;
+      }
       if (preservedIndices.has(i)) {
         filtered.push(msg);
         i++;
@@ -104,7 +111,8 @@ export function microCompact(
         let j = i + 1;
         while (j < result.length) {
           const nextMsg = result[j];
-          if (!nextMsg || nextMsg.role !== "tool" || preservedIndices.has(j)) break;
+          if (!nextMsg || nextMsg.role !== "tool" || preservedIndices.has(j))
+            break;
           j++;
         }
         // Only remove the block if we won't break chain into preserved tail

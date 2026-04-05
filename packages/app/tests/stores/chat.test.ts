@@ -109,12 +109,16 @@ describe("chatStore", () => {
         if (callCount === 1) {
           capturedOnEvent = onEvent;
           return {
-            promise: new Promise<void>((r) => { resolveStream1 = r; }),
+            promise: new Promise<void>((r) => {
+              resolveStream1 = r;
+            }),
             abort: mockAbort,
           };
         }
         return {
-          promise: new Promise<void>((r) => { resolveStream2 = r; }),
+          promise: new Promise<void>((r) => {
+            resolveStream2 = r;
+          }),
           abort: mockAbort,
         };
       });
@@ -418,7 +422,10 @@ describe("chatStore", () => {
         createdAt: Date.now(),
       };
       capturedOnEvent({ type: "message-persisted", message: persistedMsg });
-      expect(mockSessionStore.addMessageToSession).toHaveBeenCalledWith(SID, persistedMsg);
+      expect(mockSessionStore.addMessageToSession).toHaveBeenCalledWith(
+        SID,
+        persistedMsg,
+      );
       expect(chatStore.streamingText(SID)).toBe("");
       expect(chatStore.streamingThinking(SID)).toBe("");
 
@@ -451,7 +458,12 @@ describe("chatStore", () => {
       // Persist clears text but not tool calls
       capturedOnEvent({
         type: "message-persisted",
-        message: { id: "msg-1", role: "assistant" as const, content: "Hello", createdAt: Date.now() },
+        message: {
+          id: "msg-1",
+          role: "assistant" as const,
+          content: "Hello",
+          createdAt: Date.now(),
+        },
       });
       expect(chatStore.streamingText(SID)).toBe("");
       expect(chatStore.streamingToolCalls(SID)).toHaveLength(1);

@@ -1,5 +1,5 @@
-import type { SkillManifest } from "./types.js";
 import type { SkillStore } from "./store.js";
+import type { SkillManifest } from "./types.js";
 
 export interface ResolvedSlashSkill {
   skill: SkillManifest;
@@ -23,9 +23,7 @@ export function resolveSlashSkill(
   const skill = store.get(skillName);
   if (!skill) return null;
 
-  const remaining = (
-    spaceIdx === -1 ? "" : trimmed.slice(spaceIdx + 1)
-  ).trim();
+  const remaining = (spaceIdx === -1 ? "" : trimmed.slice(spaceIdx + 1)).trim();
 
   return { skill, remaining };
 }

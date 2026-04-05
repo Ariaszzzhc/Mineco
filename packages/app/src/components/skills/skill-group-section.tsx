@@ -1,5 +1,4 @@
 import { For, Show } from "solid-js";
-import { useI18n } from "../../i18n/index.tsx";
 import type { SkillManifest } from "../../lib/types";
 import { SkillCard } from "./skill-card";
 
@@ -9,8 +8,6 @@ interface SkillGroupSectionProps {
 }
 
 export function SkillGroupSection(props: SkillGroupSectionProps) {
-  const { t } = useI18n();
-
   return (
     <Show when={props.skills.length > 0}>
       <section class="mt-6 first:mt-0">

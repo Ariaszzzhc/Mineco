@@ -3,7 +3,6 @@ import { renderMarkdown } from "../../lib/markdown";
 import type { SessionMessage } from "../../lib/types";
 import { chatStore, type StreamingSegment } from "../../stores/chat";
 import { MessageItem } from "./message-item";
-import { SubagentCard } from "./subagent-card";
 import { ThinkingBlock } from "./thinking-block";
 import { ToolCard } from "./tool-card";
 
@@ -48,9 +47,9 @@ function StreamingSegmentView(props: {
       <For each={tools()}>
         {(item) => {
           const isAgent = () => item.call.toolName === "agent";
-          const subagentRun = () => {
+          const _subagentRun = () => {
             if (!isAgent()) return null;
-            const args = item.call.args as { agent_type?: string };
+            const _args = item.call.args as { agent_type?: string };
             // Find the subagent run that matches this tool call
             return null; // Will be handled by parent with sessionId context
           };

@@ -1,5 +1,5 @@
-import { Hono } from "hono";
 import { SkillScanner } from "@mineco/agent";
+import { Hono } from "hono";
 
 export function createSkillsRoutes() {
   const scanner = new SkillScanner();

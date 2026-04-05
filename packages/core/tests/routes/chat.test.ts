@@ -1,7 +1,7 @@
 import type { Session, SessionMessage } from "@mineco/agent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SqliteWorkspaceStore } from "../../src/storage/workspace-store.js";
 import { SessionRunManager } from "../../src/storage/session-run-manager.js";
+import type { SqliteWorkspaceStore } from "../../src/storage/workspace-store.js";
 import { createMockProviderRegistry } from "../helper/mock-provider-registry.js";
 import { createMockSessionStore } from "../helper/mock-session-store.js";
 import { collectSSEEvents } from "../helper/sse-helpers.js";

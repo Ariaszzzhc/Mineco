@@ -141,10 +141,10 @@ function convertLineEndings(text: string, ending: "\n" | "\r\n"): string {
 function countOccurrences(content: string, search: string): number {
   if (!search) return 0;
   let count = 0;
-  let idx = 0;
-  while ((idx = content.indexOf(search, idx)) !== -1) {
+  let idx = content.indexOf(search);
+  while (idx !== -1) {
     count++;
-    idx += search.length;
+    idx = content.indexOf(search, idx + search.length);
   }
   return count;
 }

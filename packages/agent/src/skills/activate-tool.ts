@@ -1,10 +1,10 @@
 import { readdir } from "node:fs/promises";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { z } from "zod";
 import { defineTool } from "../tools/define.js";
-import type { SkillManifest } from "./types.js";
-import type { SkillStore } from "./store.js";
 import type { ToolDefinition } from "../tools/types.js";
+import type { SkillStore } from "./store.js";
+import type { SkillManifest } from "./types.js";
 
 const ActivateSkillSchema = z.object({
   name: z.string().describe("The name of the skill to activate"),
@@ -31,7 +31,10 @@ export function createActivateSkillTool(
 
       const skill = store.get(params.name);
       if (!skill) {
-        const available = store.getAll().map((s) => s.name).join(", ");
+        const available = store
+          .getAll()
+          .map((s) => s.name)
+          .join(", ");
         return {
           output: `Skill "${params.name}" not found. Available skills: ${available || "(none)"}`,
           isError: true,
@@ -62,7 +65,7 @@ async function listResources(
   const resourceDirs = ["scripts", "references", "assets"];
   for (const sub of resourceDirs) {
     const subDir = join(skillDir, sub);
-    let entries;
+    let entries: import("node:fs").Dirent[];
     try {
       entries = await readdir(subDir, { withFileTypes: true });
     } catch {

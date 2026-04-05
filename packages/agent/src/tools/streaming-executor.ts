@@ -59,7 +59,8 @@ export class StreamingToolExecutor {
       // Yield completed results in original order
       let yielded = false;
       while (this.nextYieldIndex < this.tools.length) {
-        const tool = this.tools[this.nextYieldIndex]!;
+        const tool = this.tools[this.nextYieldIndex];
+        if (!tool) break;
         if (tool.status === "yielded") {
           this.nextYieldIndex++;
           continue;
@@ -86,7 +87,9 @@ export class StreamingToolExecutor {
           (t) => t.status === "executing" && t.promise,
         );
         if (executing.length > 0) {
-          await Promise.race(executing.map((t) => t.promise!));
+          await Promise.race(
+            executing.map((t) => t.promise ?? Promise.resolve()),
+          );
         }
       }
     }

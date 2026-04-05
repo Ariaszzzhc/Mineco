@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { MiniMaxProvider } from "../src/adapters/minimax.js";
-import type { ChatRequest, ChatResponse, ChatStreamChunk } from "../src/types.js";
 import { hasSubscription } from "../src/provider.js";
+import type {
+  ChatRequest,
+  ChatResponse,
+  ChatStreamChunk,
+} from "../src/types.js";
 
-function createProvider(config?: { apiKey?: string; platform?: "cn" | "intl" }) {
+function createProvider(config?: {
+  apiKey?: string;
+  platform?: "cn" | "intl";
+}) {
   const { apiKey = "test-key", ...rest } = config ?? {};
   return new MiniMaxProvider({
     apiKey,
@@ -11,20 +18,37 @@ function createProvider(config?: { apiKey?: string; platform?: "cn" | "intl" }) 
   });
 }
 
-function callTransformRequest(provider: MiniMaxProvider, req: Partial<ChatRequest>) {
-  return (provider as unknown as { transformRequest: (r: ChatRequest) => unknown }).transformRequest({
+function callTransformRequest(
+  provider: MiniMaxProvider,
+  req: Partial<ChatRequest>,
+) {
+  return (
+    provider as unknown as { transformRequest: (r: ChatRequest) => unknown }
+  ).transformRequest({
     model: "MiniMax-M2.7",
     messages: [{ role: "user", content: "Hello" }],
     ...req,
   });
 }
 
-function callTransformResponse(provider: MiniMaxProvider, raw: unknown): ChatResponse {
-  return (provider as unknown as { transformResponse: (r: unknown) => ChatResponse }).transformResponse(raw);
+function callTransformResponse(
+  provider: MiniMaxProvider,
+  raw: unknown,
+): ChatResponse {
+  return (
+    provider as unknown as { transformResponse: (r: unknown) => ChatResponse }
+  ).transformResponse(raw);
 }
 
-function callTransformStreamChunk(provider: MiniMaxProvider, raw: unknown): ChatStreamChunk | null {
-  return (provider as unknown as { transformStreamChunk: (r: unknown) => ChatStreamChunk | null }).transformStreamChunk(raw);
+function callTransformStreamChunk(
+  provider: MiniMaxProvider,
+  raw: unknown,
+): ChatStreamChunk | null {
+  return (
+    provider as unknown as {
+      transformStreamChunk: (r: unknown) => ChatStreamChunk | null;
+    }
+  ).transformStreamChunk(raw);
 }
 
 describe("MiniMaxProvider", () => {
@@ -67,14 +91,26 @@ describe("MiniMaxProvider", () => {
 
     it("should have correct pricing for standard models", () => {
       const provider = createProvider();
-      const m27 = provider.listModels().find((m) => m.id === "MiniMax-M2.7")!;
-      expect(m27.pricing).toEqual({ inputPerMillion: 0.3, outputPerMillion: 1.2 });
+      const models = provider.listModels();
+      const m27 = models.find((m) => m.id === "MiniMax-M2.7");
+      expect(m27).toBeDefined();
+      expect(m27?.pricing).toEqual({
+        inputPerMillion: 0.3,
+        outputPerMillion: 1.2,
+      });
     });
 
     it("should have correct pricing for highspeed models", () => {
       const provider = createProvider();
-      const m27h = provider.listModels().find((m) => m.id === "MiniMax-M2.7-highspeed")!;
-      expect(m27h.pricing).toEqual({ inputPerMillion: 0.6, outputPerMillion: 2.4 });
+      const highspeedModels = provider.listModels();
+      const m27h = highspeedModels.find(
+        (m) => m.id === "MiniMax-M2.7-highspeed",
+      );
+      expect(m27h).toBeDefined();
+      expect(m27h?.pricing).toEqual({
+        inputPerMillion: 0.6,
+        outputPerMillion: 2.4,
+      });
     });
 
     it("should have consistent model metadata", () => {
@@ -92,13 +128,19 @@ describe("MiniMaxProvider", () => {
   describe("transformRequest", () => {
     it("should set reasoning_split to true", () => {
       const provider = createProvider();
-      const body = callTransformRequest(provider, {}) as Record<string, unknown>;
+      const body = callTransformRequest(provider, {}) as Record<
+        string,
+        unknown
+      >;
       expect(body.reasoning_split).toBe(true);
     });
 
     it("should include model and messages", () => {
       const provider = createProvider();
-      const body = callTransformRequest(provider, {}) as Record<string, unknown>;
+      const body = callTransformRequest(provider, {}) as Record<
+        string,
+        unknown
+      >;
       expect(body.model).toBe("MiniMax-M2.7");
       expect(body.messages).toEqual([{ role: "user", content: "Hello" }]);
     });
@@ -106,7 +148,13 @@ describe("MiniMaxProvider", () => {
     it("should include tools when provided", () => {
       const provider = createProvider();
       const body = callTransformRequest(provider, {
-        tools: [{ name: "get_weather", description: "Get weather", parameters: { type: "object" } }],
+        tools: [
+          {
+            name: "get_weather",
+            description: "Get weather",
+            parameters: { type: "object" },
+          },
+        ],
       }) as Record<string, unknown>;
       expect(body.tools).toBeDefined();
       expect((body.tools as unknown[]).length).toBe(1);
@@ -119,11 +167,13 @@ describe("MiniMaxProvider", () => {
       const result = callTransformResponse(provider, {
         id: "chat-1",
         model: "MiniMax-M2.7",
-        choices: [{
-          index: 0,
-          finish_reason: "stop",
-          message: { role: "assistant", content: "Hello!" },
-        }],
+        choices: [
+          {
+            index: 0,
+            finish_reason: "stop",
+            message: { role: "assistant", content: "Hello!" },
+          },
+        ],
         usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
       });
 
@@ -138,15 +188,17 @@ describe("MiniMaxProvider", () => {
       const result = callTransformResponse(provider, {
         id: "chat-2",
         model: "MiniMax-M2.7",
-        choices: [{
-          index: 0,
-          finish_reason: "stop",
-          message: {
-            role: "assistant",
-            content: "The answer is 42.",
-            reasoning_details: [{ text: "Let me calculate..." }],
+        choices: [
+          {
+            index: 0,
+            finish_reason: "stop",
+            message: {
+              role: "assistant",
+              content: "The answer is 42.",
+              reasoning_details: [{ text: "Let me calculate..." }],
+            },
           },
-        }],
+        ],
         usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 },
       });
 
@@ -160,18 +212,25 @@ describe("MiniMaxProvider", () => {
       const result = callTransformResponse(provider, {
         id: "chat-3",
         model: "MiniMax-M2.7",
-        choices: [{
-          index: 0,
-          finish_reason: "tool_calls",
-          message: {
-            role: "assistant",
-            content: null,
-            tool_calls: [{
-              id: "call_1",
-              function: { name: "get_weather", arguments: '{"city":"Shanghai"}' },
-            }],
+        choices: [
+          {
+            index: 0,
+            finish_reason: "tool_calls",
+            message: {
+              role: "assistant",
+              content: null,
+              tool_calls: [
+                {
+                  id: "call_1",
+                  function: {
+                    name: "get_weather",
+                    arguments: '{"city":"Shanghai"}',
+                  },
+                },
+              ],
+            },
           },
-        }],
+        ],
         usage: { prompt_tokens: 15, completion_tokens: 8, total_tokens: 23 },
       });
 
@@ -186,15 +245,17 @@ describe("MiniMaxProvider", () => {
       const result = callTransformResponse(provider, {
         id: "chat-4",
         model: "MiniMax-M2.7",
-        choices: [{
-          index: 0,
-          finish_reason: "stop",
-          message: {
-            role: "assistant",
-            content: "Hi",
-            reasoning_details: [],
+        choices: [
+          {
+            index: 0,
+            finish_reason: "stop",
+            message: {
+              role: "assistant",
+              content: "Hi",
+              reasoning_details: [],
+            },
           },
-        }],
+        ],
         usage: { prompt_tokens: 5, completion_tokens: 1, total_tokens: 6 },
       });
 
@@ -206,14 +267,20 @@ describe("MiniMaxProvider", () => {
       const result = callTransformResponse(provider, {
         id: "chat-5",
         model: "MiniMax-M2.7",
-        choices: [{
-          index: 0,
-          finish_reason: "stop",
-          message: { role: "assistant", content: "ok" },
-        }],
+        choices: [
+          {
+            index: 0,
+            finish_reason: "stop",
+            message: { role: "assistant", content: "ok" },
+          },
+        ],
       });
 
-      expect(result.usage).toEqual({ promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+      expect(result.usage).toEqual({
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+      });
     });
   });
 
@@ -221,11 +288,13 @@ describe("MiniMaxProvider", () => {
     it("should parse content delta", () => {
       const provider = createProvider();
       const result = callTransformStreamChunk(provider, {
-        choices: [{
-          index: 0,
-          delta: { content: "Hello" },
-          finish_reason: null,
-        }],
+        choices: [
+          {
+            index: 0,
+            delta: { content: "Hello" },
+            finish_reason: null,
+          },
+        ],
       });
 
       expect(result?.delta.content).toBe("Hello");
@@ -238,21 +307,25 @@ describe("MiniMaxProvider", () => {
 
       // First chunk: full text "Hello"
       const chunk1 = callTransformStreamChunk(provider, {
-        choices: [{
-          index: 0,
-          delta: { reasoning_details: [{ text: "Hello" }] },
-          finish_reason: null,
-        }],
+        choices: [
+          {
+            index: 0,
+            delta: { reasoning_details: [{ text: "Hello" }] },
+            finish_reason: null,
+          },
+        ],
       });
       expect(chunk1?.delta.thinking).toBe("Hello");
 
       // Second chunk: cumulative "Hello World"
       const chunk2 = callTransformStreamChunk(provider, {
-        choices: [{
-          index: 0,
-          delta: { reasoning_details: [{ text: "Hello World" }] },
-          finish_reason: null,
-        }],
+        choices: [
+          {
+            index: 0,
+            delta: { reasoning_details: [{ text: "Hello World" }] },
+            finish_reason: null,
+          },
+        ],
       });
       expect(chunk2?.delta.thinking).toBe(" World");
     });
@@ -262,18 +335,32 @@ describe("MiniMaxProvider", () => {
 
       // Build up some buffer
       callTransformStreamChunk(provider, {
-        choices: [{ index: 0, delta: { reasoning_details: [{ text: "thinking" }] }, finish_reason: null }],
+        choices: [
+          {
+            index: 0,
+            delta: { reasoning_details: [{ text: "thinking" }] },
+            finish_reason: null,
+          },
+        ],
       });
 
       // Stream end
       const endChunk = callTransformStreamChunk(provider, {
-        choices: [{ index: 0, delta: { content: "done" }, finish_reason: "stop" }],
+        choices: [
+          { index: 0, delta: { content: "done" }, finish_reason: "stop" },
+        ],
       });
       expect(endChunk?.finishReason).toBe("stop");
 
       // Next stream should start fresh
       const newChunk = callTransformStreamChunk(provider, {
-        choices: [{ index: 0, delta: { reasoning_details: [{ text: "new thought" }] }, finish_reason: null }],
+        choices: [
+          {
+            index: 0,
+            delta: { reasoning_details: [{ text: "new thought" }] },
+            finish_reason: null,
+          },
+        ],
       });
       expect(newChunk?.delta.thinking).toBe("new thought");
     });
@@ -281,17 +368,21 @@ describe("MiniMaxProvider", () => {
     it("should handle tool calls in stream", () => {
       const provider = createProvider();
       const result = callTransformStreamChunk(provider, {
-        choices: [{
-          index: 0,
-          delta: {
-            tool_calls: [{
-              index: 0,
-              id: "call_1",
-              function: { name: "search", arguments: '{"q":"test"}' },
-            }],
+        choices: [
+          {
+            index: 0,
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call_1",
+                  function: { name: "search", arguments: '{"q":"test"}' },
+                },
+              ],
+            },
+            finish_reason: null,
           },
-          finish_reason: null,
-        }],
+        ],
       });
 
       expect(result?.delta.toolCalls).toEqual([
@@ -306,7 +397,11 @@ describe("MiniMaxProvider", () => {
         usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
       });
 
-      expect(result?.usage).toEqual({ promptTokens: 100, completionTokens: 50, totalTokens: 150 });
+      expect(result?.usage).toEqual({
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      });
     });
 
     it("should return null for empty choices", () => {
@@ -326,11 +421,13 @@ describe("MiniMaxProvider", () => {
     it("should skip reasoning_details when text is empty", () => {
       const provider = createProvider();
       const result = callTransformStreamChunk(provider, {
-        choices: [{
-          index: 0,
-          delta: { reasoning_details: [{ text: "" }] },
-          finish_reason: null,
-        }],
+        choices: [
+          {
+            index: 0,
+            delta: { reasoning_details: [{ text: "" }] },
+            finish_reason: null,
+          },
+        ],
       });
       expect(result?.delta.thinking).toBeUndefined();
     });

@@ -134,7 +134,7 @@ async function walkDir(
 ): Promise<void> {
   if (matches.length >= MAX_MATCHES * 2) return;
 
-  let entries;
+  let entries: import("node:fs").Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
@@ -161,8 +161,8 @@ async function walkDir(
         }
 
         for (let i = 0; i < lines.length; i++) {
-          const line = lines[i]!;
-          if (regex.test(line)) {
+          const line = lines[i];
+          if (line !== undefined && regex.test(line)) {
             matches.push({
               filePath: full,
               lineNum: i + 1,

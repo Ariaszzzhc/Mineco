@@ -32,7 +32,7 @@ export function MessageItem(props: MessageItemProps) {
 
       <Show when={props.message.role === "assistant"}>
         <Show when={props.message.thinking}>
-          <ThinkingBlock text={props.message.thinking!} />
+          {(thinking) => <ThinkingBlock text={thinking()} />}
         </Show>
         <div
           class="prose max-w-none text-sm text-[var(--text-primary)]"
@@ -74,7 +74,9 @@ export function MessageItem(props: MessageItemProps) {
               return (
                 <SubagentCard
                   run={matchingRun}
-                  onClick={() => chatStore.viewSubagent(props.sessionId, matchingRun.runId)}
+                  onClick={() =>
+                    chatStore.viewSubagent(props.sessionId, matchingRun.runId)
+                  }
                 />
               );
             }

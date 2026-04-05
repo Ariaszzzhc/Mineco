@@ -38,6 +38,16 @@ export type {
   SessionStore,
   SubagentRun,
 } from "./session/types.js";
+export type { ResolvedSlashSkill, SkillManifest } from "./skills/index.js";
+// Skills
+export {
+  buildSkillCatalogText,
+  createActivateSkillTool,
+  injectSkillCatalog,
+  resolveSlashSkill,
+  SkillScanner,
+  SkillStore,
+} from "./skills/index.js";
 // Tools
 export { createAgentTool } from "./tools/agent.js";
 export type { ToolContext, ToolDefinition, ToolResult } from "./tools/index.js";
@@ -46,8 +56,5 @@ export {
   defineTool,
   ToolRegistry,
 } from "./tools/index.js";
-// Skills
-export { SkillScanner, SkillStore, createActivateSkillTool, buildSkillCatalogText, injectSkillCatalog, resolveSlashSkill } from "./skills/index.js";
-export type { SkillManifest, ResolvedSlashSkill } from "./skills/index.js";
 // Types
 export type { AgentConfig, AgentEvent } from "./types.js";

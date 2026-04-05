@@ -78,7 +78,7 @@ export const lsTool = defineTool({
         return "";
       }
 
-      let entries;
+      let entries: import("node:fs").Dirent[];
       try {
         entries = await readdir(dir, { withFileTypes: true });
       } catch {

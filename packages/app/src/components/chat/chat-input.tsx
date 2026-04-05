@@ -1,9 +1,9 @@
 import { ArrowUp, Square } from "lucide-solid";
-import { Show, createEffect, createSignal, on } from "solid-js";
+import { createEffect, createSignal, on, Show } from "solid-js";
 import { useI18n } from "../../i18n/index.tsx";
+import type { SkillManifest } from "../../lib/types";
 import { skillStore } from "../../stores/skill-store";
 import { workspaceStore } from "../../stores/workspace";
-import type { SkillManifest } from "../../lib/types";
 import { SlashCommandPalette } from "./slash-command-palette";
 
 interface ChatInputProps {

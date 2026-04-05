@@ -7,7 +7,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-solid";
-import { Show, createEffect, createSignal, For, on } from "solid-js";
+import { createEffect, createSignal, For, on, Show } from "solid-js";
 import { useI18n } from "../../i18n/index.tsx";
 import { api } from "../../lib/api-client";
 import { chatStore } from "../../stores/chat";
@@ -145,8 +145,6 @@ export function Sidebar() {
         <For each={sessionStore.sessions()}>
           {(session) => (
             <div
-              role="button"
-              tabIndex={0}
               class="group flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
               classList={{
                 "bg-[var(--active)] text-[var(--text-primary)]":
@@ -166,12 +164,16 @@ export function Sidebar() {
               <Show
                 when={editingId() === session.id}
                 fallback={
-                  <span
-                    class="flex-1 truncate"
+                  <button
+                    type="button"
+                    class="flex-1 truncate text-left"
                     onDblClick={(e) => startEditing(e, session)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") startEditing(e, session);
+                    }}
                   >
                     {session.title}
-                  </span>
+                  </button>
                 }
               >
                 <input

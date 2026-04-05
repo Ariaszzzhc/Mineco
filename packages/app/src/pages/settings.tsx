@@ -1,11 +1,11 @@
 import { useNavigate } from "@solidjs/router";
 import { ArrowLeft } from "lucide-solid";
 import { onMount } from "solid-js";
-import { useI18n } from "../i18n/index.tsx";
-import type { Locale } from "../i18n/index.tsx";
 import { ProviderForm } from "../components/settings/provider-form";
 import { ProviderList } from "../components/settings/provider-list";
 import { SettingsForm } from "../components/settings/settings-form";
+import type { Locale } from "../i18n/index.tsx";
+import { useI18n } from "../i18n/index.tsx";
 import { configStore } from "../stores/config";
 
 export function SettingsPage() {

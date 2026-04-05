@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { microCompact } from "../../src/context/micro-compact.js";
 import type { Message } from "@mineco/provider";
+import { describe, expect, it } from "vitest";
+import { microCompact } from "../../src/context/micro-compact.js";
 
 describe("microCompact skill content protection", () => {
   const skillContent = `<skill-content data-name="test-skill">

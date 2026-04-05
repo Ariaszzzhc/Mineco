@@ -43,5 +43,9 @@ export function resolveProviderId(
   if (defaultProvider) return defaultProvider;
   const first = config.providers[0];
   if (!first) return null;
-  return first.type === "zhipu" ? "zhipu" : first.type === "minimax" ? "minimax" : (first.id ?? null);
+  return first.type === "zhipu"
+    ? "zhipu"
+    : first.type === "minimax"
+      ? "minimax"
+      : (first.id ?? null);
 }

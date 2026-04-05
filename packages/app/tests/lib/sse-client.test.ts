@@ -8,7 +8,7 @@ function createSSEResponse(chunks: string[], status = 200): Response {
   const stream = new ReadableStream({
     pull(controller) {
       if (index < chunks.length) {
-        controller.enqueue(encoder.encode(chunks[index++]!));
+        controller.enqueue(encoder.encode(chunks[index++] as string));
       } else {
         controller.close();
       }
@@ -49,8 +49,8 @@ describe("streamChat", () => {
         headers: { "Content-Type": "application/json" },
       }),
     );
-    const call = mockFetch.mock.calls[0]!;
-    const body = JSON.parse((call[1] as RequestInit).body as string);
+    const call = mockFetch.mock.calls[0] as [RequestInfo, RequestInit];
+    const body = JSON.parse(call[1].body as string);
     expect(body).toEqual({
       message: "hello",
       providerId: "zhipu",
@@ -213,8 +213,8 @@ describe("streamChat", () => {
     mockFetch.mockResolvedValue(createSSEResponse([]));
     const { promise } = streamChat("s1", "hi", "zhipu", "glm-4", () => {});
     await promise;
-    const call = mockFetch.mock.calls[0]!;
-    const init = call[1] as RequestInit;
+    const call = mockFetch.mock.calls[0] as [RequestInfo, RequestInit];
+    const init = call[1];
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 });

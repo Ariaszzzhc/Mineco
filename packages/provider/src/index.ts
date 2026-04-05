@@ -1,8 +1,8 @@
 // Types
 
+export type { MiniMaxConfig, MiniMaxPlatform } from "./adapters/minimax.js";
 // Adapters
 export { MiniMaxProvider } from "./adapters/minimax.js";
-export type { MiniMaxConfig, MiniMaxPlatform } from "./adapters/minimax.js";
 export { OpenAICompatAdapter } from "./adapters/openai-compat.js";
 export type {
   ZhipuConfig,

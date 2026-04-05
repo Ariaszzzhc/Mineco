@@ -1,12 +1,12 @@
 import { fireEvent, render } from "@solidjs/testing-library";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { I18nProvider } from "../../../src/i18n/index.tsx";
 import type { AppConfig } from "../../../src/lib/types";
 import {
   createOpenAIProvider,
   createTestConfig,
   createZhipuProvider,
 } from "../../helper/fixture";
-import { I18nProvider } from "../../../src/i18n/index.tsx";
 
 // Use a mutable reference so the mock factory can access it
 const mockConfigRef: { value: () => AppConfig | null } = {
@@ -78,7 +78,8 @@ describe("SettingsForm", () => {
 
     // Select the openai-compatible provider
     const selects = container.querySelectorAll("select");
-    fireEvent.change(selects[0]!, { target: { value: "test-provider" } });
+    const providerSelect = selects[0] as HTMLSelectElement;
+    fireEvent.change(providerSelect, { target: { value: "test-provider" } });
 
     // Should now show a second select for model
     expect(container.querySelectorAll("select").length).toBeGreaterThanOrEqual(
@@ -130,7 +131,7 @@ describe("SettingsForm", () => {
     fireEvent.change(providerSelect, { target: { value: "test-provider" } });
 
     // Save
-    const saveBtn = container.querySelector("button")!;
+    const saveBtn = container.querySelector("button") as HTMLButtonElement;
     fireEvent.click(saveBtn);
 
     await vi.waitFor(() => {
@@ -154,7 +155,7 @@ describe("SettingsForm", () => {
     ));
 
     // Don't select anything, just click save
-    const saveBtn = container.querySelector("button")!;
+    const saveBtn = container.querySelector("button") as HTMLButtonElement;
     fireEvent.click(saveBtn);
 
     await vi.waitFor(() => {

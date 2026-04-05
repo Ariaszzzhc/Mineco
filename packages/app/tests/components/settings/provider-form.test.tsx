@@ -13,6 +13,17 @@ import { configStore } from "../../../src/stores/config";
 
 const mockAddProvider = configStore.addProvider as ReturnType<typeof vi.fn>;
 
+function getForm(container: HTMLElement): HTMLFormElement {
+  return container.querySelector("form") as HTMLFormElement;
+}
+
+function getCompatButton(container: HTMLElement): HTMLButtonElement {
+  const buttons = container.querySelectorAll("button");
+  return Array.from(buttons).find((b) =>
+    b.textContent?.includes("OpenAI Compatible"),
+  ) as HTMLButtonElement;
+}
+
 describe("ProviderForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -49,11 +60,7 @@ describe("ProviderForm", () => {
       </I18nProvider>
     ));
     // Click "OpenAI Compatible" toggle
-    const buttons = container.querySelectorAll("button");
-    const compatBtn = Array.from(buttons).find((b) =>
-      b.textContent?.includes("OpenAI Compatible"),
-    );
-    fireEvent.click(compatBtn!);
+    fireEvent.click(getCompatButton(container));
 
     // Should now show Provider ID, Base URL, API Key, Model fields
     const inputs = container.querySelectorAll("input");
@@ -74,8 +81,7 @@ describe("ProviderForm", () => {
     fireEvent.input(apiKeyInput, { target: { value: "test-key" } });
 
     // Submit form
-    const form = container.querySelector("form")!;
-    fireEvent.submit(form);
+    fireEvent.submit(getForm(container));
 
     await vi.waitFor(() => {
       expect(mockAddProvider).toHaveBeenCalledWith(
@@ -95,24 +101,25 @@ describe("ProviderForm", () => {
     ));
 
     // Switch to OpenAI Compatible
-    const buttons = container.querySelectorAll("button");
-    const compatBtn = Array.from(buttons).find((b) =>
-      b.textContent?.includes("OpenAI Compatible"),
-    );
-    fireEvent.click(compatBtn!);
+    fireEvent.click(getCompatButton(container));
 
     // Fill fields
     const inputs = container.querySelectorAll("input");
-    fireEvent.input(inputs[0]!, { target: { value: "deepseek" } }); // Provider ID
-    fireEvent.input(inputs[1]!, {
+    fireEvent.input(inputs[0] as HTMLInputElement, {
+      target: { value: "deepseek" },
+    }); // Provider ID
+    fireEvent.input(inputs[1] as HTMLInputElement, {
       target: { value: "https://api.deepseek.com/v1" },
     }); // Base URL
-    fireEvent.input(inputs[3]!, { target: { value: "deepseek-chat" } }); // Model ID
-    fireEvent.input(inputs[4]!, { target: { value: "DeepSeek Chat" } }); // Model name
+    fireEvent.input(inputs[3] as HTMLInputElement, {
+      target: { value: "deepseek-chat" },
+    }); // Model ID
+    fireEvent.input(inputs[4] as HTMLInputElement, {
+      target: { value: "DeepSeek Chat" },
+    }); // Model name
 
     // Submit
-    const form = container.querySelector("form")!;
-    fireEvent.submit(form);
+    fireEvent.submit(getForm(container));
 
     await vi.waitFor(() => {
       expect(mockAddProvider).toHaveBeenCalledWith(
@@ -134,23 +141,24 @@ describe("ProviderForm", () => {
     ));
 
     // Switch to OpenAI Compatible
-    const buttons = container.querySelectorAll("button");
-    const compatBtn = Array.from(buttons).find((b) =>
-      b.textContent?.includes("OpenAI Compatible"),
-    );
-    fireEvent.click(compatBtn!);
+    fireEvent.click(getCompatButton(container));
 
     // Fill only required fields (no api key)
     const inputs = container.querySelectorAll("input");
-    fireEvent.input(inputs[0]!, { target: { value: "ollama" } });
-    fireEvent.input(inputs[1]!, {
+    fireEvent.input(inputs[0] as HTMLInputElement, {
+      target: { value: "ollama" },
+    });
+    fireEvent.input(inputs[1] as HTMLInputElement, {
       target: { value: "http://localhost:11434/v1" },
     });
-    fireEvent.input(inputs[3]!, { target: { value: "llama3" } });
-    fireEvent.input(inputs[4]!, { target: { value: "Llama 3" } });
+    fireEvent.input(inputs[3] as HTMLInputElement, {
+      target: { value: "llama3" },
+    });
+    fireEvent.input(inputs[4] as HTMLInputElement, {
+      target: { value: "Llama 3" },
+    });
 
-    const form = container.querySelector("form")!;
-    fireEvent.submit(form);
+    fireEvent.submit(getForm(container));
 
     await vi.waitFor(() => {
       const call = mockAddProvider.mock.calls[0]?.[0] as Record<
@@ -173,8 +181,7 @@ describe("ProviderForm", () => {
     ) as HTMLInputElement;
     fireEvent.input(apiKeyInput, { target: { value: "test-key" } });
 
-    const form = container.querySelector("form")!;
-    fireEvent.submit(form);
+    fireEvent.submit(getForm(container));
 
     await vi.waitFor(() => {
       expect(mockAddProvider).toHaveBeenCalled();
@@ -199,8 +206,7 @@ describe("ProviderForm", () => {
     ) as HTMLInputElement;
     fireEvent.input(apiKeyInput, { target: { value: "test-key" } });
 
-    const form = container.querySelector("form")!;
-    fireEvent.submit(form);
+    fireEvent.submit(getForm(container));
 
     await vi.waitFor(() => {
       expect(mockAddProvider).toHaveBeenCalled();

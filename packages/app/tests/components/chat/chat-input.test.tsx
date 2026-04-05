@@ -3,6 +3,22 @@ import { describe, expect, it, vi } from "vitest";
 import { ChatInput } from "../../../src/components/chat/chat-input";
 import { I18nProvider } from "../../../src/i18n/index.tsx";
 
+function getTextArea(container: HTMLElement): HTMLTextAreaElement {
+  return container.querySelector("textarea") as HTMLTextAreaElement;
+}
+
+function getSendButton(container: HTMLElement): HTMLButtonElement {
+  return container.querySelector(
+    'button[aria-label="Send message"]',
+  ) as HTMLButtonElement;
+}
+
+function getStopButton(container: HTMLElement): HTMLButtonElement {
+  return container.querySelector(
+    'button[aria-label="Stop streaming"]',
+  ) as HTMLButtonElement;
+}
+
 describe("ChatInput", () => {
   it("should render textarea and send button", () => {
     const { container } = render(() => (
@@ -10,10 +26,8 @@ describe("ChatInput", () => {
         <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
       </I18nProvider>
     ));
-    expect(container.querySelector("textarea")).toBeTruthy();
-    expect(
-      container.querySelector('button[aria-label="Send message"]'),
-    ).toBeTruthy();
+    expect(getTextArea(container)).toBeTruthy();
+    expect(getSendButton(container)).toBeTruthy();
   });
 
   it("should show stop button when isStreaming", () => {
@@ -22,9 +36,7 @@ describe("ChatInput", () => {
         <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={true} />
       </I18nProvider>
     ));
-    expect(
-      container.querySelector('button[aria-label="Stop streaming"]'),
-    ).toBeTruthy();
+    expect(getStopButton(container)).toBeTruthy();
     expect(
       container.querySelector('button[aria-label="Send message"]'),
     ).toBeFalsy();
@@ -36,9 +48,7 @@ describe("ChatInput", () => {
         <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
       </I18nProvider>
     ));
-    expect(
-      container.querySelector('button[aria-label="Send message"]'),
-    ).toBeTruthy();
+    expect(getSendButton(container)).toBeTruthy();
     expect(
       container.querySelector('button[aria-label="Stop streaming"]'),
     ).toBeFalsy();
@@ -55,9 +65,7 @@ describe("ChatInput", () => {
         />
       </I18nProvider>
     ));
-    expect(
-      (container.querySelector("textarea") as HTMLTextAreaElement).disabled,
-    ).toBe(true);
+    expect(getTextArea(container).disabled).toBe(true);
   });
 
   it("should disable textarea when isStreaming", () => {
@@ -66,9 +74,7 @@ describe("ChatInput", () => {
         <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={true} />
       </I18nProvider>
     ));
-    expect(
-      (container.querySelector("textarea") as HTMLTextAreaElement).disabled,
-    ).toBe(true);
+    expect(getTextArea(container).disabled).toBe(true);
   });
 
   it("should disable send button when textarea is empty", () => {
@@ -77,10 +83,7 @@ describe("ChatInput", () => {
         <ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />
       </I18nProvider>
     ));
-    const btn = container.querySelector(
-      'button[aria-label="Send message"]',
-    ) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
+    expect(getSendButton(container).disabled).toBe(true);
   });
 
   it("should call onSend with trimmed value on send button click", () => {
@@ -91,11 +94,10 @@ describe("ChatInput", () => {
       </I18nProvider>
     ));
 
-    const textarea = container.querySelector("textarea")!;
+    const textarea = getTextArea(container);
     fireEvent.input(textarea, { target: { value: "  hello  " } });
 
-    const btn = container.querySelector('button[aria-label="Send message"]')!;
-    fireEvent.click(btn);
+    fireEvent.click(getSendButton(container));
 
     expect(onSend).toHaveBeenCalledWith("hello");
   });
@@ -107,11 +109,10 @@ describe("ChatInput", () => {
       </I18nProvider>
     ));
 
-    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    const textarea = getTextArea(container);
     fireEvent.input(textarea, { target: { value: "hello" } });
 
-    const btn = container.querySelector('button[aria-label="Send message"]')!;
-    fireEvent.click(btn);
+    fireEvent.click(getSendButton(container));
 
     expect(textarea.value).toBe("");
   });
@@ -124,7 +125,7 @@ describe("ChatInput", () => {
       </I18nProvider>
     ));
 
-    const textarea = container.querySelector("textarea")!;
+    const textarea = getTextArea(container);
     fireEvent.input(textarea, { target: { value: "hello" } });
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
 
@@ -139,7 +140,7 @@ describe("ChatInput", () => {
       </I18nProvider>
     ));
 
-    const textarea = container.querySelector("textarea")!;
+    const textarea = getTextArea(container);
     fireEvent.input(textarea, { target: { value: "hello" } });
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
 
@@ -159,8 +160,7 @@ describe("ChatInput", () => {
       </I18nProvider>
     ));
 
-    const textarea = container.querySelector("textarea")!;
-    // Can't type when disabled, but let's test the guard
+    const textarea = getTextArea(container);
     fireEvent.keyDown(textarea, { key: "Enter" });
     expect(onSend).not.toHaveBeenCalled();
   });
@@ -173,11 +173,9 @@ describe("ChatInput", () => {
       </I18nProvider>
     ));
 
-    const textarea = container.querySelector("textarea")!;
+    const textarea = getTextArea(container);
     fireEvent.input(textarea, { target: { value: "   " } });
-    const btn = container.querySelector(
-      'button[aria-label="Send message"]',
-    ) as HTMLButtonElement;
+    const btn = getSendButton(container);
     expect(btn.disabled).toBe(true);
 
     fireEvent.click(btn);
@@ -192,8 +190,7 @@ describe("ChatInput", () => {
       </I18nProvider>
     ));
 
-    const btn = container.querySelector('button[aria-label="Stop streaming"]')!;
-    fireEvent.click(btn);
+    fireEvent.click(getStopButton(container));
     expect(onStop).toHaveBeenCalled();
   });
 });

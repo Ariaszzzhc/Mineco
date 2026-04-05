@@ -3,24 +3,24 @@ import {
   type AgentEvent,
   AgentLoop,
   agentDefinitions,
-  buildSystemPrompt,
   buildSkillCatalogText,
+  buildSystemPrompt,
   ContextManager,
   createActivateSkillTool,
   createAgentTool,
   createDefaultToolRegistry,
+  injectSkillCatalog,
+  resolveSlashSkill,
   type SessionMessage,
   type SessionStore,
   SkillScanner,
   SkillStore,
-  resolveSlashSkill,
-  injectSkillCatalog,
 } from "@mineco/agent";
 import type { ProviderRegistry } from "@mineco/provider";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import type { SessionRunManager } from "../storage/session-run-manager.js";
 import type { SqliteSessionNotesStore } from "../storage/session-notes-store.js";
+import type { SessionRunManager } from "../storage/session-run-manager.js";
 import type { SqliteWorkspaceStore } from "../storage/workspace-store.js";
 
 export function createChatRoutes(
@@ -52,9 +52,7 @@ export function createChatRoutes(
   }
 
   tools.register(
-    createActivateSkillTool((workingDir) =>
-      skillStoreCache.get(workingDir),
-    ),
+    createActivateSkillTool((workingDir) => skillStoreCache.get(workingDir)),
   );
 
   const contextManager = new ContextManager();
@@ -116,6 +114,11 @@ export function createChatRoutes(
       return c.json({ error: "providerId and model are required" }, 400);
     }
 
+    // Store validated values to avoid non-null assertions
+    const providerId = body.providerId;
+    const model = body.model;
+    const message = body.message;
+
     // Acquire per-session mutex to serialize requests to the same session
     const mutex = runManager.getMutex(sessionId);
     await mutex.lock();
@@ -138,7 +141,7 @@ export function createChatRoutes(
     // Check for /skill-name syntax in user message
     let actualMessage = body.message;
     let skillInjection: string | undefined;
-    const resolved = resolveSlashSkill(body.message, skillStore);
+    const resolved = resolveSlashSkill(message, skillStore);
     if (resolved) {
       actualMessage = resolved.remaining || resolved.skill.description;
       skillInjection = `<skill-content data-name="${resolved.skill.name}">\n# Skill: ${resolved.skill.name}\n\n${resolved.skill.instructions}\n</skill-content>`;
@@ -157,7 +160,7 @@ export function createChatRoutes(
       workingDir,
       platform: process.platform,
       date: new Date().toISOString().split("T")[0] ?? new Date().toDateString(),
-      model: body.model!,
+      model,
     });
     systemPrompt = injectSkillCatalog(systemPrompt, skillCatalog);
 
@@ -190,13 +193,13 @@ export function createChatRoutes(
 
       // Start title generation concurrently with agent loop
       const titlePromise = isFirstMessage
-        ? generateTitle(body.providerId!, body.model!, body.message!, sessionId)
+        ? generateTitle(providerId, model, message, sessionId)
         : null;
 
       try {
         for await (const event of loop.run(session, {
-          providerId: body.providerId!,
-          model: body.model!,
+          providerId,
+          model,
           systemPrompt,
           workingDir,
           maxSteps: 50,
@@ -235,7 +238,10 @@ export function createChatRoutes(
               await store.addMessage(sessionId, msg);
               await stream.writeSSE({
                 event: "message-persisted",
-                data: JSON.stringify({ type: "message-persisted", message: msg }),
+                data: JSON.stringify({
+                  type: "message-persisted",
+                  message: msg,
+                }),
               });
               currentText = "";
               currentThinking = "";
@@ -283,7 +289,10 @@ export function createChatRoutes(
               await store.addMessage(sessionId, msg);
               await stream.writeSSE({
                 event: "message-persisted",
-                data: JSON.stringify({ type: "message-persisted", message: msg }),
+                data: JSON.stringify({
+                  type: "message-persisted",
+                  message: msg,
+                }),
               });
             }
           }

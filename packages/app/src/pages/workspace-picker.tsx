@@ -1,7 +1,7 @@
 import { useNavigate } from "@solidjs/router";
 import { createSignal, For, onMount, Show } from "solid-js";
-import { useI18n } from "../i18n/index.tsx";
 import { DirBrowser } from "../components/workspace/dir-browser";
+import { useI18n } from "../i18n/index.tsx";
 import { usePlatform } from "../lib/platform";
 import { workspaceStore } from "../stores/workspace";
 
