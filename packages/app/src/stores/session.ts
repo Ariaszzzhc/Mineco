@@ -1,5 +1,6 @@
 import { createStore } from "solid-js/store";
 import { api } from "../lib/api-client";
+import type { SessionMessage } from "../lib/types";
 
 type Session = Awaited<ReturnType<typeof api.getSession>>;
 
@@ -37,8 +38,8 @@ async function selectSession(id: string) {
   }
 }
 
-function addSession(session: Session) {
-  setState("sessions", [session, ...state.sessions]);
+function addSession(session: Omit<Session, "running">) {
+  setState("sessions", [{ ...session, running: false }, ...state.sessions]);
 }
 
 function removeSession(id: string) {
@@ -51,14 +52,29 @@ function removeSession(id: string) {
   }
 }
 
-async function refreshCurrentSession() {
-  if (!state.currentSession) return;
-  const session = await api.getSession(state.currentSession.id);
-  setState("currentSession", session);
-  // Also update in the list
-  const idx = state.sessions.findIndex((s) => s.id === session.id);
+function refreshCurrentSession() {
+  if (!state.currentSession) return Promise.resolve();
+  return refreshSession(state.currentSession.id);
+}
+
+async function refreshSession(id: string) {
+  const session = await api.getSession(id);
+  const idx = state.sessions.findIndex((s) => s.id === id);
   if (idx !== -1) {
     setState("sessions", idx, session);
+  }
+  if (state.currentSession?.id === id) {
+    setState("currentSession", session);
+  }
+}
+
+function addMessageToSession(sessionId: string, message: SessionMessage) {
+  const idx = state.sessions.findIndex((s) => s.id === sessionId);
+  if (idx !== -1) {
+    setState("sessions", idx, "messages", (prev) => [...prev, message]);
+  }
+  if (state.currentSession?.id === sessionId) {
+    setState("currentSession", "messages", (prev) => [...prev, message]);
   }
 }
 
@@ -81,5 +97,7 @@ export const sessionStore = {
   addSession,
   removeSession,
   refreshCurrentSession,
+  refreshSession,
+  addMessageToSession,
   updateTitle,
 };

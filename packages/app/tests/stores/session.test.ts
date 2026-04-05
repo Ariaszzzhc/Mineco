@@ -88,7 +88,7 @@ describe("sessionStore", () => {
       sessionStore.addSession(newSession);
 
       expect(sessionStore.sessions()).toHaveLength(2);
-      expect(sessionStore.sessions()[0]).toEqual(newSession);
+      expect(sessionStore.sessions()[0]).toEqual({ ...newSession, running: false });
     });
   });
 

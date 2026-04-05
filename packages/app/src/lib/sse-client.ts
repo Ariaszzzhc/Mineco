@@ -14,6 +14,7 @@ export function streamChat(
   model: string,
   onEvent: (event: AgentEvent) => void,
   baseUrlOverride?: string,
+  onConnected?: () => void,
 ): StreamHandle {
   const controller = new AbortController();
 
@@ -39,6 +40,9 @@ export function streamChat(
         (body as { error?: string }).error ?? `HTTP ${res.status}`,
       );
     }
+
+    // User message is now persisted on the server
+    onConnected?.();
 
     const reader = res.body?.getReader();
     if (!reader) throw new Error("No response body");

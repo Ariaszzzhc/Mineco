@@ -225,12 +225,17 @@ export function createChatRoutes(
           } else if (event.type === "tool-call") {
             // Tool call marks end of current assistant text
             if (currentText || currentThinking) {
-              await store.addMessage(sessionId, {
+              const msg: SessionMessage = {
                 id: randomUUID(),
                 role: "assistant",
                 content: currentText,
                 ...(currentThinking ? { thinking: currentThinking } : {}),
                 createdAt: Date.now(),
+              };
+              await store.addMessage(sessionId, msg);
+              await stream.writeSSE({
+                event: "message-persisted",
+                data: JSON.stringify({ type: "message-persisted", message: msg }),
               });
               currentText = "";
               currentThinking = "";
@@ -268,12 +273,17 @@ export function createChatRoutes(
             }
             // Save final assistant text
             if (currentText || currentThinking) {
-              await store.addMessage(sessionId, {
+              const msg: SessionMessage = {
                 id: randomUUID(),
                 role: "assistant",
                 content: currentText,
                 ...(currentThinking ? { thinking: currentThinking } : {}),
                 createdAt: Date.now(),
+              };
+              await store.addMessage(sessionId, msg);
+              await stream.writeSSE({
+                event: "message-persisted",
+                data: JSON.stringify({ type: "message-persisted", message: msg }),
               });
             }
           }

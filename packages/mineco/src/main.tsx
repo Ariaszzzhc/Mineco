@@ -3,7 +3,7 @@
 import { createApp } from "@mineco/app";
 import { render } from "solid-js/web";
 import { createTauriPlatform } from "./platform";
-import "@mineco/app/index.css";
+import "./index.css";
 
 const apiUrl = (window as unknown as Record<string, string>).__MINECO_API_URL__;
 

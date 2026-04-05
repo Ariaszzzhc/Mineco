@@ -10,7 +10,6 @@ import {
 import { Show, createEffect, createSignal, For, on } from "solid-js";
 import { useI18n } from "../../i18n/index.tsx";
 import { api } from "../../lib/api-client";
-import type { Session } from "../../lib/types";
 import { chatStore } from "../../stores/chat";
 import { sessionStore } from "../../stores/session";
 import { workspaceStore } from "../../stores/workspace";
@@ -73,7 +72,7 @@ export function Sidebar() {
     }
   }
 
-  function startEditing(e: Event, session: Session) {
+  function startEditing(e: Event, session: { id: string; title: string }) {
     e.stopPropagation();
     setEditingId(session.id);
     setEditingTitle(session.title);
@@ -144,7 +143,7 @@ export function Sidebar() {
       {/* Session list */}
       <div class="flex-1 overflow-y-auto px-2">
         <For each={sessionStore.sessions()}>
-          {(session: Session) => (
+          {(session) => (
             <div
               role="button"
               tabIndex={0}

@@ -131,6 +131,11 @@ export type SubagentEndEvent = {
   summary: string;
 };
 
+export type MessagePersistedEvent = {
+  type: "message-persisted";
+  message: SessionMessage;
+};
+
 export type AgentEvent =
   | TextDeltaEvent
   | ThinkingDeltaEvent
@@ -143,4 +148,5 @@ export type AgentEvent =
   | TitleGeneratedEvent
   | SubagentStartEvent
   | SubagentEventEvent
-  | SubagentEndEvent;
+  | SubagentEndEvent
+  | MessagePersistedEvent;

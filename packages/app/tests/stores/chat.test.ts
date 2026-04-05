@@ -8,6 +8,9 @@ const mockConfigStore = vi.hoisted(() => ({
 }));
 const mockSessionStore = vi.hoisted(() => ({
   refreshCurrentSession: vi.fn(async () => {}),
+  refreshSession: vi.fn(async () => {}),
+  addMessageToSession: vi.fn(),
+  updateTitle: vi.fn(),
 }));
 
 vi.mock("../../src/lib/sse-client", () => ({
@@ -40,6 +43,8 @@ describe("chatStore", () => {
         _pid: string,
         _model: string,
         onEvent: (e: AgentEvent) => void,
+        _baseUrlOverride?: string,
+        _onConnected?: () => void,
       ) => {
         capturedOnEvent = onEvent;
         return {
@@ -145,6 +150,8 @@ describe("chatStore", () => {
         "hello",
         "zhipu",
         "glm-4",
+        expect.any(Function),
+        undefined,
         expect.any(Function),
       );
     });
@@ -270,9 +277,9 @@ describe("chatStore", () => {
       expect(chatStore.isStreaming(SID)).toBe(false);
     });
 
-    it("should call refreshCurrentSession in finally", async () => {
+    it("should call refreshSession in finally", async () => {
       await chatStore.startStream(SID, "hello");
-      expect(mockSessionStore.refreshCurrentSession).toHaveBeenCalled();
+      expect(mockSessionStore.refreshSession).toHaveBeenCalledWith(SID);
     });
 
     it("should handle AbortError silently", async () => {
@@ -383,6 +390,74 @@ describe("chatStore", () => {
 
       resolveStream2?.();
       await p2;
+    });
+
+    it("should handle message-persisted event by clearing streaming text and thinking", async () => {
+      let resolveStream: () => void = () => {};
+      mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
+        capturedOnEvent = onEvent;
+        return {
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
+          abort: mockAbort,
+        };
+      });
+
+      const p = chatStore.startStream(SID, "hello");
+      capturedOnEvent({ type: "text-delta", delta: "Hello" });
+      capturedOnEvent({ type: "thinking-delta", delta: "Thinking..." });
+      expect(chatStore.streamingText(SID)).toBe("Hello");
+      expect(chatStore.streamingThinking(SID)).toBe("Thinking...");
+
+      const persistedMsg = {
+        id: "msg-1",
+        role: "assistant" as const,
+        content: "Hello",
+        thinking: "Thinking...",
+        createdAt: Date.now(),
+      };
+      capturedOnEvent({ type: "message-persisted", message: persistedMsg });
+      expect(mockSessionStore.addMessageToSession).toHaveBeenCalledWith(SID, persistedMsg);
+      expect(chatStore.streamingText(SID)).toBe("");
+      expect(chatStore.streamingThinking(SID)).toBe("");
+
+      resolveStream?.();
+      await p;
+    });
+
+    it("should keep tool calls in streaming state after message-persisted", async () => {
+      let resolveStream: () => void = () => {};
+      mockStreamChat.mockImplementation((_s, _m, _p, _mo, onEvent) => {
+        capturedOnEvent = onEvent;
+        return {
+          promise: new Promise<void>((r) => {
+            resolveStream = r;
+          }),
+          abort: mockAbort,
+        };
+      });
+
+      const p = chatStore.startStream(SID, "hello");
+      capturedOnEvent({ type: "text-delta", delta: "Hello" });
+      const tc = {
+        type: "tool-call" as const,
+        toolCallId: "tc1",
+        toolName: "read",
+        args: {},
+      };
+      capturedOnEvent(tc);
+
+      // Persist clears text but not tool calls
+      capturedOnEvent({
+        type: "message-persisted",
+        message: { id: "msg-1", role: "assistant" as const, content: "Hello", createdAt: Date.now() },
+      });
+      expect(chatStore.streamingText(SID)).toBe("");
+      expect(chatStore.streamingToolCalls(SID)).toHaveLength(1);
+
+      resolveStream?.();
+      await p;
     });
   });
 

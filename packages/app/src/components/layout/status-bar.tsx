@@ -62,9 +62,12 @@ export function StatusBar() {
     return model?.contextWindow ?? null;
   });
 
+  const activeSessionId = () => chatStore.activeSessionId();
+
   const usagePercent = createMemo(() => {
     const cw = contextWindow();
-    const usage = chatStore.sessionUsage();
+    const sid = activeSessionId();
+    const usage = sid ? chatStore.sessionUsage(sid) : { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
     if (!cw || cw === 0) return 0;
     return Math.min((usage.totalTokens / cw) * 100, 100);
   });
@@ -112,7 +115,7 @@ export function StatusBar() {
             <Cpu size={12} class="shrink-0 text-[var(--text-muted)]" />
             <div class="flex items-center gap-1.5">
               <span class="whitespace-nowrap tabular-nums">
-                {formatTokens(chatStore.sessionUsage().totalTokens)}
+                {formatTokens(activeSessionId() ? chatStore.sessionUsage(activeSessionId()!).totalTokens : 0)}
               </span>
               <span class="text-[var(--text-muted)]">/</span>
               <span class="whitespace-nowrap tabular-nums">
@@ -137,10 +140,10 @@ export function StatusBar() {
         <Show
           when={subscriptionStore.info()}
           fallback={
-            <Show when={chatStore.sessionUsage().totalTokens > 0}>
+            <Show when={activeSessionId() && chatStore.sessionUsage(activeSessionId()!).totalTokens > 0}>
               <span class="tabular-nums">
-                {formatTokens(chatStore.sessionUsage().promptTokens)} in +{" "}
-                {formatTokens(chatStore.sessionUsage().completionTokens)} out
+                {formatTokens(chatStore.sessionUsage(activeSessionId()!).promptTokens)} in +{" "}
+                {formatTokens(chatStore.sessionUsage(activeSessionId()!).completionTokens)} out
               </span>
             </Show>
           }

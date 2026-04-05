@@ -103,17 +103,8 @@ export function MessageList(props: MessageListProps) {
     <div ref={scrollRef} class="flex-1 overflow-y-auto px-4 py-6">
       <div class="mx-auto max-w-3xl">
         <For each={props.messages}>
-          {(msg) => <MessageItem message={msg} />}
+          {(msg) => <MessageItem message={msg} sessionId={sid()} />}
         </For>
-
-        {/* Optimistic user message shown during streaming */}
-        <Show when={chatStore.pendingUserMessage(sid())}>
-          <div class="py-3">
-            <div class="rounded-xl bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--text-primary)]">
-              {chatStore.pendingUserMessage(sid())}
-            </div>
-          </div>
-        </Show>
 
         {/* Completed streaming segments */}
         <For each={chatStore.streamingMessages(sid())}>

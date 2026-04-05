@@ -2,7 +2,7 @@
 
 import { createApp } from "@mineco/app";
 import { render } from "solid-js/web";
-import "@mineco/app/index.css";
+import "./index.css";
 import { createBrowserPlatform } from "./platform";
 
 const platform = createBrowserPlatform();

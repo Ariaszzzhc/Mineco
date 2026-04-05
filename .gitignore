@@ -97,3 +97,4 @@ dist
 .turbo
 packages/core/sea-config.json
 .claude/worktrees/
+.vscode
