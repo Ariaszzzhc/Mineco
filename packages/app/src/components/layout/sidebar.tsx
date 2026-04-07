@@ -145,18 +145,13 @@ export function Sidebar() {
         <For each={sessionStore.sessions()}>
           {(session) => (
             <div
-              class="group flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
+              class="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
               classList={{
                 "bg-[var(--active)] text-[var(--text-primary)]":
                   currentSessionId() === session.id,
                 "text-[var(--text-secondary)] hover:bg-[var(--hover)]":
                   currentSessionId() !== session.id,
               }}
-              onClick={() =>
-                navigate(
-                  `/workspaces/${session.workspaceId}/sessions/${session.id}`,
-                )
-              }
             >
               <Show when={chatStore.isStreaming(session.id)}>
                 <span class="inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--primary)] animate-pulse" />
@@ -164,16 +159,19 @@ export function Sidebar() {
               <Show
                 when={editingId() === session.id}
                 fallback={
-                  <button
-                    type="button"
+                  <a
+                    href={`/workspaces/${session.workspaceId}/sessions/${session.id}`}
                     class="flex-1 truncate text-left"
                     onDblClick={(e) => startEditing(e, session)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") startEditing(e, session);
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(
+                        `/workspaces/${session.workspaceId}/sessions/${session.id}`,
+                      );
                     }}
                   >
                     {session.title}
-                  </button>
+                  </a>
                 }
               >
                 <input

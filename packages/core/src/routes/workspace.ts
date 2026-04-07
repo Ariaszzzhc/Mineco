@@ -1,11 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { createWorkspaceSchema } from "../config/schema.js";
-import {
-  getCurrentBranch,
-  getGitRoot,
-  isGitRepo,
-} from "../lib/git.js";
+import { getCurrentBranch, getGitRoot, isGitRepo } from "../lib/git.js";
 import type { SqliteWorkspaceStore } from "../storage/workspace-store.js";
 
 export function createWorkspaceRoutes(store: SqliteWorkspaceStore) {
@@ -48,9 +44,7 @@ export function createWorkspaceRoutes(store: SqliteWorkspaceStore) {
       }
 
       const gitRoot = await getGitRoot(workspace.path);
-      const currentBranch = gitRoot
-        ? await getCurrentBranch(gitRoot)
-        : null;
+      const currentBranch = gitRoot ? await getCurrentBranch(gitRoot) : null;
 
       return c.json({ isGitRepo: true, gitRoot, currentBranch });
     })

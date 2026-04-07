@@ -1,10 +1,7 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import {
-  type Migration,
-  type MigrationProvider,
-} from "kysely";
+import type { Migration, MigrationProvider } from "kysely";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

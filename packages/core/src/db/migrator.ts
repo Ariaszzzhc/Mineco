@@ -1,7 +1,4 @@
-import {
-  type Kysely,
-  Migrator,
-} from "kysely";
+import { type Kysely, Migrator } from "kysely";
 import { getMigrationProvider } from "./migration-provider.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: Kysely migration API requires any

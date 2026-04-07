@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
-import { join, basename, resolve } from "node:path";
-import { type Plugin, build } from "esbuild";
+import { basename, join, resolve } from "node:path";
+import { build, type Plugin } from "esbuild";
 
 const root = join(import.meta.dirname, "..");
 const migrationsDir = join(root, "src/db/migrations");
@@ -29,26 +29,24 @@ const staticMigrationsPlugin: Plugin = {
       return null;
     });
 
-    build.onLoad(
-      { filter: /.*/, namespace: "static-migrations" },
-      async () => {
-        const files = readdirSync(migrationsDir).filter((f) =>
-          /\.(ts|js)$/.test(f),
+    build.onLoad({ filter: /.*/, namespace: "static-migrations" }, async () => {
+      const files = readdirSync(migrationsDir).filter((f) =>
+        /\.(ts|js)$/.test(f),
+      );
+
+      const imports: string[] = [];
+      const entries: string[] = [];
+
+      for (const file of files) {
+        const name = basename(file, file.includes(".ts") ? ".ts" : ".js");
+        const safeId = `m_${name.replace(/-/g, "_")}`;
+        imports.push(
+          `import * as ${safeId} from "./src/db/migrations/${name}.js";`,
         );
+        entries.push(`  "${name}": ${safeId},`);
+      }
 
-        const imports: string[] = [];
-        const entries: string[] = [];
-
-        for (const file of files) {
-          const name = basename(file, file.includes(".ts") ? ".ts" : ".js");
-          const safeId = `m_${name.replace(/-/g, "_")}`;
-          imports.push(
-            `import * as ${safeId} from "./src/db/migrations/${name}.js";`,
-          );
-          entries.push(`  "${name}": ${safeId},`);
-        }
-
-        const contents = `
+      const contents = `
 import { type Migration, type MigrationProvider } from "kysely";
 
 ${imports.join("\n")}
@@ -66,9 +64,8 @@ export function getMigrationProvider(): MigrationProvider {
 }
 `;
 
-        return { contents, loader: "ts", resolveDir: root };
-      },
-    );
+      return { contents, loader: "ts", resolveDir: root };
+    });
   },
 };
 

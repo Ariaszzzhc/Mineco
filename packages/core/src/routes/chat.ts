@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { PermissionDecision, PermissionRequest } from "@mineco/agent";
 import {
   type AgentEvent,
   AgentLoop,
@@ -16,7 +17,6 @@ import {
   SkillScanner,
   SkillStore,
 } from "@mineco/agent";
-import type { PermissionDecision, PermissionRequest } from "@mineco/agent";
 import type { ProviderRegistry } from "@mineco/provider";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";

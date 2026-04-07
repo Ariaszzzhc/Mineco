@@ -28,10 +28,16 @@ function isWithinWorkspace(filePath: string, workingDir: string): boolean {
     ? filePath
     : path.join(workingDir, filePath);
   const normalized = path.normalize(resolved);
-  return normalized.startsWith(path.normalize(workingDir));
+  const normalizedDir = path.normalize(workingDir);
+  // Use trailing separator to prevent substring match
+  // e.g. /home/user/app should not match /home/user/application
+  return (
+    normalized === normalizedDir ||
+    normalized.startsWith(normalizedDir + path.sep)
+  );
 }
 
-function extractFilePath(
+function extractPath(
   toolName: string,
   args: Record<string, unknown>,
 ): string | null {
@@ -40,8 +46,13 @@ function extractFilePath(
     toolName === "write_file" ||
     toolName === "edit"
   ) {
-    const fp = args["file_path"];
+    const fp = args.file_path;
     return typeof fp === "string" ? fp : null;
+  }
+  // grep, glob, ls use "path" for the directory to search
+  if (toolName === "grep" || toolName === "glob" || toolName === "ls") {
+    const p = args.path;
+    return typeof p === "string" ? p : null;
   }
   return null;
 }
@@ -62,7 +73,7 @@ export function checkPermission(
   }
 
   if (risk === "execute") {
-    const command = typeof args["command"] === "string" ? args["command"] : "";
+    const command = typeof args.command === "string" ? args.command : "";
     return {
       id: randomUUID(),
       toolName,
@@ -72,7 +83,7 @@ export function checkPermission(
     };
   }
 
-  const filePath = extractFilePath(toolName, args);
+  const filePath = extractPath(toolName, args);
   if (filePath && !isWithinWorkspace(filePath, workingDir)) {
     return {
       id: randomUUID(),

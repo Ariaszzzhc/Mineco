@@ -3,12 +3,7 @@ import { createStore } from "solid-js/store";
 import { getApiBaseUrl } from "../lib/api-base";
 import { getPlatform } from "../lib/platform";
 import { streamChat } from "../lib/sse-client";
-import type {
-  AgentEvent,
-  PermissionRequestEvent,
-  ToolCallEvent,
-  ToolResultEvent,
-} from "../lib/types";
+import type { AgentEvent, ToolCallEvent, ToolResultEvent } from "../lib/types";
 import { configStore } from "./config";
 import { sessionStore } from "./session";
 
@@ -435,7 +430,9 @@ async function respondPermission(
 ) {
   const baseUrl = getApiBaseUrl();
   const platform = getPlatform();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (platform.token) {
     headers.Authorization = `Bearer ${platform.token}`;
   }

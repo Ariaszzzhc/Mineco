@@ -8,8 +8,8 @@ import type {
 import type { ToolCall, Usage } from "@mineco/provider";
 import type { Kysely } from "kysely";
 import type { Database } from "./schema.js";
-import { WorktreeService } from "./worktree-service.js";
 import type { SqliteWorkspaceStore } from "./workspace-store.js";
+import { WorktreeService } from "./worktree-service.js";
 
 interface SessionCreateOptions {
   mode?: "regular" | "worktree";
@@ -241,9 +241,7 @@ export class SqliteSessionStore implements SessionStore {
 
     if (!session?.worktree_path) return false;
 
-    return this.worktreeService.checkUncommittedChanges(
-      session.worktree_path,
-    );
+    return this.worktreeService.checkUncommittedChanges(session.worktree_path);
   }
 
   async createRun(run: SubagentRun): Promise<void> {
@@ -291,9 +289,7 @@ export class SqliteSessionStore implements SessionStore {
   }
 }
 
-function sessionRowToSummary(
-  s: Database["sessions"],
-): Session {
+function sessionRowToSummary(s: Database["sessions"]): Session {
   return {
     id: s.id,
     title: s.title,
