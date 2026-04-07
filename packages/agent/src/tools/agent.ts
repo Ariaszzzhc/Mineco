@@ -103,6 +103,9 @@ export function createAgentTool(deps: {
         workingDir: ctx.workingDir,
         maxSteps: definition.maxSteps,
         ...(ctx.signal ? { signal: ctx.signal } : {}),
+        ...(ctx.requestPermission
+          ? { requestPermission: ctx.requestPermission }
+          : {}),
       };
 
       let summary = "";

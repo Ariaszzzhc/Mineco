@@ -144,6 +144,9 @@ export class AgentLoop {
         model: config.model,
         ...(config.emitEvent ? { emitEvent: config.emitEvent } : {}),
         ...(config.signal ? { signal: config.signal } : {}),
+        ...(config.requestPermission
+          ? { requestPermission: config.requestPermission }
+          : {}),
       });
 
       for (const tc of collectedCalls) {

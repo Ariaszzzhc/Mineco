@@ -50,8 +50,16 @@ export {
 } from "./skills/index.js";
 // Tools
 export { createAgentTool } from "./tools/agent.js";
-export type { ToolContext, ToolDefinition, ToolResult } from "./tools/index.js";
+export type {
+  PermissionDecision,
+  PermissionRequest,
+  ToolContext,
+  ToolDefinition,
+  ToolResult,
+  ToolRisk,
+} from "./tools/index.js";
 export {
+  checkPermission,
   createDefaultToolRegistry,
   defineTool,
   ToolRegistry,

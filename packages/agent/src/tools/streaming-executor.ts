@@ -1,3 +1,4 @@
+import { checkPermission } from "./permission.js";
 import type { ToolRegistry } from "./registry.js";
 import type { ToolContext, ToolResult } from "./types.js";
 
@@ -124,6 +125,24 @@ export class StreamingToolExecutor {
       };
       tool.status = "completed";
       return;
+    }
+
+    // Permission check before execution
+    const permRequest = checkPermission(
+      tool.name,
+      tool.argsJson,
+      this.context.workingDir,
+    );
+    if (permRequest && this.context.requestPermission) {
+      const decision = await this.context.requestPermission(permRequest);
+      if (decision === "deny") {
+        tool.result = {
+          output: `Permission denied: ${permRequest.reason}`,
+          isError: true,
+        };
+        tool.status = "completed";
+        return;
+      }
     }
 
     tool.status = "executing";

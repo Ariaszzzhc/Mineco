@@ -138,6 +138,15 @@ export type MessagePersistedEvent = {
   message: SessionMessage;
 };
 
+export type PermissionRequestEvent = {
+  type: "permission-request";
+  requestId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  riskLevel: "read" | "write" | "execute";
+  reason: string;
+};
+
 export type AgentEvent =
   | TextDeltaEvent
   | ThinkingDeltaEvent
@@ -151,4 +160,5 @@ export type AgentEvent =
   | SubagentStartEvent
   | SubagentEventEvent
   | SubagentEndEvent
-  | MessagePersistedEvent;
+  | MessagePersistedEvent
+  | PermissionRequestEvent;

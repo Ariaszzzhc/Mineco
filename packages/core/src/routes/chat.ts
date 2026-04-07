@@ -16,9 +16,11 @@ import {
   SkillScanner,
   SkillStore,
 } from "@mineco/agent";
+import type { PermissionDecision, PermissionRequest } from "@mineco/agent";
 import type { ProviderRegistry } from "@mineco/provider";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import type { PendingPermissionStore } from "../services/pending-permission-store.js";
 import type { SqliteSessionNotesStore } from "../storage/session-notes-store.js";
 import type { SessionRunManager } from "../storage/session-run-manager.js";
 import type { SqliteWorkspaceStore } from "../storage/workspace-store.js";
@@ -29,6 +31,7 @@ export function createChatRoutes(
   workspaceStore: SqliteWorkspaceStore,
   notesStore: SqliteSessionNotesStore,
   runManager: SessionRunManager,
+  permissionStore: PendingPermissionStore,
 ) {
   const tools = createDefaultToolRegistry();
   tools.register(
@@ -191,6 +194,28 @@ export function createChatRoutes(
         });
       };
 
+      const requestPermission = async (
+        request: PermissionRequest,
+      ): Promise<PermissionDecision> => {
+        // Send permission-request SSE event to frontend
+        await stream.writeSSE({
+          event: "permission-request",
+          data: JSON.stringify({
+            type: "permission-request",
+            requestId: request.id,
+            toolName: request.toolName,
+            args: request.args,
+            riskLevel: request.riskLevel,
+            reason: request.reason,
+          }),
+        });
+
+        // Wait for user response via API
+        return new Promise<PermissionDecision>((resolve, reject) => {
+          permissionStore.set(request.id, resolve, reject);
+        });
+      };
+
       // Start title generation concurrently with agent loop
       const titlePromise = isFirstMessage
         ? generateTitle(providerId, model, message, sessionId)
@@ -204,6 +229,7 @@ export function createChatRoutes(
           workingDir,
           maxSteps: 50,
           emitEvent,
+          requestPermission,
           signal: abortController.signal,
         })) {
           // Subagent events are emitted directly via emitEvent callback;
