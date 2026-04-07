@@ -34,6 +34,7 @@ import {
   SqliteWorkspaceStore,
 } from "./storage/index.js";
 import type { Database } from "./storage/schema.js";
+import { WorktreeService } from "./storage/worktree-service.js";
 
 type Env = {
   Variables: RequestIdVariables;
@@ -79,6 +80,7 @@ function buildRoutes(deps: {
         deps.sessionStore,
         deps.sessionNotesStore,
         deps.runManager,
+        deps.sessionStore as SqliteSessionStore,
       ),
     )
     .route(
@@ -115,9 +117,13 @@ async function main() {
   });
   await migrateToLatest(db);
 
-  const sessionStore = new SqliteSessionStore(db);
-  const sessionNotesStore = new SqliteSessionNotesStore(db);
   const workspaceStore = new SqliteWorkspaceStore(db);
+  const worktreeService = new WorktreeService();
+  const sessionStore = new SqliteSessionStore(db, {
+    worktreeService,
+    workspaceStore,
+  });
+  const sessionNotesStore = new SqliteSessionNotesStore(db);
 
   // --- Config system ---
   const pricingDB = new PricingDB();

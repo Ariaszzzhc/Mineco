@@ -88,7 +88,17 @@ const en = {
 
   // Workspace page
   "workspace.newSession": "New Session",
+  "workspace.newSession.regular": "Regular Session",
+  "workspace.newSession.worktree": "Worktree Session",
   "workspace.session.empty": "No sessions yet. Create one to get started.",
+
+  // Worktree
+  "workspace.worktree.branchName": "Branch Name",
+  "workspace.worktree.branchPlaceholder": "e.g. fix-auth-bug",
+  "workspace.worktree.create": "Create Worktree Session",
+  "workspace.worktree.badge": "worktree",
+  "workspace.worktree.uncommittedTitle": "Uncommitted Changes",
+  "workspace.worktree.uncommittedMessage": "This worktree has uncommitted changes that will be lost. Delete anyway?",
 
   // Dir browser
   "dir.selectDirectory": "Select Directory",

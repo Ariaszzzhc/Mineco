@@ -29,6 +29,8 @@ export interface Session {
   id: string;
   title: string;
   workspaceId: string;
+  worktreePath: string | null;
+  worktreeBranch: string | null;
   messages: SessionMessage[];
   createdAt: number;
   updatedAt: number;

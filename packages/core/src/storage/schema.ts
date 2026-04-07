@@ -10,6 +10,8 @@ export interface Database {
     id: string;
     title: string;
     workspace_id: string;
+    worktree_path: string | null;
+    worktree_branch: string | null;
     created_at: number;
     updated_at: number;
   };
