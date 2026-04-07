@@ -212,15 +212,17 @@ export function WorkspacePage() {
         <div class="space-y-1">
           <For each={sessions()}>
             {(session) => (
-              <div
-                class="group flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--hover)]"
-                onClick={() =>
-                  navigate(
-                    `/workspaces/${session.workspaceId}/sessions/${session.id}`,
-                  )
-                }
-              >
-                <div class="min-w-0 flex-1">
+              <div class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--hover)]">
+                <a
+                  href={`/workspaces/${session.workspaceId}/sessions/${session.id}`}
+                  class="min-w-0 flex-1"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(
+                      `/workspaces/${session.workspaceId}/sessions/${session.id}`,
+                    );
+                  }}
+                >
                   <div class="flex items-center gap-2">
                     <span class="truncate text-sm text-[var(--text-primary)]">
                       {session.title}
@@ -235,7 +237,7 @@ export function WorkspacePage() {
                   <div class="text-xs text-[var(--text-muted)]">
                     {new Date(session.updatedAt).toLocaleString()}
                   </div>
-                </div>
+                </a>
                 <button
                   type="button"
                   onClick={(e) => {

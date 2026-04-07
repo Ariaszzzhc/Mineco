@@ -1,3 +1,4 @@
+import type { PermissionDecision } from "./permission.js";
 import { checkPermission } from "./permission.js";
 import type { ToolRegistry } from "./registry.js";
 import type { ToolContext, ToolResult } from "./types.js";
@@ -134,7 +135,18 @@ export class StreamingToolExecutor {
       this.context.workingDir,
     );
     if (permRequest && this.context.requestPermission) {
-      const decision = await this.context.requestPermission(permRequest);
+      let decision: PermissionDecision;
+      try {
+        decision = await this.context.requestPermission(permRequest);
+      } catch {
+        // Timeout or other error — treat as denied
+        tool.result = {
+          output: `Permission request failed: ${permRequest.reason}`,
+          isError: true,
+        };
+        tool.status = "completed";
+        return;
+      }
       if (decision === "deny") {
         tool.result = {
           output: `Permission denied: ${permRequest.reason}`,

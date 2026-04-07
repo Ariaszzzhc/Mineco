@@ -96,10 +96,7 @@ function buildRoutes(deps: {
         deps.permissionStore,
       ),
     )
-    .route(
-      "/api/sessions",
-      createPermissionRoutes(deps.permissionStore),
-    )
+    .route("/api/sessions", createPermissionRoutes(deps.permissionStore))
     .route("/api/stats", createStatsRoutes(deps.usageStore))
     .route("/api/skills", createSkillsRoutes());
 

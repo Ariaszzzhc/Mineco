@@ -22,10 +22,7 @@ export function createPermissionRoutes(store: PendingPermissionStore) {
     );
 
     if (!resolved) {
-      return c.json(
-        { error: "Permission request not found or expired" },
-        404,
-      );
+      return c.json({ error: "Permission request not found or expired" }, 404);
     }
 
     return c.json({ ok: true });

@@ -1,5 +1,5 @@
-import { AlertTriangle, Play, ShieldAlert, Terminal, FileEdit, FileSearch } from "lucide-solid";
-import { Show, For } from "solid-js";
+import { FileEdit, FileSearch, Terminal } from "lucide-solid";
+import { For, Show } from "solid-js";
 import { chatStore } from "../../stores/chat.ts";
 
 interface PermissionDialogProps {
@@ -20,7 +20,19 @@ export function PermissionDialog(props: PermissionDialogProps) {
             return (
               <div class="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
                 <div class="mb-2 flex items-center gap-2">
-                  <Show when={isExecute} fallback={<Show when={isWrite} fallback={<FileSearch size={16} class="text-[var(--info)]" />}><FileEdit size={16} class="text-[var(--warning)]" /></Show>}>
+                  <Show
+                    when={isExecute}
+                    fallback={
+                      <Show
+                        when={isWrite}
+                        fallback={
+                          <FileSearch size={16} class="text-[var(--info)]" />
+                        }
+                      >
+                        <FileEdit size={16} class="text-[var(--warning)]" />
+                      </Show>
+                    }
+                  >
                     <Terminal size={16} class="text-[var(--error)]" />
                   </Show>
                   <span class="text-sm font-medium text-[var(--text)]">
@@ -40,17 +52,14 @@ export function PermissionDialog(props: PermissionDialogProps) {
                 <Show when={perm.toolName === "bash" && perm.args?.command}>
                   {(command) => (
                     <pre class="mb-2 max-h-[120px] overflow-auto rounded bg-[var(--code-background)] p-2 text-xs text-[var(--text-secondary)]">
-                      {typeof command() === "string" ? command() : JSON.stringify(command(), null, 2)}
+                      {typeof command() === "string"
+                        ? command()
+                        : JSON.stringify(command(), null, 2)}
                     </pre>
                   )}
                 </Show>
 
-                <Show
-                  when={
-                    perm.toolName !== "bash" &&
-                    perm.args?.file_path
-                  }
-                >
+                <Show when={perm.toolName !== "bash" && perm.args?.file_path}>
                   {(fp) => (
                     <p class="mb-2 font-mono text-xs text-[var(--text-muted)]">
                       {typeof fp() === "string" ? fp() : JSON.stringify(fp())}
