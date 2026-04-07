@@ -5,16 +5,21 @@ import { z } from "zod";
 import { createSessionSchema, updateSessionSchema } from "../config/schema.js";
 import type { SqliteSessionNotesStore } from "../storage/session-notes-store.js";
 import type { SessionRunManager } from "../storage/session-run-manager.js";
+import type { SqliteSessionStore } from "../storage/session-store.js";
 
 export function createSessionRoutes(
   store: SessionStore,
   notesStore?: SqliteSessionNotesStore,
   runManager?: SessionRunManager,
+  sessionStore?: SqliteSessionStore,
 ) {
   return new Hono()
     .post("/", zValidator("json", createSessionSchema), async (c) => {
-      const { workspaceId } = c.req.valid("json");
-      const session = await store.create(workspaceId);
+      const { workspaceId, mode, branchName } = c.req.valid("json");
+      const session = await store.create(workspaceId, {
+        mode,
+        branchName,
+      });
       return c.json(session);
     })
     .get("/", async (c) => {
@@ -63,9 +68,20 @@ export function createSessionRoutes(
       return c.json({ ok: true });
     })
     .delete("/:id", async (c) => {
+      const sessionId = c.req.param("id");
+      const force = c.req.query("force") === "true";
+
+      // Check for uncommitted changes in worktree sessions
+      if (!force && sessionStore) {
+        const hasChanges = await sessionStore.hasUncommittedChanges(sessionId);
+        if (hasChanges) {
+          return c.json({ ok: false, hasUncommittedChanges: true });
+        }
+      }
+
       // Abort if running before deleting
-      runManager?.abort(c.req.param("id"));
-      await store.delete(c.req.param("id"));
+      runManager?.abort(sessionId);
+      await store.delete(sessionId);
       return c.json({ ok: true });
     })
     .get("/:id/notes", async (c) => {

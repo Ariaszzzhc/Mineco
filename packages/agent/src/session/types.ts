@@ -18,6 +18,8 @@ export interface Session {
   id: string;
   title: string;
   workspaceId: string;
+  worktreePath: string | null;
+  worktreeBranch: string | null;
   messages: SessionMessage[];
   createdAt: number;
   updatedAt: number;
@@ -35,7 +37,10 @@ export interface SubagentRun {
 }
 
 export interface SessionStore {
-  create(workspaceId: string): Promise<Session>;
+  create(
+    workspaceId: string,
+    options?: { mode?: "regular" | "worktree"; branchName?: string },
+  ): Promise<Session>;
   get(id: string): Promise<Session | undefined>;
   list(): Promise<Session[]>;
   listByWorkspace(workspaceId: string): Promise<Session[]>;

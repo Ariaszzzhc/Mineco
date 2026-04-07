@@ -58,6 +58,15 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
   },
 
+  async getWorkspaceGitInfo(id: string) {
+    const client = getClient();
+    const res = await client.api.workspaces[":id"]["git-info"].$get({
+      param: { id },
+    });
+    if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    return res.json();
+  },
+
   // Filesystem browsing
   async browseFs(path?: string) {
     const client = getClient();
@@ -69,9 +78,18 @@ export const api = {
   },
 
   // Sessions
-  async createSession(workspaceId: string) {
+  async createSession(
+    workspaceId: string,
+    options?: { mode?: "regular" | "worktree"; branchName?: string },
+  ) {
     const client = getClient();
-    const res = await client.api.sessions.$post({ json: { workspaceId } });
+    const res = await client.api.sessions.$post({
+      json: {
+        workspaceId,
+        mode: options?.mode,
+        branchName: options?.branchName,
+      },
+    });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
     return res.json();
   },
@@ -91,10 +109,19 @@ export const api = {
     return res.json();
   },
 
-  async deleteSession(id: string) {
+  async deleteSession(id: string, force?: boolean) {
     const client = getClient();
-    const res = await client.api.sessions[":id"].$delete({ param: { id } });
+    const query = force ? { force: "true" } : undefined;
+    const res = await client.api.sessions[":id"].$delete({
+      param: { id },
+      query,
+    });
     if (!res.ok) throw new ApiError(res.status, await extractError(res));
+    const contentLength = res.headers.get("Content-Length");
+    if (res.status === 204 || contentLength === "0") return undefined;
+    const text = await res.text();
+    if (!text) return undefined;
+    return JSON.parse(text);
   },
 
   async updateSessionTitle(id: string, title: string) {

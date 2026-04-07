@@ -87,7 +87,17 @@ const zhCN = {
 
   // Workspace page
   "workspace.newSession": "新会话",
+  "workspace.newSession.regular": "普通会话",
+  "workspace.newSession.worktree": "Worktree 会话",
   "workspace.session.empty": "还没有会话。创建一个开始吧。",
+
+  // Worktree
+  "workspace.worktree.branchName": "分支名称",
+  "workspace.worktree.branchPlaceholder": "例如 fix-auth-bug",
+  "workspace.worktree.create": "创建 Worktree 会话",
+  "workspace.worktree.badge": "worktree",
+  "workspace.worktree.uncommittedTitle": "未提交的更改",
+  "workspace.worktree.uncommittedMessage": "此 worktree 有未提交的更改，删除后将丢失。确定要删除吗？",
 
   // Dir browser
   "dir.selectDirectory": "选择目录",

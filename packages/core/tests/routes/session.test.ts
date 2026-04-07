@@ -24,7 +24,9 @@ describe("Session Routes", () => {
       expect(body.id).toBeDefined();
       expect(body.title).toBe("New Session");
       expect(body.messages).toEqual([]);
-      expect(store.create).toHaveBeenCalledWith("ws-1");
+      expect(store.create).toHaveBeenCalledWith("ws-1", {
+        mode: "regular",
+      });
     });
   });
 
@@ -42,6 +44,8 @@ describe("Session Routes", () => {
           id: "s1",
           title: "Session 1",
           workspaceId: "ws-1",
+          worktreePath: null,
+          worktreeBranch: null,
           messages: [],
           createdAt: 1000,
           updatedAt: 2000,
@@ -63,6 +67,8 @@ describe("Session Routes", () => {
         id: "test-id",
         title: "Test",
         workspaceId: "ws-1",
+        worktreePath: null,
+        worktreeBranch: null,
         messages: [],
         createdAt: 1000,
         updatedAt: 2000,

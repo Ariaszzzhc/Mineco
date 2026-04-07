@@ -50,6 +50,8 @@ export const createWorkspaceSchema = z.object({
 
 export const createSessionSchema = z.object({
   workspaceId: z.string().min(1),
+  mode: z.enum(["regular", "worktree"]).optional().default("regular"),
+  branchName: z.string().optional(),
 });
 
 export const updateSessionSchema = z.object({

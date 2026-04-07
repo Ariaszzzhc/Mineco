@@ -8,13 +8,60 @@ import type {
 import type { ToolCall, Usage } from "@mineco/provider";
 import type { Kysely } from "kysely";
 import type { Database } from "./schema.js";
+import { WorktreeService } from "./worktree-service.js";
+import type { SqliteWorkspaceStore } from "./workspace-store.js";
+
+interface SessionCreateOptions {
+  mode?: "regular" | "worktree";
+  branchName?: string;
+}
 
 export class SqliteSessionStore implements SessionStore {
-  constructor(private db: Kysely<Database>) {}
+  private worktreeService: WorktreeService;
+  private workspaceStore: SqliteWorkspaceStore | null;
 
-  async create(workspaceId: string): Promise<Session> {
+  constructor(
+    private db: Kysely<Database>,
+    deps?: {
+      worktreeService?: WorktreeService;
+      workspaceStore?: SqliteWorkspaceStore;
+    },
+  ) {
+    this.worktreeService = deps?.worktreeService ?? new WorktreeService();
+    this.workspaceStore = deps?.workspaceStore ?? null;
+  }
+
+  async create(
+    workspaceId: string,
+    options?: SessionCreateOptions,
+  ): Promise<Session> {
     const now = Date.now();
     const id = randomUUID();
+    let worktreePath: string | null = null;
+    let worktreeBranch: string | null = null;
+
+    if (options?.mode === "worktree") {
+      if (!this.workspaceStore) {
+        throw new Error("Workspace store is required for worktree sessions");
+      }
+      const workspace = await this.workspaceStore.get(workspaceId);
+      if (!workspace) {
+        throw new Error("Workspace not found");
+      }
+
+      const info = await this.worktreeService.getWorktreeInfo(workspace.path);
+      if (!info.isGitRepo || !info.gitRoot) {
+        throw new Error("Workspace is not a git repository");
+      }
+
+      const worktree = await this.worktreeService.createWorktree(
+        info.gitRoot,
+        id,
+        options.branchName,
+      );
+      worktreePath = worktree.path;
+      worktreeBranch = worktree.branch;
+    }
 
     await this.db
       .insertInto("sessions")
@@ -22,6 +69,8 @@ export class SqliteSessionStore implements SessionStore {
         id,
         title: "New Session",
         workspace_id: workspaceId,
+        worktree_path: worktreePath,
+        worktree_branch: worktreeBranch,
         created_at: now,
         updated_at: now,
       })
@@ -31,6 +80,8 @@ export class SqliteSessionStore implements SessionStore {
       id,
       title: "New Session",
       workspaceId,
+      worktreePath,
+      worktreeBranch,
       messages: [],
       createdAt: now,
       updatedAt: now,
@@ -57,6 +108,8 @@ export class SqliteSessionStore implements SessionStore {
       id: session.id,
       title: session.title,
       workspaceId: session.workspace_id,
+      worktreePath: session.worktree_path,
+      worktreeBranch: session.worktree_branch,
       messages: rows.map(rowToMessage),
       createdAt: session.created_at,
       updatedAt: session.updated_at,
@@ -70,14 +123,7 @@ export class SqliteSessionStore implements SessionStore {
       .orderBy("updated_at", "desc")
       .execute();
 
-    return sessions.map((s) => ({
-      id: s.id,
-      title: s.title,
-      workspaceId: s.workspace_id,
-      messages: [],
-      createdAt: s.created_at,
-      updatedAt: s.updated_at,
-    }));
+    return sessions.map(sessionRowToSummary);
   }
 
   async listByWorkspace(workspaceId: string): Promise<Session[]> {
@@ -88,14 +134,7 @@ export class SqliteSessionStore implements SessionStore {
       .orderBy("updated_at", "desc")
       .execute();
 
-    return sessions.map((s) => ({
-      id: s.id,
-      title: s.title,
-      workspaceId: s.workspace_id,
-      messages: [],
-      createdAt: s.created_at,
-      updatedAt: s.updated_at,
-    }));
+    return sessions.map(sessionRowToSummary);
   }
 
   async addMessage(sessionId: string, msg: SessionMessage): Promise<void> {
@@ -170,8 +209,41 @@ export class SqliteSessionStore implements SessionStore {
   }
 
   async delete(id: string): Promise<void> {
+    // Clean up worktree if present
+    const session = await this.db
+      .selectFrom("sessions")
+      .select(["worktree_path", "worktree_branch"])
+      .where("id", "=", id)
+      .executeTakeFirst();
+
+    if (session?.worktree_path) {
+      try {
+        await this.worktreeService.deleteWorktree(session.worktree_path);
+      } catch {
+        // Best-effort cleanup — worktree may already be removed
+      }
+    }
+
     await this.db.deleteFrom("messages").where("session_id", "=", id).execute();
     await this.db.deleteFrom("sessions").where("id", "=", id).execute();
+  }
+
+  /**
+   * Check if a worktree session has uncommitted changes.
+   * Returns false for regular sessions.
+   */
+  async hasUncommittedChanges(id: string): Promise<boolean> {
+    const session = await this.db
+      .selectFrom("sessions")
+      .select(["worktree_path"])
+      .where("id", "=", id)
+      .executeTakeFirst();
+
+    if (!session?.worktree_path) return false;
+
+    return this.worktreeService.checkUncommittedChanges(
+      session.worktree_path,
+    );
   }
 
   async createRun(run: SubagentRun): Promise<void> {
@@ -217,6 +289,21 @@ export class SqliteSessionStore implements SessionStore {
 
     return rows.map(rowToRun);
   }
+}
+
+function sessionRowToSummary(
+  s: Database["sessions"],
+): Session {
+  return {
+    id: s.id,
+    title: s.title,
+    workspaceId: s.workspace_id,
+    worktreePath: s.worktree_path,
+    worktreeBranch: s.worktree_branch,
+    messages: [],
+    createdAt: s.created_at,
+    updatedAt: s.updated_at,
+  };
 }
 
 function rowToRun(row: Database["runs"]): SubagentRun {

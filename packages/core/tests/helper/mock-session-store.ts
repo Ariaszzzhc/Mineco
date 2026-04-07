@@ -6,10 +6,15 @@ export function createMockSessionStore(
 ): SessionStore {
   return {
     create: vi.fn(
-      async (workspaceId: string): Promise<Session> => ({
+      async (
+        workspaceId: string,
+        _options?: { mode?: string; branchName?: string },
+      ): Promise<Session> => ({
         id: "mock-session-id",
         title: "New Session",
         workspaceId,
+        worktreePath: null,
+        worktreeBranch: null,
         messages: [],
         createdAt: Date.now(),
         updatedAt: Date.now(),

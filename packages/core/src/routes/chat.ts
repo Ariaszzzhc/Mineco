@@ -130,9 +130,9 @@ export function createChatRoutes(
       return c.json({ error: "Session not found" }, 404);
     }
 
-    // Resolve working directory from workspace
+    // Resolve working directory — use worktree path for worktree sessions
     const workspace = await workspaceStore.get(session.workspaceId);
-    const workingDir = workspace?.path ?? process.cwd();
+    const workingDir = session.worktreePath ?? workspace?.path ?? process.cwd();
 
     // Resolve skills for this workspace
     const skillStore = await getSkillStore(workingDir);
