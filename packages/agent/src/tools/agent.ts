@@ -84,6 +84,8 @@ export function createAgentTool(deps: {
         id: ctx.sessionId ?? randomUUID(),
         title: `Subagent: ${definition.type}`,
         workspaceId: "",
+        worktreePath: null,
+        worktreeBranch: null,
         messages: [
           {
             id: randomUUID(),

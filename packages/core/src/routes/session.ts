@@ -16,7 +16,7 @@ export function createSessionRoutes(
       const { workspaceId, mode, branchName } = c.req.valid("json");
       const session = await store.create(workspaceId, {
         mode,
-        branchName,
+        ...(branchName !== undefined && { branchName }),
       });
       return c.json(session);
     })
