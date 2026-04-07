@@ -15,6 +15,8 @@ const en = {
   "common.delete": "Delete",
   "common.cancel": "Cancel",
   "common.confirm": "Confirm",
+  "common.error": "An error occurred",
+  "common.dismiss": "Dismiss",
 
   // Sidebar
   "sidebar.newSession": "New session",
@@ -98,7 +100,8 @@ const en = {
   "workspace.worktree.create": "Create Worktree Session",
   "workspace.worktree.badge": "worktree",
   "workspace.worktree.uncommittedTitle": "Uncommitted Changes",
-  "workspace.worktree.uncommittedMessage": "This worktree has uncommitted changes that will be lost. Delete anyway?",
+  "workspace.worktree.uncommittedMessage":
+    "This worktree has uncommitted changes that will be lost. Delete anyway?",
 
   // Dir browser
   "dir.selectDirectory": "Select Directory",

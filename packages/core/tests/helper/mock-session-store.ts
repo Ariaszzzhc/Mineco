@@ -30,6 +30,7 @@ export function createMockSessionStore(
     createRun: vi.fn(async () => {}),
     updateRun: vi.fn(async () => {}),
     getRunsBySession: vi.fn(async () => []),
+    hasUncommittedChanges: vi.fn(async () => false),
     ...overrides,
   };
 }

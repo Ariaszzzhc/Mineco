@@ -23,6 +23,7 @@ export function WorkspacePage() {
   const [gitInfo, setGitInfo] = createSignal<GitInfo | null>(null);
   const [showWorktreeDialog, setShowWorktreeDialog] = createSignal(false);
   const [confirmDelete, setConfirmDelete] = createSignal<string | null>(null);
+  const [deleteError, setDeleteError] = createSignal<string | null>(null);
 
   createEffect(
     on(
@@ -87,6 +88,7 @@ export function WorkspacePage() {
   }
 
   async function handleDeleteSession(id: string) {
+    setDeleteError(null);
     try {
       const result = await api.deleteSession(id);
       if (result.hasUncommittedChanges) {
@@ -95,16 +97,17 @@ export function WorkspacePage() {
       }
       sessionStore.removeSession(id);
     } catch (err) {
-      console.error("Failed to delete session:", err);
+      setDeleteError(err instanceof Error ? err.message : t("common.error"));
     }
   }
 
   async function handleForceDeleteSession(id: string) {
+    setDeleteError(null);
     try {
       await api.deleteSession(id, true);
       sessionStore.removeSession(id);
     } catch (err) {
-      console.error("Failed to delete session:", err);
+      setDeleteError(err instanceof Error ? err.message : t("common.error"));
     }
     setConfirmDelete(null);
   }
@@ -185,6 +188,18 @@ export function WorkspacePage() {
 
       {/* Sessions */}
       <div class="flex-1 overflow-y-auto px-6 py-4">
+        <Show when={deleteError()}>
+          <div class="mb-3 flex items-center justify-between rounded-lg bg-red-500/10 px-3 py-2 text-xs text-[var(--error)]">
+            <span>{deleteError()}</span>
+            <button
+              type="button"
+              class="ml-2 font-medium hover:underline"
+              onClick={() => setDeleteError(null)}
+            >
+              {t("common.dismiss")}
+            </button>
+          </div>
+        </Show>
         <Show when={sessions().length === 0}>
           <div class="flex h-full items-center justify-center">
             <div class="text-center">

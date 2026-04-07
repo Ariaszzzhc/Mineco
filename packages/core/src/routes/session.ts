@@ -5,13 +5,11 @@ import { z } from "zod";
 import { createSessionSchema, updateSessionSchema } from "../config/schema.js";
 import type { SqliteSessionNotesStore } from "../storage/session-notes-store.js";
 import type { SessionRunManager } from "../storage/session-run-manager.js";
-import type { SqliteSessionStore } from "../storage/session-store.js";
 
 export function createSessionRoutes(
   store: SessionStore,
   notesStore?: SqliteSessionNotesStore,
   runManager?: SessionRunManager,
-  sessionStore?: SqliteSessionStore,
 ) {
   return new Hono()
     .post("/", zValidator("json", createSessionSchema), async (c) => {
@@ -72,8 +70,8 @@ export function createSessionRoutes(
       const force = c.req.query("force") === "true";
 
       // Check for uncommitted changes in worktree sessions
-      if (!force && sessionStore) {
-        const hasChanges = await sessionStore.hasUncommittedChanges(sessionId);
+      if (!force) {
+        const hasChanges = await store.hasUncommittedChanges(sessionId);
         if (hasChanges) {
           return c.json({ ok: false, hasUncommittedChanges: true });
         }
