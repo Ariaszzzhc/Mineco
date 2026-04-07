@@ -7,6 +7,7 @@ import { ActiveSkillBadge } from "./active-skill-badge";
 import { ChatInput } from "./chat-input";
 import { HeroPrompt } from "./hero-prompt";
 import { MessageList } from "./message-list";
+import { PermissionDialog } from "./permission-dialog";
 import { SubagentView } from "./subagent-view";
 
 function formatUsageTokens(n: number): string {
@@ -113,6 +114,12 @@ export function ChatView() {
                 <div class="rounded-lg border border-[var(--error)] bg-red-50 px-3 py-2 text-xs text-[var(--error)]">
                   {chatStore.error(sessionId())}
                 </div>
+              </div>
+            </Show>
+
+            <Show when={chatStore.pendingPermissions(sessionId()).length > 0}>
+              <div class="mx-auto max-w-3xl px-4 pb-2">
+                <PermissionDialog sessionId={sessionId()} />
               </div>
             </Show>
 

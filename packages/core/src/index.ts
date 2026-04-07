@@ -21,10 +21,12 @@ import { tokenAuth } from "./middleware/auth.js";
 import { createChatRoutes } from "./routes/chat.js";
 import { createConfigRoutes } from "./routes/config.js";
 import { createFsRoutes } from "./routes/fs.js";
+import { createPermissionRoutes } from "./routes/permission.js";
 import { createSessionRoutes } from "./routes/session.js";
 import { createSkillsRoutes } from "./routes/skills.js";
 import { createStatsRoutes } from "./routes/stats.js";
 import { createWorkspaceRoutes } from "./routes/workspace.js";
+import { PendingPermissionStore } from "./services/pending-permission-store.js";
 import {
   NodeSqliteDialect,
   SessionRunManager,
@@ -52,6 +54,7 @@ function buildRoutes(deps: {
   registry: ProviderRegistry;
   usageStore: SqliteUsageStore;
   runManager: SessionRunManager;
+  permissionStore: PendingPermissionStore;
 }) {
   const app = new Hono<Env>();
 
@@ -90,7 +93,12 @@ function buildRoutes(deps: {
         deps.workspaceStore,
         deps.sessionNotesStore,
         deps.runManager,
+        deps.permissionStore,
       ),
+    )
+    .route(
+      "/api/sessions",
+      createPermissionRoutes(deps.permissionStore),
     )
     .route("/api/stats", createStatsRoutes(deps.usageStore))
     .route("/api/skills", createSkillsRoutes());
@@ -148,6 +156,9 @@ async function main() {
   // --- Session run management ---
   const runManager = new SessionRunManager();
 
+  // --- Permission management ---
+  const permissionStore = new PendingPermissionStore();
+
   // --- Routes ---
   const app = buildRoutes({
     configService,
@@ -158,6 +169,7 @@ async function main() {
     registry,
     usageStore,
     runManager,
+    permissionStore,
   });
 
   const port = parseInt(process.env.MINECO_PORT ?? "3000", 10);

@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { AgentEvent } from "../types.js";
+import type { PermissionDecision, PermissionRequest } from "./permission.js";
 
 export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
   name: string;
@@ -16,6 +17,9 @@ export interface ToolContext {
   providerId?: string;
   model?: string;
   emitEvent?: (event: AgentEvent) => Promise<void>;
+  requestPermission?: (
+    request: PermissionRequest,
+  ) => Promise<PermissionDecision>;
 }
 
 export interface ToolResult {

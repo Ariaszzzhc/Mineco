@@ -1,7 +1,14 @@
 import { batch } from "solid-js";
 import { createStore } from "solid-js/store";
+import { getApiBaseUrl } from "../lib/api-base";
+import { getPlatform } from "../lib/platform";
 import { streamChat } from "../lib/sse-client";
-import type { AgentEvent, ToolCallEvent, ToolResultEvent } from "../lib/types";
+import type {
+  AgentEvent,
+  PermissionRequestEvent,
+  ToolCallEvent,
+  ToolResultEvent,
+} from "../lib/types";
 import { configStore } from "./config";
 import { sessionStore } from "./session";
 
@@ -24,6 +31,14 @@ export interface SubagentRunState {
   streamingSegments: StreamingSegment[];
 }
 
+interface PendingPermission {
+  requestId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  riskLevel: "read" | "write" | "execute";
+  reason: string;
+}
+
 interface PerSessionStreamState {
   isStreaming: boolean;
   streamingText: string;
@@ -34,6 +49,7 @@ interface PerSessionStreamState {
   error: string | null;
   subagentRuns: Record<string, SubagentRunState>;
   activeSubagentRunId: string | null;
+  pendingPermissions: PendingPermission[];
   sessionUsage: {
     promptTokens: number;
     completionTokens: number;
@@ -57,6 +73,7 @@ function emptyStreamState(): PerSessionStreamState {
     error: null,
     subagentRuns: {},
     activeSubagentRunId: null,
+    pendingPermissions: [],
     sessionUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
   };
 }
@@ -331,6 +348,18 @@ async function startStream(sessionId: string, message: string) {
             summary: event.summary,
           });
           break;
+        case "permission-request":
+          setState("streams", sessionId, "pendingPermissions", (prev) => [
+            ...prev,
+            {
+              requestId: event.requestId,
+              toolName: event.toolName,
+              args: event.args,
+              riskLevel: event.riskLevel,
+              reason: event.reason,
+            },
+          ]);
+          break;
       }
     },
     undefined,
@@ -399,6 +428,30 @@ function exitSubagentView(sessionId: string) {
   setState("streams", sessionId, "activeSubagentRunId", null);
 }
 
+async function respondPermission(
+  sessionId: string,
+  requestId: string,
+  decision: "allow" | "deny",
+) {
+  const baseUrl = getApiBaseUrl();
+  const platform = getPlatform();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (platform.token) {
+    headers.Authorization = `Bearer ${platform.token}`;
+  }
+
+  await fetch(`${baseUrl}/api/sessions/${sessionId}/permission`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ requestId, decision }),
+  });
+
+  // Remove from pending list
+  setState("streams", sessionId, "pendingPermissions", (prev) =>
+    prev.filter((p) => p.requestId !== requestId),
+  );
+}
+
 export const chatStore = {
   // Per-session accessors
   isStreaming: (sessionId: string) => getStream(sessionId).isStreaming,
@@ -415,6 +468,8 @@ export const chatStore = {
   subagentRuns: (sessionId: string) => getStream(sessionId).subagentRuns,
   activeSubagentRunId: (sessionId: string) =>
     getStream(sessionId).activeSubagentRunId,
+  pendingPermissions: (sessionId: string) =>
+    getStream(sessionId).pendingPermissions,
   sessionUsage: (sessionId: string) => getStream(sessionId).sessionUsage,
 
   // Multi-session helpers
@@ -433,4 +488,5 @@ export const chatStore = {
   cleanupSession,
   viewSubagent,
   exitSubagentView,
+  respondPermission,
 };

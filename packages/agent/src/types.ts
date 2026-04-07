@@ -1,5 +1,9 @@
 import type { Usage } from "@mineco/provider";
 import type { ExtractedNotes } from "./context/session-memory.js";
+import type {
+  PermissionDecision,
+  PermissionRequest,
+} from "./tools/permission.js";
 
 export interface CompressionStats {
   originalTokenEstimate: number;
@@ -18,6 +22,9 @@ export interface AgentConfig {
   maxSteps: number;
   signal?: AbortSignal;
   emitEvent?: (event: AgentEvent) => Promise<void>;
+  requestPermission?: (
+    request: PermissionRequest,
+  ) => Promise<PermissionDecision>;
 }
 
 export type AgentEvent =
@@ -47,4 +54,12 @@ export type AgentEvent =
       type: "context-compressed";
       stats: CompressionStats;
       notes: ExtractedNotes | null;
+    }
+  | {
+      type: "permission-request";
+      requestId: string;
+      toolName: string;
+      args: Record<string, unknown>;
+      riskLevel: string;
+      reason: string;
     };

@@ -20,5 +20,11 @@ export function createDefaultToolRegistry(): ToolRegistry {
 }
 
 export { defineTool } from "./define.js";
+export type {
+  PermissionDecision,
+  PermissionRequest,
+  ToolRisk,
+} from "./permission.js";
+export { checkPermission } from "./permission.js";
 export { ToolRegistry } from "./registry.js";
 export type { ToolContext, ToolDefinition, ToolResult } from "./types.js";
