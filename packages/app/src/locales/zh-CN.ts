@@ -15,6 +15,8 @@ const zhCN = {
   "common.delete": "删除",
   "common.cancel": "取消",
   "common.confirm": "确认",
+  "common.error": "发生错误",
+  "common.dismiss": "关闭",
 
   // Sidebar
   "sidebar.newSession": "新会话",
@@ -97,7 +99,8 @@ const zhCN = {
   "workspace.worktree.create": "创建 Worktree 会话",
   "workspace.worktree.badge": "worktree",
   "workspace.worktree.uncommittedTitle": "未提交的更改",
-  "workspace.worktree.uncommittedMessage": "此 worktree 有未提交的更改，删除后将丢失。确定要删除吗？",
+  "workspace.worktree.uncommittedMessage":
+    "此 worktree 有未提交的更改，删除后将丢失。确定要删除吗？",
 
   // Dir browser
   "dir.selectDirectory": "选择目录",

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { appendFile, existsSync } from "node:fs";
+import { appendFile, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
@@ -106,7 +106,6 @@ export class WorktreeService {
     }
 
     // Check if already present
-    const { readFileSync } = await import("node:fs");
     const content = readFileSync(gitignorePath, "utf-8");
     if (!content.includes(".mineco/")) {
       const prefix = content.endsWith("\n") ? "" : "\n";

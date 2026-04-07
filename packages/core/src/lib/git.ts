@@ -1,5 +1,5 @@
-import { exec } from "node:child_process";
-import { existsSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { access, constants } from "node:fs/promises";
 import { join } from "node:path";
 
 function runGit(
@@ -7,10 +7,10 @@ function runGit(
   cwd: string,
   timeout = 10_000,
 ): Promise<{ stdout: string; stderr: string }> {
-  const command = ["git", ...args].join(" ");
   return new Promise((resolve, reject) => {
-    exec(
-      command,
+    execFile(
+      "git",
+      args,
       { cwd, timeout, maxBuffer: 1024 * 1024 },
       (error, stdout, stderr) => {
         if (error) {
@@ -26,7 +26,12 @@ function runGit(
 export async function isGitRepo(dirPath: string): Promise<boolean> {
   // .git can be a directory (main repo) or a file (worktree/submodule)
   const gitPath = join(dirPath, ".git");
-  return existsSync(gitPath);
+  try {
+    await access(gitPath, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function getGitRoot(dirPath: string): Promise<string | null> {

@@ -48,6 +48,7 @@ export interface SessionStore {
   updateMessages(sessionId: string, messages: SessionMessage[]): Promise<void>;
   updateTitle(id: string, title: string): Promise<void>;
   delete(id: string): Promise<void>;
+  hasUncommittedChanges(id: string): Promise<boolean>;
   createRun(run: SubagentRun): Promise<void>;
   updateRun(
     runId: string,

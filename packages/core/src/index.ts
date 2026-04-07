@@ -80,7 +80,6 @@ function buildRoutes(deps: {
         deps.sessionStore,
         deps.sessionNotesStore,
         deps.runManager,
-        deps.sessionStore as SqliteSessionStore,
       ),
     )
     .route(

@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js";
-import { createSignal, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 
 interface DropdownItem {
   label: string;
@@ -27,8 +27,8 @@ export function Dropdown(props: DropdownProps) {
   }
 
   // Register click-outside listener when open
-  function handleOpenChange(isOpen: boolean) {
-    if (isOpen) {
+  createEffect(() => {
+    if (open()) {
       // Defer so the current click doesn't immediately close
       setTimeout(
         () => document.addEventListener("click", handleClickOutside),
@@ -37,7 +37,7 @@ export function Dropdown(props: DropdownProps) {
     } else {
       document.removeEventListener("click", handleClickOutside);
     }
-  }
+  });
 
   // Cleanup on destroy
   onCleanup(() => {
@@ -57,10 +57,6 @@ export function Dropdown(props: DropdownProps) {
         {props.trigger}
       </button>
       <Show when={open()}>
-        {(() => {
-          handleOpenChange(true);
-          return null;
-        })()}
         <div
           classList={{
             "absolute top-full z-50 mt-1 min-w-[180px] rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1 shadow-lg": true,
