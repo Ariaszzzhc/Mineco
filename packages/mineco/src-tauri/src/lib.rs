@@ -229,12 +229,16 @@ pub fn run_web(host: String, port: u16, no_open: bool) {
     println!("  Press Ctrl+C to stop");
     println!();
 
-    // Spawn sidecar as a foreground child process
+    // Spawn sidecar as a foreground child process with CLI args
     let mut child = Command::new(&sidecar_path)
-        .env("MINECO_PORT", port.to_string())
-        .env("MINECO_HOST", &host)
-        .env("MINECO_AUTH_TOKEN", &token)
-        .env("MINECO_SPA_DIR", spa_dir.to_string_lossy().to_string())
+        .arg("--port")
+        .arg(port.to_string())
+        .arg("--host")
+        .arg(&host)
+        .arg("--auth-token")
+        .arg(&token)
+        .arg("--spa-dir")
+        .arg(spa_dir.to_string_loss().to_string())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .spawn()
