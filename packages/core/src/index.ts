@@ -1,6 +1,5 @@
 import { mkdirSync, readFileSync, statSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { honoLogger } from "@logtape/hono";
 import { configure, getConsoleSink } from "@logtape/logtape";
@@ -15,6 +14,8 @@ import { cors } from "hono/cors";
 import { type RequestIdVariables, requestId } from "hono/request-id";
 import { trimTrailingSlash } from "hono/trailing-slash";
 import { Kysely } from "kysely";
+import { parseCoreArgs } from "./cli.js";
+import type { CoreOptions } from "./cli.js";
 import { ConfigService } from "./config/service.js";
 import { migrateToLatest } from "./db/migrator.js";
 import { tokenAuth } from "./middleware/auth.js";
@@ -42,20 +43,26 @@ type Env = {
   Variables: RequestIdVariables;
 };
 
-/**
- * Build routes with injected deps. Return type is exported as AppType for RPC client.
- */
-function buildRoutes(deps: {
+/** All services shared between HTTP and stdio modes. */
+export interface Services {
   configService: ConfigService;
-  getRegistryModels: () => ProviderMeta[];
   sessionStore: SqliteSessionStore;
   sessionNotesStore: SqliteSessionNotesStore;
   workspaceStore: SqliteWorkspaceStore;
   registry: ProviderRegistry;
+  getRegistryModels: () => ProviderMeta[];
   usageStore: SqliteUsageStore;
   runManager: SessionRunManager;
   permissionStore: PendingPermissionStore;
-}) {
+  db: Kysely<Database>;
+}
+
+export { type CoreOptions };
+
+/**
+ * Build routes with injected deps. Return type is exported as AppType for RPC client.
+ */
+function buildRoutes(deps: Services) {
   const app = new Hono<Env>();
 
   app.use(contextStorage());
@@ -105,16 +112,12 @@ function buildRoutes(deps: {
 
 export type AppType = ReturnType<typeof buildRoutes>;
 
-async function main() {
-  await configure({
-    sinks: { console: getConsoleSink() },
-    loggers: [{ category: ["hono"], sinks: ["console"], lowestLevel: "info" }],
-  });
-
+/** Initialize all services (shared by both HTTP and stdio modes). */
+async function initServices(options: CoreOptions): Promise<Services> {
   // --- Database ---
-  const dataDir = join(homedir(), ".mineco");
+  const dataDir = options.dataDir;
   mkdirSync(dataDir, { recursive: true });
-  const dbPath = join(dataDir, "mineco.db");
+  const dbPath = resolve(dataDir, "mineco.db");
 
   const db = new Kysely<Database>({
     dialect: new NodeSqliteDialect(dbPath),
@@ -156,30 +159,41 @@ async function main() {
   // --- Permission management ---
   const permissionStore = new PendingPermissionStore();
 
-  // --- Routes ---
-  const app = buildRoutes({
+  return {
     configService,
-    getRegistryModels: () => registry.list(),
     sessionStore,
     sessionNotesStore,
     workspaceStore,
     registry,
+    getRegistryModels: () => registry.list(),
     usageStore,
     runManager,
     permissionStore,
-  });
+    db,
+  };
+}
 
-  const port = parseInt(process.env.MINECO_PORT ?? "3000", 10);
-  const host = process.env.MINECO_HOST ?? "127.0.0.1";
+/** Run the server in HTTP mode (REST + SSE). */
+async function runHttpServer(options: CoreOptions) {
+  const services = await initServices(options);
+
+  // Make auth token available to middleware via env var (backward compat)
+  if (options.authToken) {
+    process.env.MINECO_AUTH_TOKEN = options.authToken;
+  }
+
+  const app = buildRoutes(services);
 
   // --- SPA serving (web mode only) ---
-  const spaDir = process.env.MINECO_SPA_DIR;
-  if (spaDir) {
-    const resolvedSpaDir = resolve(spaDir);
-    const indexHtml = readFileSync(join(resolvedSpaDir, "index.html"), "utf-8");
+  if (options.spaDir) {
+    const resolvedSpaDir = resolve(options.spaDir);
+    const indexHtml = readFileSync(
+      resolve(resolvedSpaDir, "index.html"),
+      "utf-8",
+    );
 
     app.get("*", (c) => {
-      const filePath = join(resolvedSpaDir, c.req.path);
+      const filePath = resolve(resolvedSpaDir, c.req.path.slice(1));
       try {
         const stats = statSync(filePath);
         if (stats.isFile()) {
@@ -214,13 +228,37 @@ async function main() {
   serve(
     {
       fetch: app.fetch,
-      port,
-      hostname: host,
+      port: options.port,
+      hostname: options.host,
     },
     (info) => {
-      console.log(`Server is running on http://${host}:${info.port}`);
+      console.log(
+        `Server is running on http://${options.host}:${info.port}`,
+      );
     },
   );
+}
+
+/** Run the server in stdio mode (JSON-RPC over stdin/stdout). Phase 2. */
+async function runStdioServer(_options: CoreOptions) {
+  // TODO: Phase 2 — JSON-RPC transport implementation
+  console.error("stdio mode not yet implemented");
+  process.exit(1);
+}
+
+async function main() {
+  const options = parseCoreArgs();
+
+  await configure({
+    sinks: { console: getConsoleSink() },
+    loggers: [{ category: ["hono"], sinks: ["console"], lowestLevel: "info" }],
+  });
+
+  if (options.mode === "stdio") {
+    await runStdioServer(options);
+  } else {
+    await runHttpServer(options);
+  }
 }
 
 main().catch((err) => {
