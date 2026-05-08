@@ -78,4 +78,4 @@ Evaluation：
 
 ## 9. 退出条件
 
-Phase 6 结束后，Electrolyte 从本地 interface 扩展为可自动化、可扩展、可评估的本地 agent runtime。
+Phase 6 结束后，Mineco 从本地 interface 扩展为可自动化、可扩展、可评估的本地 agent runtime。

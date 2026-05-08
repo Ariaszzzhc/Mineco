@@ -14,7 +14,7 @@
 
 ## 1. 目标
 
-这份文档定义 Electrolyte agent 的开发流程、工程规范和验收规则。它的作用是让后续实现始终围绕“每个阶段都可用”的产品路线推进，而不是只堆底层抽象。
+这份文档定义 Mineco agent 的开发流程、工程规范和验收规则。它的作用是让后续实现始终围绕“每个阶段都可用”的产品路线推进，而不是只堆底层抽象。
 
 核心原则：
 
@@ -213,7 +213,9 @@ Store 规范：
 - 使用 Node.js-first runtime 和工具链。
 - 最低 Node.js 版本为 25。
 - 默认使用 pnpm workspace 管理 monorepo。
-- 自动测试使用 Vitest，默认命令为 `vitest run`。
+- 使用 Turborepo 编排 monorepo task graph；root `build`、`check`、`dev` 等脚本通过 `turbo run ...` 进入 package 脚本。
+- 使用 Biome 作为默认 formatter、linter 和 import organizer；root `lint`、`lint:fix`、`format` 分别对应 `biome check .`、`biome check --fix .`、`biome format --fix .`。
+- 自动测试使用 Vitest，默认 root 命令为 `pnpm test`，底层执行 `vitest run`。
 - 类型检查使用 TypeScript compiler。
 - 公共接口必须显式导出类型。
 - Runtime 边界类型放在 `packages/protocol` 或等价协议包。
@@ -418,18 +420,21 @@ Migration tests 必须覆盖：
 
 ## 8.2 Logging 开发规范
 
-日志实现使用 LogTape，依赖 `@logtape/logtape`。参考官方 Quick start：[LogTape Quick start](https://logtape.org/manual/start)。
+日志实现使用 LogTape，依赖 `@logtape/logtape`。参考官方 Quick start：[LogTape Quick start](https://logtape.org/manual/start)。Effect runtime 内的日志必须通过 Effect custom logger 转发到 LogTape，参考 [Effect Custom loggers](https://effect.website/docs/observability/logging/#custom-loggers)。
 
 规则：
 
 - application entry point 负责调用 `configure()`；runtime、provider adapter、tool implementation、Store 和 library 模块不得自行 configure logging。
-- 模块通过 `getLogger(["electrolyte", ...])` 获取 logger，category 必须稳定。
+- 模块通过 `getLogger(["mineco", ...])` 获取 logger，category 必须稳定。
 - 日志使用结构化字段，优先记录 id/ref/hash/summary，不记录完整大内容。
 - 不在日志中写入 API key、secret 明文、完整 env、auth header、完整用户文件、完整 terminal output 或 provider raw sensitive payload。
 - 日志必须经过与 artifacts/logs 一致的 redaction helper。
 - LogTape 日志是诊断信号，不是 RuntimeEvent、provider_events、approval audit、transcript item 或 artifact store 的替代品。
 - REPL/TUI 不以 LogTape 为渲染源；产品界面继续使用 RuntimeEvent 和 SDK history reader。
 - 测试可以使用 test sink 或禁用 sink，但不能依赖 console 文本作为断言源。
+- Effect fiber 内使用 `Effect.log*`、`Effect.annotateLogs` 和 `Effect.withLogSpan`；入口层通过 `Logger.replace(Logger.defaultLogger, makeEffectLogTapeLogger(...))` 提供 LogTape bridge。
+- Effect log annotation 映射为 LogTape structured properties，必须复用统一 redaction helper；不得在 Effect logger bridge 中输出 secret、完整文件内容、provider raw payload 或未截断 terminal output。
+- 不允许在 production runtime 里直接提供 Effect 内置 `Logger.pretty`、`Logger.json` 或裸 `Logger.defaultLogger`，避免绕过 LogTape sink、level 和 redaction 配置。
 
 ## 8.3 Effect 开发规范
 
@@ -444,6 +449,7 @@ Runtime implementation 使用 Effect 管理副作用和并发。
 - `setTimeout`、event listener、AbortController 必须被 Effect scope 或 finalizer 管理。
 - Effect typed errors 在 RuntimeEvent / transcript 边界映射为 `AgentError` / `ToolError` / `TerminalReason`。
 - Public SDK 不暴露 Effect 类型。
+- Effect runtime 日志统一走项目的 LogTape bridge layer；业务逻辑里不要直接把 console logger、pretty logger 或 JSON logger 提供给 production program。
 
 Testing:
 
@@ -652,6 +658,7 @@ Review 输出应该先列风险和 bug，再列改动总结。
 - 当前产品界面可启动。
 - 手工验收任务通过。
 - 自动测试通过。
+- `pnpm check` 和 `pnpm lint` 通过。
 - session store 可查看历史。
 - 崩溃/取消路径有明确行为。
 - 文档更新。
@@ -659,12 +666,12 @@ Review 输出应该先列风险和 bug，再列改动总结。
 
 Phase 0 gate：
 
-- `electrolyte` 能在当前 workspace 启动。
+- `mineco` 能在当前 workspace 启动。
 - 用户能输入 coding 任务。
 - agent 能读文件、搜索文件、运行 shell。
 - agent 能写 workspace 文件。
 - 危险操作有 approval。
 - session 落到 SQLite。
-- `vitest run` 通过。
+- `pnpm test` 或 `vitest run` 通过。
 - MockProvider 测试通过。
 - OpenAI-compatible provider 可配置并运行。

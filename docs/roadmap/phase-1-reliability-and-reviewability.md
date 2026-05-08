@@ -28,13 +28,13 @@ Phase 1 的主轴：
 3. Reliability 覆盖 cancellation propagation、run status consistency、session resume、provider state 缺失后的 transcript replay 和 large output artifact handling。
 4. 最小 Plan mode 作为 runtime permission mode 引入：只读探索、生成计划、用户批准后恢复原权限模式执行。
 
-Phase 1 结束后，Electrolyte 应该可以作为主力本地 coding agent 处理短到中等复杂度的本地代码任务。跨长上下文、多 checkpoint、browser verification、subagent verifier 和后台长任务仍属于 Phase 5+。
+Phase 1 结束后，Mineco 应该可以作为主力本地 coding agent 处理短到中等复杂度的本地代码任务。跨长上下文、多 checkpoint、browser verification、subagent verifier 和后台长任务仍属于 Phase 5+。
 
 ## 2. Phase 0 前置条件
 
 Phase 1 默认 Phase 0 已经交付：
 
-- `electrolyte` REPL 可启动，并通过 Runtime SDK 消费 RuntimeEvent。
+- `mineco` REPL 可启动，并通过 Runtime SDK 消费 RuntimeEvent。
 - AgentCore、ToolRuntime、Provider Adapter、ContextManager 和 Store 边界稳定。
 - SQLite session store 保存 sessions、runs、items、runtime_events、provider_events、approvals 和 artifacts metadata。
 - `file.list`、`file.search`、`file.read`、`file.write`、`shell.run` 可用。
@@ -61,7 +61,7 @@ Phase 1 必须能覆盖这些端到端场景：
 
 Phase 1 用户应能：
 
-- 启动 `electrolyte tui` 或等价入口。
+- 启动 `mineco tui` 或等价入口。
 - 在 TUI 中输入任务、追问、取消当前 run、恢复历史 session。
 - 查看 session header：workspace、branch、model、sandbox 状态、session/run 状态。
 - 查看 RuntimeEvent stream、assistant message、tool calls、tool results 和 terminal reasons。
@@ -366,7 +366,7 @@ Replay tests：
 
 Manual acceptance：
 
-1. 在一个小 TypeScript 项目中启动 `electrolyte tui`。
+1. 在一个小 TypeScript 项目中启动 `mineco tui`。
 2. 输入“找出测试失败原因并修复”。
 3. 确认 agent 能运行测试、定位文件、应用 patch。
 4. 打开 Diff view，确认 changed files 和 diff 正确。
@@ -379,7 +379,7 @@ Manual acceptance：
 
 Phase 1 合格必须满足：
 
-- `electrolyte tui` 或等价入口能启动最小 TUI shell。
+- `mineco tui` 或等价入口能启动最小 TUI shell。
 - REPL 和 TUI 都只通过 Runtime SDK 与 runtime 交互。
 - TUI 能通过 SDK 显示 session header、run events、tool calls、approval prompt、changed files、diff、tests、approval log 和 artifacts。
 - 用户能完成一次“修复失败测试”的完整流程。
@@ -431,4 +431,4 @@ Phase 1 结束前必须完成 phase gate：
 - P1 文档、总开发计划和路线图状态同步。
 - 已知限制记录清楚。
 
-Phase 1 结束后，Electrolyte 应该可以作为主力本地 coding agent 使用。后续阶段主要扩展 skills、providers、MCP、长任务和自动化，而不是补 Phase 1 的可靠性缺口。
+Phase 1 结束后，Mineco 应该可以作为主力本地 coding agent 使用。后续阶段主要扩展 skills、providers、MCP、长任务和自动化，而不是补 Phase 1 的可靠性缺口。

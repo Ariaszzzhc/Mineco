@@ -11,7 +11,7 @@
 
 ## 目标
 
-这组文档用于逐章学习《御舆：解码 Agent Harness》，并对照 Electrolyte 已有设计文档判断是否有可参考之处。
+这组文档用于逐章学习《御舆：解码 Agent Harness》，并对照 Mineco 已有设计文档判断是否有可参考之处。
 
 它不直接替代这些源真相：
 
@@ -25,10 +25,10 @@
 每章按同一结构记录：
 
 - 本章核心观点。
-- 对 Electrolyte 现有文档的覆盖情况。
+- 对 Mineco 现有文档的覆盖情况。
 - 值得参考的点。
 - 暂不采纳或需要谨慎的点。
-- 是否建议后续更新 Electrolyte 文档。
+- 是否建议后续更新 Mineco 文档。
 
 ## 逐章文档
 
@@ -52,7 +52,7 @@
 
 ## 结论预览
 
-Electrolyte 现有文档已经覆盖了这本书的大部分一级架构方向：runtime 分层、供应商中立协议、tool runtime、approval、context、memory、MCP、skills、replay 和阶段路线。
+Mineco 现有文档已经覆盖了这本书的大部分一级架构方向：runtime 分层、供应商中立协议、tool runtime、approval、context、memory、MCP、skills、replay 和阶段路线。
 
 真正值得回看的是细节层：
 

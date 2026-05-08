@@ -12,7 +12,7 @@
 - [MCP SDK Tiering System](https://modelcontextprotocol.io/community/sdk-tiers)
 - [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
 
-归属：外部规范资料记录。本文不替代 `docs/roadmap/phase-2-mcp-and-tool-ecosystem.md` 的阶段范围，也不替代 Electrolyte 的 ToolRuntime、approval、sandbox、context 或 security policy；它用于记录 P2 MCP 实现需要对齐的外部协议和 SDK 信息。
+归属：外部规范资料记录。本文不替代 `docs/roadmap/phase-2-mcp-and-tool-ecosystem.md` 的阶段范围，也不替代 Mineco 的 ToolRuntime、approval、sandbox、context 或 security policy；它用于记录 P2 MCP 实现需要对齐的外部协议和 SDK 信息。
 
 ## 核心摘要
 
@@ -62,24 +62,24 @@
 - 官方 SDK 页面列出 TypeScript、Python、C#、Go 为 Tier 1。
 - Tier 1 表示 fully supported SDK，要求完整实现非 experimental protocol features，并覆盖 sampling、elicitation 等 optional capabilities。
 - Tier 1 还要求 100% conformance test pass rate、稳定发布、完整文档、dependency policy 和 roadmap。
-- TypeScript SDK 是 Electrolyte 最相关的官方 SDK，因为 Electrolyte 是 Node.js-first runtime。
+- TypeScript SDK 是 Mineco 最相关的官方 SDK，因为 Mineco 是 Node.js-first runtime。
 - TypeScript SDK 提供 server/client library、stdio、Streamable HTTP、auth helpers、examples，以及 Express/Hono/Node HTTP 等 thin middleware。
 - TypeScript SDK `main` 分支当前是 v2/pre-alpha；仓库 README 仍建议 production 使用 v1.x。实现 P2 时需要重新确认 stable release，并选择当时稳定的 package line。
 - v1.x 使用 `@modelcontextprotocol/sdk`；v2 方向使用 split packages，例如 `@modelcontextprotocol/client` 和 `@modelcontextprotocol/server`。
 
-## 对 Electrolyte P2 的参考价值
+## 对 Mineco P2 的参考价值
 
 - 不应手写完整 MCP JSON-RPC、lifecycle、transport、pagination、progress、cancellation、authorization 和 schema 类型；官方 TypeScript SDK 值得作为 protocol/client dependency 使用。
-- SDK 不能成为 Electrolyte 的权限边界。ToolRegistry、visibility、permission merge、approval、sandbox、artifact、resource filter、prompt priority、secret redaction、run snapshot 和 replay 仍必须由 Electrolyte 实现。
+- SDK 不能成为 Mineco 的权限边界。ToolRegistry、visibility、permission merge、approval、sandbox、artifact、resource filter、prompt priority、secret redaction、run snapshot 和 replay 仍必须由 Mineco 实现。
 - SDK client instance 应封装在 `McpClientManager` adapter 内，不应泄漏到 AgentCore、TUI、Provider Adapter 或 ToolRuntime。
 - MCP spec 的 tool annotations、description、instructions、prompt 和 resource 内容都应作为不可信输入处理。
-- Electrolyte 应显式记录目标 `protocolVersion="2025-11-25"`，并把后续 spec 升级作为兼容性工作，而不是隐式漂移。
+- Mineco 应显式记录目标 `protocolVersion="2025-11-25"`，并把后续 spec 升级作为兼容性工作，而不是隐式漂移。
 - P2 gate 可先以 stdio 为硬验收，Streamable HTTP 和 legacy SSE fallback 作为后续切片或 feature flag；这与 Phase 2 降低早期复杂度的目标一致。
 
 ## 仍需实现时确认
 
 - TypeScript SDK v2 是否已稳定；若仍未稳定，应固定 v1.x。
-- 官方 conformance tests 是否可直接纳入 Electrolyte CI，还是先通过 fixture MCP servers 和 adapter contract tests 间接覆盖。
+- 官方 conformance tests 是否可直接纳入 Mineco CI，还是先通过 fixture MCP servers 和 adapter contract tests 间接覆盖。
 - 是否在 P2 就启用 Streamable HTTP，还是只保留接口并推迟到 P2 后续或 Phase 6。
-- Tasks 是 experimental，不应进入 P2 gate；如果 SDK 默认暴露相关能力，Electrolyte 应在 ToolRegistry 或 McpClientManager 层显式隐藏。
+- Tasks 是 experimental，不应进入 P2 gate；如果 SDK 默认暴露相关能力，Mineco 应在 ToolRegistry 或 McpClientManager 层显式隐藏。
 - Sampling、roots、elicitation 是 client/server initiated advanced flows，需要单独设计 approval 和 UI；P2 gate 可只记录 capability snapshot，不默认执行。

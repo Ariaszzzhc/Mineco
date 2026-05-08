@@ -886,7 +886,7 @@ Runtime terminal event 必须三选一且只发一次：`run.completed`、`run.f
 
 ### 12.1.1 Diagnostic Logging
 
-诊断日志使用 LogTape，依赖为 `@logtape/logtape`。LogTape 用于 runtime 内部观测和本地调试，不是 RuntimeEvent、provider event、approval audit 或 transcript 的替代品。
+诊断日志使用 LogTape，依赖为 `@logtape/logtape`。LogTape 用于 runtime 内部观测和本地调试，不是 RuntimeEvent、provider event、approval audit 或 transcript 的替代品。Effect fiber 内的日志通过 Effect custom logger 转发到 LogTape。
 
 日志边界：
 
@@ -898,9 +898,11 @@ Runtime terminal event 必须三选一且只发一次：`run.completed`、`run.f
 使用规则：
 
 - application entry point 配置 LogTape；runtime/library 模块只获取 logger。
-- category 使用 `["electrolyte", component, ...]`。
+- category 使用 `["mineco", component, ...]`。
 - 日志字段必须 redaction，不能包含 secret、完整文件内容、原始 auth header 或未截断 terminal output。
 - 日志可以引用 artifact id、session id、run id、tool call id，但不应复制 artifact 大内容。
+- Effect runtime program 必须通过 `Logger.replace(Logger.defaultLogger, makeEffectLogTapeLogger(...))` 接入 LogTape；production path 不直接使用 Effect `Logger.pretty` / `Logger.json`。
+- Effect `annotateLogs` 输出映射为 LogTape structured properties，`withLogSpan` 输出映射为 duration/span properties；两者都不能改变 LogTape category。
 
 ### 12.2 Replay
 
@@ -1283,7 +1285,7 @@ interface ConfigSource {
 第一版使用 SQLite 存储 session、items、events、approvals 和 artifact metadata。Node.js 实现使用 Kysely 作为 query builder 和 migration layer，SQLite driver 使用内置 `node:sqlite`。`node:sqlite` Kysely dialect 参考 `wolfie/kysely-node-native-sqlite` 并内联到项目。Store 对 runtime 内部暴露 Effect service，对 SDK 边界转成 Promise。大 artifact 仍写文件系统。
 
 ```text
-.electrolyte/
+.mineco/
   runtime.db
   artifacts/
     {artifactId}

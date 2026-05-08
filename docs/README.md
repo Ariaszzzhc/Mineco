@@ -1,11 +1,13 @@
 # 文档索引
 
-本目录是 Electrolyte 设计、协议、路线图和开发流程文档的源真相。
+本目录是 Mineco 设计、协议、路线图和开发流程文档的源真相。
+
+命名约定：项目名是 Mineco；Electrolyte 仅作为 0.3 版本代号，不作为项目名、CLI 名或 workspace 目录名使用。
 
 ## 从这里开始
 
 1. [AI Agent Runtime 设计](architecture/agent-runtime-design.md) - 长期 runtime 架构、产品表面、provider/tool/skill 边界和关键设计决策。
-2. [Technology Stack 使用说明](architecture/technology-stack.md) - Node.js、Kysely、Effect、LogTape、SQLite、Vitest 等技术栈的项目内使用规则。
+2. [Technology Stack 使用说明](architecture/technology-stack.md) - Node.js、Turborepo、Biome、Kysely、Effect、LogTape、SQLite、Vitest 等技术栈的项目内使用规则。
 3. [Agent Runtime 协议](protocol/agent-runtime-protocol.md) - agent runtime 与模型供应商之间的供应商中立协议。
 4. [路线图索引](roadmap/README.md) - Phase 0-6 阶段文档入口、状态和维护边界。
 5. [Phase 0 本地 Agent 执行架构](roadmap/phase-0-local-agent-execution.md) - 第一条可用 agent 执行切片和验收标准。

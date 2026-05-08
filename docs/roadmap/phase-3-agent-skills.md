@@ -34,7 +34,7 @@ Phase 3 的主轴：
 6. TUI 可审阅：用户能看到 active skills、触发原因、来源、context 影响和 `allowed-tools` hint 的解释状态。
 7. 安全边界保持不变：skills 只能记录标准 `allowed-tools` hints，不能提升 runtime policy、绕过 approval、读取 secrets 或直接执行脚本。
 
-Phase 3 结束后，Electrolyte 的默认 coding agent 应该能通过 skills 扩展行为，并且后续引入 provider abstraction、长任务和插件时不需要重新设计 skill 边界。
+Phase 3 结束后，Mineco 的默认 coding agent 应该能通过 skills 扩展行为，并且后续引入 provider abstraction、长任务和插件时不需要重新设计 skill 边界。
 
 ## 2. 前置条件
 
@@ -55,7 +55,7 @@ Phase 3 默认 Phase 1、Phase 2 已经交付：
 
 Phase 3 必须覆盖这些端到端场景：
 
-- 安装或指向 skill 目录：用户把一个标准 Agent Skill 目录加入 Electrolyte，TUI 能列出 name、description、来源和 validation 状态。
+- 安装或指向 skill 目录：用户把一个标准 Agent Skill 目录加入 Mineco，TUI 能列出 name、description、来源和 validation 状态。
 - 显式启用 skill：用户在当前 session 中启用 `code-review`，agent 后续回答采用 review finding 优先的工作流，TUI 显示 active skill 和触发来源。
 - TypeScript 项目自动触发：用户在含 `package.json`、`tsconfig.json` 或 `.ts/.tsx` 文件的 workspace 中提出实现或修复任务，runtime 触发 `typescript-coding`，但只在触发后加载 body。
 - Repo orientation：用户进入新仓库后，agent 使用 `repo-orientation` 收集项目结构、脚本、测试入口和贡献规范，并把结果作为普通 transcript/context 事实，而不是永久记忆。
@@ -120,7 +120,7 @@ skill-name/
   scripts/
 ```
 
-只有 `SKILL.md` 是必需文件。`skill.json`、`agents/openai.yaml` 或其他 metadata 文件只能作为可选扩展读取，不能成为兼容性的前提。规范允许 `scripts/`、`references/`、`assets/` 之外存在额外文件或目录；Electrolyte 可以发现它们，但 P3 只对这三个目录提供明确行为。
+只有 `SKILL.md` 是必需文件。`skill.json`、`agents/openai.yaml` 或其他 metadata 文件只能作为可选扩展读取，不能成为兼容性的前提。规范允许 `scripts/`、`references/`、`assets/` 之外存在额外文件或目录；Mineco 可以发现它们，但 P3 只对这三个目录提供明确行为。
 
 `SKILL.md` 要求：
 
@@ -130,7 +130,7 @@ skill-name/
 - `description` 用于发现、列表展示和 semantic activation。
 - `description` 必须为 1-1024 字符，并应说明 skill 做什么以及何时使用。
 - `license`、`compatibility`、`metadata` 是可选 metadata；它们不能扩大 runtime policy。
-- `allowed-tools` 是 optional experimental 字段。Electrolyte Phase 3 只记录和展示它，作为非授权提示；它不能声明 required/optional，不能阻止 skill 激活，不能解释成自动授权。tool visibility、approval 和 sandbox 仍由 ToolRegistry、ToolRuntime 和 RuntimePolicy 决定。
+- `allowed-tools` 是 optional experimental 字段。Mineco Phase 3 只记录和展示它，作为非授权提示；它不能声明 required/optional，不能阻止 skill 激活，不能解释成自动授权。tool visibility、approval 和 sandbox 仍由 ToolRegistry、ToolRuntime 和 RuntimePolicy 决定。
 - body 是触发后才加载的 Markdown instruction。
 - frontmatter parsing 必须使用 YAML parser，不能靠脆弱字符串切分。
 - invalid `SKILL.md` 不应让 runtime 启动失败，应作为 invalid skill 显示 validation error。
@@ -251,7 +251,7 @@ Phase 3 可以预留但不正式验收：
 
 ### 5.7 Tool / Capability Hints
 
-Phase 3 不定义 Electrolyte 私有 required/optional tool requirement schema。Skills 只能通过标准 `SKILL.md` 的 experimental `allowed-tools` 字段提供 tool hints；runtime policy 和 ToolRuntime 仍是唯一权限边界。
+Phase 3 不定义 Mineco 私有 required/optional tool requirement schema。Skills 只能通过标准 `SKILL.md` 的 experimental `allowed-tools` 字段提供 tool hints；runtime policy 和 ToolRuntime 仍是唯一权限边界。
 
 Tool hints 行为：
 
@@ -458,7 +458,7 @@ Replay tests：
 
 Manual acceptance：
 
-1. 启动 `electrolyte tui`。
+1. 启动 `mineco tui`。
 2. 打开 `Skills` view，确认 builtin skills 可见。
 3. 添加一个临时标准 skill 目录，确认 `name`、`description` 和 source 正确显示。
 4. 显式启用该 skill，发送任务，确认 active skills 和 Context view 显示该 skill body。
@@ -528,5 +528,5 @@ Phase 3 结束前必须完成 phase gate：
 - P3 文档、总路线图状态和文档审计同步。
 - 已知限制记录清楚。
 
-Phase 3 结束后，Electrolyte 的 coding agent 行为可以通过标准 Agent Skills 扩展，而不需要修改核心 prompt 或 runtime；skills、tools、MCP 和插件仍保持清晰边界，并为 Phase 4 Provider Abstraction 保留 provider-neutral 扩展点。
+Phase 3 结束后，Mineco 的 coding agent 行为可以通过标准 Agent Skills 扩展，而不需要修改核心 prompt 或 runtime；skills、tools、MCP 和插件仍保持清晰边界，并为 Phase 4 Provider Abstraction 保留 provider-neutral 扩展点。
 

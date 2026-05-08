@@ -19,6 +19,8 @@ Phase 0 采用：
 - Node.js 25+。
 - TypeScript strict mode。
 - pnpm workspace。
+- Turborepo 作为 monorepo task runner。
+- Biome 作为 formatter、linter 和 import organizer。
 - Vitest。
 - Zod。
 - LogTape。
@@ -29,9 +31,65 @@ Phase 0 采用：
 - REPL-style terminal interface。
 - OpenAI-compatible Chat Completions provider。
 
+### 1.1 开发工具链边界
+
+开发环境参考 `main` 分支已落地配置：
+
+- root `package.json` 固定 `packageManager: pnpm@10.29.3`，`engines.node >= 25`，`engines.pnpm = 10.29.3`。
+- workspace 由 `pnpm-workspace.yaml` 管理，范围是 `packages/*`。
+- root `biome.json` 是代码格式化、lint 和 import organization 的源真相。
+- root `turbo.json` 是 monorepo task graph、缓存和 persistent dev task 的源真相。
+
+工具职责：
+
+- pnpm 只负责 package manager、workspace resolution 和 script 入口。
+- Turborepo 负责跨 package 编排 `build`、`check`、`dev` 等任务；package 内仍保留自己的脚本实现。
+- Biome 负责格式化、lint 和 import organization；不再单独引入 Prettier 或 ESLint，除非某个生态插件有明确不可替代需求并写入本文档。
+- Vitest 负责测试执行；测试命令可以由 root script 或后续 Turborepo task 编排，但测试框架仍是 Vitest。
+
+### 1.2 Biome 使用规则
+
+Biome 默认配置对齐 `main`：
+
+- `vcs.enabled = true`，使用 Git ignore file。
+- formatter 使用 space indentation。
+- linter 开启 recommended rules。
+- TypeScript/JavaScript 使用 double quotes 和 semicolons。
+- `noNonNullAssertion` 设为 warning。
+- source action 开启 organize imports。
+- CSS parser 支持 Tailwind directives。
+
+规则：
+
+- root `pnpm lint` 对应 `biome check .`。
+- root `pnpm lint:fix` 对应 `biome check --fix .`。
+- root `pnpm format` 对应 `biome format --fix .`。
+- package 级 `biome.json` 只允许 `extends: "//"` 或极少量局部覆盖；覆盖原因必须能被对应 package 的构建或 parser 需求解释。
+- 格式化和 lint 修复不应混入无关重构；大规模机械改动需要独立提交或独立 PR。
+
+### 1.3 Turborepo 使用规则
+
+Turborepo 默认配置对齐 `main`：
+
+- `build` 依赖上游 package 的 `^build`，输出 `dist/**`。
+- 桌面打包类 build 可以声明自己的输出目录并关闭 cache。
+- `check` 不依赖上游任务，保持快速类型检查入口。
+- `dev` 关闭 cache，声明为 persistent task。
+- `test` 可以依赖上游 `^build`，用于需要已构建依赖的 package 测试。
+
+规则：
+
+- root `pnpm build` 对应 `turbo run build`。
+- root `pnpm check` 对应 `turbo run check`。
+- root `pnpm dev` 使用 `turbo run dev` 并通过 `--filter` 限定需要启动的 package。
+- 每个 package 暴露稳定的 `build` / `check` / `dev` / `test` 脚本时，应让脚本语义适合被 Turborepo 编排；不要在 package 脚本里隐式启动不相关服务。
+- cache outputs 必须只包含可重建产物，不包含 `.env`、数据库、runtime session、artifact 或用户 workspace 内容。
+
 ## 2. Logging 使用规则
 
 项目日志实现使用 LogTape，核心依赖为 `@logtape/logtape`。参考官方 Quick start：[LogTape Quick start](https://logtape.org/manual/start)。
+
+Effect runtime 内的日志必须通过 Effect custom logger 转发到 LogTape。参考 Effect 官方说明：[Custom loggers](https://effect.website/docs/observability/logging/#custom-loggers)。
 
 LogTape 的职责：
 
@@ -50,12 +108,86 @@ LogTape 不承担：
 配置规则：
 
 - application entry point 负责调用 LogTape `configure()`。
-- library/runtime 内部模块只通过 `getLogger(["electrolyte", ...])` 获取 logger，不在库模块里调用 `configure()`。
+- library/runtime 内部模块只通过 `getLogger(["mineco", ...])` 获取 logger，不在库模块里调用 `configure()`。
 - Phase 0 默认 sink 是 console 或 stderr，必须适合 REPL；后续可以增加 file sink、rotating file sink 或 OpenTelemetry sink。
-- 日志 category 使用数组层级，例如 `["electrolyte", "runtime"]`、`["electrolyte", "tool", "shell"]`、`["electrolyte", "provider", providerId]`。
+- 日志 category 使用数组层级，例如 `["mineco", "runtime"]`、`["mineco", "tool", "shell"]`、`["mineco", "provider", providerId]`。
 - 默认日志级别应保守，普通用户运行时不输出 debug/trace 噪音；debug/trace 通过 CLI flag 或 config 打开。
 - 所有日志必须经过 secret redaction；不得记录 API key、env secret、provider raw auth header、完整用户文件内容或未截断的大输出。
 - 结构化日志优先于拼接字符串；昂贵字段使用 lazy evaluation 或先检查 level。
+
+### 2.1 Effect 和 LogTape 的边界
+
+LogTape 是项目唯一的诊断日志后端。Effect 的 `Effect.log*`、`Effect.annotateLogs`、`Effect.withLogSpan` 只作为 fiber 内的日志 API 使用，不能让 Effect 内置 logger 直接写 console、JSON 或 pretty output。
+
+入口层必须在调用 `configure()` 之后，为顶层 runtime program 提供一个 Effect logger layer：
+
+```ts
+import { getLogger } from "@logtape/logtape";
+import { Effect, Logger } from "effect";
+
+type LogTapeLevel = "trace" | "debug" | "info" | "warning" | "error" | "fatal";
+
+function toLogTapeLevel(effectLabel: string): LogTapeLevel {
+  switch (effectLabel) {
+    case "TRACE":
+      return "trace";
+    case "DEBUG":
+      return "debug";
+    case "INFO":
+      return "info";
+    case "WARNING":
+      return "warning";
+    case "ERROR":
+      return "error";
+    case "FATAL":
+      return "fatal";
+    default:
+      return "info";
+  }
+}
+
+export function makeEffectLogTapeLogger(category: readonly string[]) {
+  const logtape = getLogger(category);
+
+  return Logger.make(({ logLevel, message, annotations, spans, fiberId, date, cause }) => {
+    const properties = redactLogProperties({
+      effectAnnotations: effectAnnotationsToRecord(annotations),
+      effectSpans: effectSpansToRecord(spans),
+      effectFiberId: String(fiberId),
+      effectCause: effectCauseToSafeSummary(cause),
+    });
+
+    logtape.emit({
+      timestamp: date,
+      level: toLogTapeLevel(logLevel.label),
+      message: effectMessageToArray(message),
+      rawMessage: effectMessageToString(message),
+      properties,
+    });
+  });
+}
+
+export const EffectLogTapeLive = Logger.replace(
+  Logger.defaultLogger,
+  makeEffectLogTapeLogger(["mineco", "runtime"]),
+);
+
+export const provideEffectLogging = <A, E, R>(program: Effect.Effect<A, E, R>) =>
+  program.pipe(Effect.provide(EffectLogTapeLive));
+```
+
+示例里的 `redactLogProperties()`、`effectAnnotationsToRecord()`、`effectSpansToRecord()`、`effectCauseToSafeSummary()`、`effectMessageToArray()` 和 `effectMessageToString()` 是项目内 helper，必须在 `packages/runtime/src/logging/` 边界实现并测试。
+
+规则：
+
+- Effect program 内优先使用 `Effect.logInfo` / `Effect.logDebug` / `Effect.logError`、`Effect.annotateLogs` 和 `Effect.withLogSpan`，不要在 fiber 内直接拿 LogTape logger 旁路记录。
+- 非 Effect 边界代码仍可直接使用 `getLogger(["mineco", ...])`。
+- Effect custom logger category 必须由代码常量决定，例如 `["mineco", "runtime"]`、`["mineco", "tool"]`；不得从用户输入、provider 输出或文件内容拼接 category。
+- Effect log annotations 映射为 LogTape structured properties；`sessionId`、`runId`、`toolCallId`、`provider` 等关联字段优先放在 annotation 中。
+- Effect log spans 映射为 LogTape structured properties；不要把 span 名称当成 LogTape category。
+- Effect `Cause` 只能记录 redacted summary，完整 cause、provider raw payload 或 terminal output 必须进入受控 artifact/event 边界，而不是日志。
+- `Logger.withMinimumLogLevel()` 只作为 Effect 侧 fiber 局部过滤；全局 sink、formatter 和最低级别仍由 LogTape `configure()` 管理。
+- 测试可以提供 test logger layer，但 production runtime 不使用 `Logger.pretty`、`Logger.json` 或裸 `Logger.defaultLogger`。
 
 ## 3. Kysely 使用规则
 
@@ -385,6 +517,8 @@ dependencies:
   zod
 
 devDependencies:
+  @biomejs/biome
+  turbo
   typescript
   vitest
 ```

@@ -31,23 +31,23 @@
 - Observability 要求 operator 能看到 startup、validation、dispatch、retry 和 failure；可选 snapshot 包括 running sessions、retry queue、token totals、runtime seconds 和 rate-limit payload。
 - OpenAI 将 Symphony 作为参考实现而非计划长期维护的独立产品，意图是让团队基于 spec 和自身环境构建定制版本。
 
-## 对 Electrolyte 的参考价值
+## 对 Mineco 的参考价值
 
 - Phase 6 的 scheduler/automation 不应从通用分布式工作流引擎开始。Symphony 证明一个受限、issue-driven、workspace-isolated 的 orchestrator 更符合 coding agent 的早期落地形态。
-- Electrolyte 的 automation 层应保持清晰边界：scheduler 负责读取任务、判断 eligibility、创建 workspace、启动/停止 agent run、记录状态；任务评论、PR 链接和状态迁移应优先通过 agent tools 和 workflow policy 完成。
+- Mineco 的 automation 层应保持清晰边界：scheduler 负责读取任务、判断 eligibility、创建 workspace、启动/停止 agent run、记录状态；任务评论、PR 链接和状态迁移应优先通过 agent tools 和 workflow policy 完成。
 - Phase 5 的 long-running coding agent 与 Phase 6 的 automation 需要共享 session/run/worker 状态模型。Symphony 的 `RunAttempt`、`LiveSession`、retry entry、terminal reason、stall detection 和 token totals 可作为后续数据模型参考。
-- 每任务独立 workspace 是安全和可审阅性的关键。Electrolyte 后续自动化应避免多个 issue 共享可写目录，并明确 workspace lifecycle、reuse、cleanup 和 hook failure semantics。
-- `WORKFLOW.md` 与 Electrolyte 的 workspace agent config、skills 和 process docs 有重叠。后续可考虑把 workflow policy 作为 repo-owned automation contract，但必须经过 trust model、permission merge 和 approval policy，而不是直接当成高信任 prompt。
+- 每任务独立 workspace 是安全和可审阅性的关键。Mineco 后续自动化应避免多个 issue 共享可写目录，并明确 workspace lifecycle、reuse、cleanup 和 hook failure semantics。
+- `WORKFLOW.md` 与 Mineco 的 workspace agent config、skills 和 process docs 有重叠。后续可考虑把 workflow policy 作为 repo-owned automation contract，但必须经过 trust model、permission merge 和 approval policy，而不是直接当成高信任 prompt。
 - Orchestrator state 应是机器可审计的结构，而不是 dashboard 字符串。TUI/dashboard 只能消费 snapshot 和 logs，不能成为调度正确性的依赖。
 - Reconciliation 比单次 dispatch 更重要。自动化系统必须处理 issue 状态变化、blocker 变化、run stall、agent crash、host capacity、retry backoff、workspace cleanup 和 restart recovery。
-- 文章中“给目标而非刚性 transition”的经验适合 Electrolyte agent design：runtime 应提供约束、工具和审计，避免把 agent 压成过窄的步骤执行器。
-- Codex App Server 对应 Electrolyte 未来本地 API/worker 模式：需要可程序化启动 session、推送 turns、读取 events、取消 run、读取 artifacts 和汇总 usage，而不是只能驱动交互式 CLI。
-- Dynamic tool calls 用于避免把 Linear token 暴露给 subagents 的例子，支持 Electrolyte 的设计方向：外部凭据应留在受控 tool boundary 内，agent/container 只看到受限 tool capability。
+- 文章中“给目标而非刚性 transition”的经验适合 Mineco agent design：runtime 应提供约束、工具和审计，避免把 agent 压成过窄的步骤执行器。
+- Codex App Server 对应 Mineco 未来本地 API/worker 模式：需要可程序化启动 session、推送 turns、读取 events、取消 run、读取 artifacts 和汇总 usage，而不是只能驱动交互式 CLI。
+- Dynamic tool calls 用于避免把 Linear token 暴露给 subagents 的例子，支持 Mineco 的设计方向：外部凭据应留在受控 tool boundary 内，agent/container 只看到受限 tool capability。
 
 ## 不应直接照搬的部分
 
-- Symphony 当前以 Linear 为主，并不等于 Electrolyte 应把 Linear 做成核心依赖。Electrolyte 应抽象 tracker adapter，Linear/GitHub Issues/local tasks 只是具体实现。
-- “无持久数据库 restart recovery”适合轻量参考实现，不一定适合 Electrolyte。Electrolyte 已规划 SQLite session store，自动化层应利用可审计 store，而不是为了贴合 spec 放弃 durable state。
+- Symphony 当前以 Linear 为主，并不等于 Mineco 应把 Linear 做成核心依赖。Mineco 应抽象 tracker adapter，Linear/GitHub Issues/local tasks 只是具体实现。
+- “无持久数据库 restart recovery”适合轻量参考实现，不一定适合 Mineco。Mineco 已规划 SQLite session store，自动化层应利用可审计 store，而不是为了贴合 spec 放弃 durable state。
 - `WORKFLOW.md` 不应自动扩大权限。它可以描述 workflow、prompt、状态和 hooks，但 hook execution、tracker writes、shell、network、browser 和 PR 操作仍必须走 RuntimePolicy 与 approval。
 - 高吞吐自动化不适合早期默认开启。没有 Phase 1 reviewability、artifacts、approval audit、replay 和 Phase 5 recovery 能力时，自动接管 issue tracker 会放大错误。
 - Agent 创建后续 issue 的能力需要治理。它应有 scope、label、rate limit、duplicate detection 和 human review，不能让 agent 无边界扩张任务队列。
@@ -65,8 +65,8 @@
 
 ## 仍需实现时确认
 
-- Electrolyte 的第一版 automation 应优先支持 GitHub Issues、Linear、本地 Markdown task queue，还是只做本地 scheduler。
-- `WORKFLOW.md` 是否应该成为 Electrolyte repo-owned automation contract，还是沿用 `.agent/agent.json` / `.agent/policy.json` 并仅把 Symphony 作为参考。
+- Mineco 的第一版 automation 应优先支持 GitHub Issues、Linear、本地 Markdown task queue，还是只做本地 scheduler。
+- `WORKFLOW.md` 是否应该成为 Mineco repo-owned automation contract，还是沿用 `.agent/agent.json` / `.agent/policy.json` 并仅把 Symphony 作为参考。
 - 自动化层是否允许 agent 创建后续 issue；如果允许，如何设置 labels、dedupe、rate limits 和 human approval。
 - 每 issue workspace 应基于 git worktree、目录复制、容器 volume，还是由 workspace hooks 自定义。
 - Headless API 应先作为本地 stdio/JSON-RPC app-server，还是直接进入 Phase 6 HTTP/SSE API。

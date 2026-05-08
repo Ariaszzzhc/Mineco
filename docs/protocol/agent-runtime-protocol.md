@@ -1117,7 +1117,7 @@ Transcript 是源真相。Provider state 是优化。
 - Checkpoints。
 - Usage。
 
-推荐持久化形态可以是 SQLite 或 append-only 文件日志。当前 Electrolyte Phase 0 使用 SQLite；导出、fixtures 和轻量实现可以使用 JSONL：
+推荐持久化形态可以是 SQLite 或 append-only 文件日志。当前 Mineco Phase 0 使用 SQLite；导出、fixtures 和轻量实现可以使用 JSONL：
 
 ```text
 SQLite:

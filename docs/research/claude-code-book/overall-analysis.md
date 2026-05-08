@@ -7,9 +7,9 @@
 
 ## 总体判断
 
-《御舆：解码 Agent Harness》对 Electrolyte 最有价值的地方，不是提供一个可以直接照搬的设计，而是提供了一套用来检查 agent runtime 成熟度的细节视角。
+《御舆：解码 Agent Harness》对 Mineco 最有价值的地方，不是提供一个可以直接照搬的设计，而是提供了一套用来检查 agent runtime 成熟度的细节视角。
 
-Electrolyte 现有文档的一级方向基本正确：
+Mineco 现有文档的一级方向基本正确：
 
 - 明确不是 chat API wrapper。
 - 已经有 Agent Core、Provider Adapter、Tool Runtime、State Layer 分层。
@@ -63,7 +63,7 @@ Electrolyte 现有文档的一级方向基本正确：
 
 ### 4. Plan mode 作为 runtime permission mode
 
-第 14 章是对 Electrolyte 当前文档补充价值最大的一章。早期判断是：Electrolyte 有设计先行和 reviewability，但还没有把 Plan mode 明确为 runtime capability。该判断已被后续文档采纳：最小 Plan mode 现在是 Phase 1 gate，而不是待定候选能力。
+第 14 章是对 Mineco 当前文档补充价值最大的一章。早期判断是：Mineco 有设计先行和 reviewability，但还没有把 Plan mode 明确为 runtime capability。该判断已被后续文档采纳：最小 Plan mode 现在是 Phase 1 gate，而不是待定候选能力。
 
 已纳入 Phase 1 的最小能力：
 
@@ -103,8 +103,8 @@ Phase 5+ 只扩展：
 
 ## 不建议照搬的内容
 
-- Bun、React/Ink、Zod v4 的技术栈选择。Electrolyte 应保持当前 Node.js 25-first 基线：pnpm workspace、Vitest、Kysely、Effect、Zod 和 `node:sqlite`。
-- Claude Code 的具体内置工具清单。Electrolyte 应按自己的阶段目标定义工具。
+- Bun、React/Ink、Zod v4 的技术栈选择。Mineco 应保持当前 Node.js 25-first 基线：pnpm workspace、Turborepo、Biome、Vitest、Kysely、Effect、Zod 和 `node:sqlite`。
+- Claude Code 的具体内置工具清单。Mineco 应按自己的阶段目标定义工具。
 - 过早实现 Fork mode、Coordinator、prompt hook、agent hook、classifier approval。
 - 过早创建大型功能标志表和术语表。
 - 将 Plan mode 降级为普通 prompt 或 slash command。
@@ -121,6 +121,6 @@ Phase 5+ 只扩展：
 
 ## 最终结论
 
-这本书对 Electrolyte 的价值是“校准细节”，不是“替换设计”。
+这本书对 Mineco 的价值是“校准细节”，不是“替换设计”。
 
-Electrolyte 当前文档已经抓住了长期架构方向；接下来应该吸收书中对权限管线、配置来源、工具元数据、上下文预算、Plan mode 和多智能体边界的细节经验。其余内容应保持延后，避免在 Phase 0 前把系统复杂度拉满。
+Mineco 当前文档已经抓住了长期架构方向；接下来应该吸收书中对权限管线、配置来源、工具元数据、上下文预算、Plan mode 和多智能体边界的细节经验。其余内容应保持延后，避免在 Phase 0 前把系统复杂度拉满。

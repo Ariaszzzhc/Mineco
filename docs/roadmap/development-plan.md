@@ -53,7 +53,7 @@ Phase 6  Automation and Extensibility
 
 ### 3.1 目标
 
-交付本地 coding agent 的最小执行闭环。用户可以在项目目录中通过 REPL 启动 Electrolyte，输入任务，让 agent 读文件、搜索文件、运行命令、修改文件或给出明确结论。
+交付本地 coding agent 的最小执行闭环。用户可以在项目目录中通过 REPL 启动 Mineco，输入任务，让 agent 读文件、搜索文件、运行命令、修改文件或给出明确结论。
 
 ### 3.2 用户能力
 
@@ -130,7 +130,7 @@ Security:
 
 ### 3.5 验收标准
 
-- `electrolyte` 能在 workspace 启动。
+- `mineco` 能在 workspace 启动。
 - 用户能输入任务并看到 agent 执行。
 - agent 能读文件、搜索文件、运行 shell。
 - agent 能写 workspace 文件。
@@ -228,7 +228,7 @@ Context:
 
 ### 4.6 退出条件
 
-Phase 1 结束后，Electrolyte 应该可以作为主力本地 coding agent 使用。后续增强应该主要是能力扩展，而不是可靠性补洞。
+Phase 1 结束后，Mineco 应该可以作为主力本地 coding agent 使用。后续增强应该主要是能力扩展，而不是可靠性补洞。
 
 ## 5. Phase 2: MCP and Tool Ecosystem
 
@@ -569,7 +569,7 @@ API:
 
 ### 9.6 退出条件
 
-Phase 6 结束后，Electrolyte 从本地 coding agent 产品扩展为可自动化、可扩展、可评估的本地 agent runtime。
+Phase 6 结束后，Mineco 从本地 coding agent 产品扩展为可自动化、可扩展、可评估的本地 agent runtime。
 
 ## 10. 跨阶段不变量
 

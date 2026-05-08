@@ -8,7 +8,7 @@
 
 作者：Michael Bolin
 
-归属：外部 runtime 机制资料记录。本文不替代 `docs/architecture/agent-runtime-design.md`、`docs/protocol/agent-runtime-protocol.md` 或 `docs/roadmap/` 的源真相；它用于记录 OpenAI Codex CLI agent loop、Responses API 输入构造、事件流、提示缓存和上下文压缩机制，对 Electrolyte provider adapter、runtime event、context manager 和 long-running agent 设计提供参考。
+归属：外部 runtime 机制资料记录。本文不替代 `docs/architecture/agent-runtime-design.md`、`docs/protocol/agent-runtime-protocol.md` 或 `docs/roadmap/` 的源真相；它用于记录 OpenAI Codex CLI agent loop、Responses API 输入构造、事件流、提示缓存和上下文压缩机制，对 Mineco provider adapter、runtime event、context manager 和 long-running agent 设计提供参考。
 
 ## 核心摘要
 
@@ -25,14 +25,14 @@
 - 当沙盒、审批模式或当前目录在对话中发生变化时，Codex 倾向追加新的上下文消息，而不是修改旧消息，从而尽量维持历史输入前缀稳定。
 - 为避免耗尽上下文窗口，Codex 会在 token 数超过阈值时压缩对话。早期依赖手动 `/compact`，后续使用 Responses API 的 compact 端点返回可替代旧 `input` 的压缩项目列表。
 
-## 对 Electrolyte 的参考价值
+## 对 Mineco 的参考价值
 
 - Provider adapter 应明确区分 provider event 和 runtime event。Responses SSE、reasoning summary、output item、tool call、completion 等属于 provider 事件；TUI/REPL 看到的稳定流应由 runtime 映射生成。
 - `items` 继续作为 transcript source of truth 是正确方向。每次工具调用、工具结果、助手消息、summary 和 compaction 都应能从本地 transcript 重新构造 provider input，而不是依赖 provider-side state。
 - Phase 0 的 OpenAI-compatible Chat Completions adapter 可以先落地，但 Phase 4 的 OpenAI Responses adapter 应保留 Responses 原生 item、reasoning summary、function call output、compact 和 encrypted provider state 的映射空间。
 - Context assembly 应有稳定顺序：高优先级稳定 instructions、工具定义、权限上下文、项目指令、环境上下文、历史 transcript、当前用户输入。稳定部分越靠前，越有利于 provider prompt caching。
 - ToolRegistry 的输出必须 deterministic。MCP tools、built-in tools 和 skill 暴露的工具列表需要稳定排序和稳定 schema，否则长对话会频繁破坏缓存前缀。
-- 沙盒和权限说明不能只写进 prompt。文章中 MCP 工具不受 shell sandbox 约束的提醒，进一步支持 Electrolyte 的设计：所有内置、MCP、skill、plugin 工具都必须经过 ToolRuntime、RuntimePolicy、approval 和 audit。
+- 沙盒和权限说明不能只写进 prompt。文章中 MCP 工具不受 shell sandbox 约束的提醒，进一步支持 Mineco 的设计：所有内置、MCP、skill、plugin 工具都必须经过 ToolRuntime、RuntimePolicy、approval 和 audit。
 - Approval mode、sandbox mode、cwd、active skills 和 tool visibility 变化时，runtime 应记录新 context item 或 event，而不是回写历史 transcript。这样既保留审计语义，也更接近 prompt caching 的最佳实践。
 - Phase 1 的 replay 和 resume 应覆盖两条路径：从 runtime events 做 exact replay；从 transcript items 重新构造 provider input 做 provider-state-missing replay。
 - Phase 5 的 compaction 不能只是摘要文本。它需要产出结构化 `SummaryItem` 或 `CompactionItem`，保留 tool state、open tasks、changed files、approval decisions、artifacts 和重要 constraints。
@@ -40,9 +40,9 @@
 
 ## 不应直接照搬的部分
 
-- Codex CLI 的 Responses API item shape 不应直接成为 Electrolyte 的 provider-neutral 协议。Electrolyte 仍应通过 ARP 抽象 provider 差异，只在 Responses adapter 内保留原生能力。
-- Codex 不使用 `previous_response_id` 是针对其产品、ZDR 和实现生态的选择。Electrolyte 可以把 provider-side continuation 作为可选 capability，但不能让它替代本地 transcript replay。
-- Responses compact 端点是 OpenAI-specific 能力。Electrolyte 的 ContextManager 应定义 provider-neutral compaction contract，再由不同 provider adapter 映射到 native compact、普通模型摘要或本地摘要策略。
+- Codex CLI 的 Responses API item shape 不应直接成为 Mineco 的 provider-neutral 协议。Mineco 仍应通过 ARP 抽象 provider 差异，只在 Responses adapter 内保留原生能力。
+- Codex 不使用 `previous_response_id` 是针对其产品、ZDR 和实现生态的选择。Mineco 可以把 provider-side continuation 作为可选 capability，但不能让它替代本地 transcript replay。
+- Responses compact 端点是 OpenAI-specific 能力。Mineco 的 ContextManager 应定义 provider-neutral compaction contract，再由不同 provider adapter 映射到 native compact、普通模型摘要或本地摘要策略。
 - 文章展示的 prompt construction 是 Codex CLI 当前实现视角，不等同于所有模型供应商的最佳输入结构。Anthropic、Gemini、本地模型和 OpenAI Responses 都应由 adapter 做 capability-driven mapping。
 
 ## 可转化为后续工作项的方向
@@ -56,7 +56,7 @@
 
 ## 仍需实现时确认
 
-- Electrolyte 是否在 Phase 4 支持 OpenAI Responses native item log，还是只保留 adapter 内部映射并把公共协议维持在 ARP item 上。
+- Mineco 是否在 Phase 4 支持 OpenAI Responses native item log，还是只保留 adapter 内部映射并把公共协议维持在 ARP item 上。
 - Provider-side continuation，例如 `previous_response_id` 或等价能力，应作为默认关闭的性能优化，还是由 provider policy 和 privacy policy 决定。
 - Prompt cache 诊断是否进入 Phase 4 usage ledger，记录 tool list 变化、model 变化、cwd 变化和 sandbox/approval 变化导致的潜在 cache miss。
 - Phase 5 compaction 是先实现 provider-neutral summary item，还是同时接入 OpenAI Responses compact 端点作为专用 adapter 优化。

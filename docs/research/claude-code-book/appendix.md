@@ -13,11 +13,11 @@
 
 这些附录的价值不在于具体条目本身，而在于大型 Agent Harness 需要“索引层”来维持可维护性。架构文档写原则，附录维护事实清单。
 
-## 对照 Electrolyte 现有文档
+## 对照 Mineco 现有文档
 
 已覆盖：
 
-- Electrolyte 已有 [文档索引](../../README.md)、[路线图索引](../../roadmap/README.md) 和 [文档审计](../../documentation-audit.md)。
+- Mineco 已有 [文档索引](../../README.md)、[路线图索引](../../roadmap/README.md) 和 [文档审计](../../documentation-audit.md)。
 - 架构、协议、路线图、流程的源真相归属已经比较清楚。
 
 部分覆盖：
@@ -28,7 +28,7 @@
 
 ## 值得参考
 
-附录提示 Electrolyte 后续应维护三类事实表：
+附录提示 Mineco 后续应维护三类事实表：
 
 - Tool registry 文档：每个工具的名称、来源、权限、并发属性、输出策略。
 - Feature flag 文档：每个 flag 的阶段、默认值、影响面、是否可由配置开启。
