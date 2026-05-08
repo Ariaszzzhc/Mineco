@@ -98,7 +98,7 @@ TUI 必须新增或完善：
 - `Context` view：显示已加载 MCP resources、prompts、source、token estimate、filter decision 和 artifact refs。
 - `Approvals` view：MCP tool approval prompt 显示 tool name、origin server、risk、reason、input preview、cwd、sandbox 状态和 matched policy。
 - `Artifacts` view：支持 MCP tool output、large resource、discovery report 和 connection error log。
-- Command palette 或等价入口：enable server、disable server、reload server、refresh discovery、inspect tool schema。
+- Command palette 或等价入口：enable server、disable server、reload server、disconnect server、refresh discovery、inspect tool schema。每个入口必须对应 Runtime SDK 调用，不能直接调用 `McpClientManager` 或 registry。
 - RuntimeEvent 渲染：例如 `mcp.server.connected`、`mcp.discovery.completed`、`mcp.tool.hidden`、`mcp.resource.loaded`。
 
 TUI 不得：
@@ -110,7 +110,7 @@ TUI 不得：
 - 自己决定 permission merge、approval 或 resource filter。
 - 修改 transcript 或历史 tool snapshot。
 
-所有动作都必须通过 Runtime SDK、McpClientManager、ToolRegistry、ContextManager 和 ToolRuntime 边界。
+所有动作都必须通过 Runtime SDK、McpClientManager、ToolRegistry、ContextManager 和 ToolRuntime 边界。P2 进入实现前，Runtime SDK 至少要补齐 `listMcpServers`、`listMcpTools`、`getMcpToolSpec`、`setMcpServerEnabled`、`reloadMcpServer`、`disconnectMcpServer` 和 `refreshMcpDiscovery`；TUI 只能调用这些方法，由 runtime 内部再协调 manager/registry。
 
 ### 5.2 MCP 配置来源和 Trust Model
 
@@ -381,7 +381,7 @@ Phase 2 的 schema change 必须通过 migration 完成，并保持 Phase 0/1 se
 - `mcp_loaded_context`：run id、server id、kind resource/prompt、resource uri or prompt name、artifact ref、summary hash、token estimate、filter decision。
 - `runtime_events`：支持 P2 MCP events，保持 append-only。
 - `approvals`：origin source metadata、server id、tool canonical id、transport、sandbox snapshot。
-- `artifacts`：支持 `mcp_discovery`、`mcp_tool_output`、`mcp_server_log`、`mcp_resource`、`mcp_prompt` artifact kind，并遵守架构文档中的 `ArtifactKind` union。
+- `artifacts`：支持 `mcp_discovery`、`mcp_tool_output`、`mcp_server_log`、`mcp_resource`、`mcp_prompt` artifact kind，并遵守协议文档中的 `ArtifactKind` union。
 
 约束：
 

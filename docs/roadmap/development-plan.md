@@ -171,7 +171,7 @@ Phase 0 结束时，interface 不需要精致，但 runtime event stream、sessi
 - 完整 approval UI：approve once、deny、approve similar prefix。
 - interrupt / cancel UI。
 - session resume UI。
-- Plan mode UI：active plan、plan artifact、plan approval。
+- Plan mode UI：active plan、plan artifact、`plan.submit` approval。
 
 Runtime:
 
@@ -182,7 +182,7 @@ Runtime:
 - large output artifact handling。
 - run status consistency。
 - basic checkpoint placeholder。
-- read-only Plan mode、plan artifact、plan approval、恢复原 permission mode。
+- read-only Plan mode、`plan.submit`、plan artifact、恢复原 permission mode。
 
 Tools:
 
@@ -224,7 +224,7 @@ Context:
 - 重启后能恢复未完成或历史 session。
 - 大 terminal output 不会直接塞满 transcript。
 - replay tests 不调用真实 provider 也能验证 run loop。
-- Plan mode 下写入和副作用工具不可用，批准计划后才能进入执行。
+- Plan mode 下写入和副作用工具不可用，`plan.submit` approval 后才能进入执行。
 
 ### 4.6 退出条件
 
@@ -274,6 +274,7 @@ Runtime:
 - MCP tool list。
 - MCP resource / prompt list。
 - MCP enable/disable。
+- MCP enable/disable/reload/refresh/inspect 均通过 Runtime SDK。
 - MCP tool approval display。
 - hidden/blocked tool reason。
 
@@ -343,6 +344,7 @@ Skills：
 - Context view。
 - Active skills list。
 - Skill enable/disable。
+- Skill list/enable/disable/pin/reload 均通过 Runtime SDK。
 
 Runtime:
 

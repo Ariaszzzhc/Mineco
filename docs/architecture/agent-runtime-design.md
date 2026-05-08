@@ -810,41 +810,9 @@ interface AgentCore {
 
 大输出不应该全部塞进模型上下文。
 
-```ts
-interface ArtifactRef {
-  id: string;
-  sessionId: string;
-  kind: ArtifactKind;
-  subtype?: string;
-  uri: string;
-  mimeType?: string;
-  sizeBytes?: number;
-  sha256?: string;
-  modelVisibleSummary?: Content[];
-  createdAt: string;
-}
+`ArtifactRef`、`ArtifactKind`、`ArtifactQuery` 和 `ArtifactBlob` 的 schema 源真相是 [Agent Runtime 协议](../protocol/agent-runtime-protocol.md#211-artifact-schema)。本架构文档只规定使用边界，不重新定义另一套 union。
 
-type ArtifactKind =
-  | "file"
-  | "directory"
-  | "terminal_log"
-  | "screenshot"
-  | "diff"
-  | "dataset"
-  | "report"
-  | "plan"
-  | "mcp_discovery"
-  | "mcp_tool_output"
-  | "mcp_server_log"
-  | "mcp_resource"
-  | "mcp_prompt"
-  | "skill_reference"
-  | "skill_resource"
-  | "skill_script_output"
-  | "browser_artifact";
-```
-
-`ArtifactKind` 是 artifact 分类的唯一源真相。`subtype` 只能用于同一 kind 下的 UI/实现细分，不能代替新增稳定 kind。Phase 1-3 引入的新 artifact 类型必须先扩展这个 union，再同步 phase 文档和测试。
+每个 run 中生成的 artifact 必须写入 `ArtifactRef.runId` 和 store metadata 的 `run_id`。只有 workspace/session 级 artifact 可以不带 `runId`。`ArtifactQuery.runId` 用于 diff/test/log artifact viewer、replay 和审计时按 run 精确过滤，不能依赖 artifact path 或文件内容推断归属。
 
 策略：
 
@@ -880,7 +848,7 @@ type RuntimeEvent =
   | { type: "checkpoint.created"; checkpointId: string };
 ```
 
-`RuntimeEvent` 的唯一命名规范是 dot event name。Phase 0 最小 schema 以 [Phase 0 本地 Agent 执行架构](../roadmap/phase-0-local-agent-execution.md#82-runtimeevent) 为准；长期设计只能扩展这个 union，不能改回 snake_case。
+`RuntimeEvent` 的唯一命名规范是 dot event name。schema 源真相以 [Agent Runtime 协议](../protocol/agent-runtime-protocol.md#201-runtimeevent-schema) 为准；长期设计只能扩展这个 union，不能改回 snake_case。
 
 Runtime terminal event 必须三选一且只发一次：`run.completed`、`run.failed`、`run.cancelled`。Provider stream 中的 `run_terminated` 不直接暴露为 runtime event。
 
@@ -999,7 +967,7 @@ Phase 1 必须支持：
 - 审批 tool call：approve once、deny、approve similar prefix。
 - 查看 diff 和 artifact。
 - 从历史 session resume。
-- 进入/退出 read-only Plan mode，并处理 `plan_approval`。
+- 进入/退出 read-only Plan mode，并通过 `plan.submit` 的 tool approval 处理计划批准。
 
 Phase 3 增加：
 
@@ -1047,6 +1015,19 @@ interface AgentRuntime {
   listApprovals(sessionId: string, query?: ApprovalQuery): Promise<EventPage<ApprovalRecord>>;
   listArtifacts(sessionId: string, query?: ArtifactQuery): Promise<EventPage<ArtifactRef>>;
   readArtifact(id: string): Promise<ArtifactBlob>;
+  listMcpServers(sessionId: string, query?: McpServerQuery): Promise<EventPage<McpServerSummary>>;
+  listMcpTools(sessionId: string, query?: McpToolQuery): Promise<EventPage<RuntimeToolSpec>>;
+  getMcpToolSpec(sessionId: string, toolId: string): Promise<RuntimeToolSpec>;
+  setMcpServerEnabled(sessionId: string, serverId: string, enabled: boolean): Promise<McpServerSummary>;
+  reloadMcpServer(sessionId: string, serverId: string): Promise<McpServerSummary>;
+  disconnectMcpServer(sessionId: string, serverId: string): Promise<McpServerSummary>;
+  refreshMcpDiscovery(sessionId: string, input?: McpDiscoveryRefreshInput): Promise<McpDiscoveryResult>;
+  listSkillRoots(sessionId: string): Promise<EventPage<SkillRootSummary>>;
+  listSkills(sessionId: string, query?: SkillQuery): Promise<EventPage<SkillSummary>>;
+  getActiveSkillSnapshot(sessionId: string, runId?: string): Promise<ActiveSkillSnapshot>;
+  setSkillEnabled(sessionId: string, skillId: string, enabled: boolean): Promise<SkillSummary>;
+  pinSkill(sessionId: string, skillId: string, pinned: boolean): Promise<SkillSummary>;
+  reloadSkillRoots(sessionId: string): Promise<SkillReloadResult>;
 }
 
 interface EventLogQuery {
@@ -1102,6 +1083,77 @@ interface ApprovalRecord {
   expiresAt?: string;
 }
 
+interface McpServerQuery {
+  sourceId?: string;
+  enabled?: boolean;
+  state?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+interface McpServerSummary {
+  id: string;
+  displayName: string;
+  sourceId: string;
+  enabled: boolean;
+  state: "configured" | "disabled" | "starting" | "connected" | "degraded" | "failed" | "stopping" | "disconnected";
+  lastError?: string;
+}
+
+interface McpToolQuery {
+  serverId?: string;
+  availability?: "visible" | "hidden" | "blocked" | "unavailable";
+  cursor?: string;
+  limit?: number;
+}
+
+interface McpDiscoveryRefreshInput {
+  serverId?: string;
+  force?: boolean;
+}
+
+interface McpDiscoveryResult {
+  refreshedServerIds: string[];
+  hiddenToolIds?: string[];
+  errors?: AgentError[];
+}
+
+interface SkillQuery {
+  sourceId?: string;
+  status?: string;
+  active?: boolean;
+  cursor?: string;
+  limit?: number;
+}
+
+interface SkillRootSummary {
+  id: string;
+  rootPath: string;
+  sourceKind: string;
+  enabled: boolean;
+}
+
+interface SkillSummary {
+  id: string;
+  name: string;
+  sourceId: string;
+  status: "available" | "active" | "disabled" | "blocked" | "invalid";
+  activationReason?: string;
+  pinned?: boolean;
+}
+
+interface ActiveSkillSnapshot {
+  sessionId: string;
+  runId?: string;
+  skills: SkillSummary[];
+}
+
+interface SkillReloadResult {
+  loadedSkillIds: string[];
+  invalidSkillIds?: string[];
+  errors?: AgentError[];
+}
+
 interface ApprovalRuleSnapshot {
   id?: string;
   prefix?: string[];
@@ -1116,20 +1168,13 @@ interface SandboxSnapshot {
   writableRoots?: string[];
 }
 
-interface ArtifactQuery {
-  runId?: string;
-  kind?: ArtifactKind;
-  cursor?: string;
-  limit?: number;
-}
-
-interface ArtifactBlob {
-  ref: ArtifactRef;
-  content: Content[] | Uint8Array | string;
-}
+// ArtifactRef / ArtifactQuery / ArtifactBlob are protocol DTOs.
+// Source truth: ../protocol/agent-runtime-protocol.md#211-artifact-schema
 ```
 
 产品界面不直接执行 shell、读写文件或调用 provider。所有动作都走 AgentCore / ToolRuntime，这样未来 HTTP API、桌面端和后台 worker 可以复用同一套执行路径。
+
+P2/P3 产品动作同样不能旁路调用 registry 或 manager。TUI 启用、禁用、reload、disconnect、refresh 或 inspect MCP server/tool 时，只能调用 `listMcpServers`、`setMcpServerEnabled`、`reloadMcpServer`、`disconnectMcpServer`、`refreshMcpDiscovery` 和 `getMcpToolSpec` 等 SDK 方法；TUI 管理 skills 时，只能调用 `listSkillRoots`、`listSkills`、`setSkillEnabled`、`pinSkill`、`reloadSkillRoots` 和 `getActiveSkillSnapshot`。
 
 历史 session、event log、approval log 和 artifact viewer 也必须走 Runtime SDK。`getSession` 只返回 session 当前结构化状态和 transcript items；runtime/provider event log、approvals 和 artifact content 通过上面的读取接口分页获取，TUI 不直接访问 Store。
 
@@ -1194,6 +1239,15 @@ GET    /v1/sessions/{id}/approvals
 GET    /v1/sessions/{id}/artifacts
 GET    /v1/artifacts/{id}
 POST   /v1/approvals/{id}/decision
+GET    /v1/sessions/{id}/mcp/servers
+POST   /v1/sessions/{id}/mcp/servers/{serverId}/enable
+POST   /v1/sessions/{id}/mcp/servers/{serverId}/disable
+POST   /v1/sessions/{id}/mcp/servers/{serverId}/reload
+POST   /v1/sessions/{id}/mcp/discovery/refresh
+GET    /v1/sessions/{id}/skills
+POST   /v1/sessions/{id}/skills/{skillId}/enable
+POST   /v1/sessions/{id}/skills/{skillId}/disable
+POST   /v1/sessions/{id}/skills/reload
 GET    /v1/tools
 GET    /v1/models
 ```
@@ -1310,6 +1364,7 @@ interface StoreSubsystems {
 - items、runtime_events、provider_events 逻辑上 append-only。
 - session summary 可覆盖更新。
 - artifact content-addressable 优先。
+- artifacts metadata 必须保存 `run_id`，供 `ArtifactQuery.runId` 和 replay/audit 精确过滤。
 - 写 session 时要有 lock，避免多个 worker 同时推进同一个 session。
 - 支持 export/import，便于 bug report 和 eval。
 
@@ -1403,6 +1458,7 @@ Phase 1 model-visible built-in tools：
 
 - `git.status`
 - `git.diff`
+- `plan.submit`
 - `git.apply_patch`
 
 Runtime-only tools / services：
@@ -1440,22 +1496,12 @@ Agent 需要支持三类人类介入：
 - approval：授权或拒绝某个动作。
 - clarification：模型需要用户补充信息。
 - interruption：用户改变任务、暂停、取消或要求状态。
-- plan approval：用户批准一个只读规划结果进入执行阶段。
 
-```ts
-interface UserInteractionRequest {
-  id: string;
-  sessionId: string;
-  kind: "approval" | "clarification" | "confirmation" | "plan_approval";
-  prompt: Content[];
-  options?: InteractionOption[];
-  expiresAt?: string;
-}
-```
+Approval 使用协议层 `ApprovalRequest` 和 `decideApproval`，并且必须绑定 `callId`。Plan approval 不另建 interaction model，而是通过 `plan.submit` runtime tool 进入同一条 tool approval pipeline。
 
 Clarification 不应滥用。runtime 可以要求 agent 在低风险、可合理假设的场景继续执行；只有不可恢复或高风险分支才问用户。
 
-Plan mode 是 Phase 1 必做的 runtime permission mode，不是 prompt 风格、slash command 或可拖延到 Phase 5 的候选能力。进入 Plan mode 时，runtime 必须切换到只读权限集，允许探索、读取、搜索和生成计划，但禁止写文件、运行 destructive shell、提交代码或调用有外部副作用的工具。退出 Plan mode 时，runtime 必须生成 plan artifact，并通过 `plan_approval` 请求用户确认；确认后恢复进入 Plan mode 前的 permission mode，并以该计划作为执行上下文继续。Phase 1 只要求最小 read-only Plan mode、plan artifact、`plan_approval` 和恢复原 permission mode。Phase 5 只扩展复杂 plan recovery、独立 verifier、subagent/team lead 审批流和长任务中的计划对照。
+Plan mode 是 Phase 1 必做的 runtime permission mode，不是 prompt 风格、slash command 或可拖延到 Phase 5 的候选能力。进入 Plan mode 时，runtime 必须切换到只读权限集，允许探索、读取、搜索和生成计划，但禁止写文件、运行 destructive shell、提交代码或调用有外部副作用的工具。退出 Plan mode 时，agent 调用 `plan.submit`，ToolRuntime 生成 `kind="plan"` 的 artifact 并对该 tool call 发出 approval；确认后恢复进入 Plan mode 前的 permission mode，并以该计划作为执行上下文继续。Phase 1 只要求最小 read-only Plan mode、`plan.submit`、plan artifact、既有 `approval.requested` / `approval.decided` 和恢复原 permission mode。Phase 5 只扩展复杂 plan recovery、独立 verifier、subagent/team lead 审批流和长任务中的计划对照。
 
 ## 21. Scheduler / Automation
 
@@ -1569,7 +1615,7 @@ interface ScheduledTask {
 - Diff view。
 - Test view。
 - Approval UI 完整化：approve once、deny、approve similar prefix。
-- read-only Plan mode：进入只读 permission mode、生成 plan artifact、发出 `plan_approval`、批准后恢复原 permission mode。
+- read-only Plan mode：进入只读 permission mode、通过 `plan.submit` 生成 plan artifact、复用 tool approval、批准后恢复原 permission mode。
 - `git.diff`、`git.status`、`git.apply_patch` 或 `file.patch`。
 - 大输出 artifact 化。
 - ContextManager recent-window + summary placeholder。

@@ -10,7 +10,7 @@
 
 ## 1. 目的
 
-Agent Runtime Protocol，简称 ARP，定义 agent runtime 与模型供应商之间的供应商中立契约。
+Agent Runtime Protocol，简称 ARP，定义 agent runtime 与模型供应商之间的供应商中立契约，并收纳 Runtime SDK 暴露给产品界面的公共 DTO/schema。
 
 这个协议面向不止能聊天的 agent。符合协议的 agent 可以检查上下文、调用工具、观察结果、继续推理、从失败中恢复、压缩长历史，并以结构化结果完成任务。
 
@@ -777,7 +777,7 @@ Provider adapter 不能绕过 tool runtime。
 
 ## 13. Approval Model
 
-Tools 可能需要在执行前审批。
+Tools 可能需要在执行前审批。计划批准也建模为 tool approval：Plan mode 使用 runtime tool `plan.submit` 提交计划，ToolRuntime 为该 tool call 生成 `ApprovalRequest`，因此 approval 仍然有稳定 `callId`。
 
 ```ts
 interface ApprovalRequest {
@@ -792,6 +792,8 @@ interface ApprovalRequest {
 
 `id` 是 runtime 分配的稳定 approval request ID，用于 SDK/UI 调用 `decideApproval(id, decision)`。`callId` 只关联被审批的 tool call，不能替代 approval request ID。
 
+`callId` 是必填字段。需要用户批准计划时，runtime 不创建独立计划批准 request，而是要求模型或 AgentCore 调用 `plan.submit`；该调用创建 `kind="plan"` 的 artifact，并用 `ApprovalRequest.callId` 绑定这次 `plan.submit` tool call。
+
 ```ts
 interface ApprovalDecision {
   status: "approved" | "denied";
@@ -801,6 +803,30 @@ interface ApprovalDecision {
 ```
 
 如果 approval 被拒绝，runtime 应追加一个 `status="denied"` 的 `ToolResultItem`，并把该结果反馈给模型。
+
+### 13.1 Plan Submit Tool
+
+`plan.submit` 是 Phase 1 引入的 runtime tool，用于把 Plan mode 的只读规划结果转换成可审阅 artifact，并复用既有 approval pipeline。这里的 approval 保护的是“退出 Plan mode 并恢复执行权限”，不是保护 plan artifact 的创建。
+
+```ts
+interface PlanSubmitInput {
+  title?: string;
+  body: Content[];
+  summary?: string;
+}
+
+interface PlanSubmitResult {
+  artifact: ArtifactRef;
+}
+```
+
+`plan.submit` 的执行顺序：
+
+1. ToolRuntime 校验输入并写入 `ArtifactRef(kind="plan")`。
+2. Runtime 发出 `artifact.created`。
+3. ToolRuntime 创建 `ApprovalRequest(toolName="plan.submit", callId=<plan.submit call id>)` 并发出 `approval.requested`。
+4. 用户通过 `decideApproval(request.id, decision)` 批准或拒绝。
+5. 批准后 runtime 恢复进入 Plan mode 前的 permission mode，并把 plan artifact 作为后续执行上下文；拒绝后追加 denied tool result，不执行写入或外部副作用。
 
 ## 14. Context Management
 
@@ -1086,6 +1112,30 @@ Run terminal statuses are `completed`、`failed`、`cancelled`。Session termina
 
 `RuntimeSessionStatus` 只表达 session 生命周期和是否正在执行。`waiting_for_tool`、`waiting_for_approval`、`cancelling` 只属于 `RunStatus`，不得写入 `sessions.status`，也不得通过 `session.status_changed` 发送。UI 需要展示这些中间态时，必须读取 active run 或消费 `run.status_changed` runtime event 派生。
 
+### 20.1 RuntimeEvent Schema
+
+RuntimeEvent 是产品界面、replay 和审计的 runtime 事件源真相。Provider 原始 `RunEvent` 可以单独落盘，但不能直接作为 REPL/TUI 的主渲染协议。
+
+```ts
+type RuntimeEvent =
+  | { type: "session.created"; session: RuntimeSession }
+  | { type: "session.status_changed"; sessionId: string; status: RuntimeSessionStatus }
+  | { type: "run.started"; runId: string; sessionId: string }
+  | { type: "run.status_changed"; runId: string; sessionId: string; status: ActiveRunStatus }
+  | { type: "run.completed"; runId: string; sessionId: string; reason: "completed" }
+  | { type: "run.failed"; runId: string; sessionId: string; reason: TerminalReason; error: AgentError }
+  | { type: "run.cancelled"; runId: string; sessionId: string; reason: TerminalReason }
+  | { type: "assistant.delta"; text: string }
+  | { type: "assistant.message"; message: AssistantMessage }
+  | { type: "tool.started"; call: ToolCallItem }
+  | { type: "tool.finished"; result: ToolResultItem }
+  | { type: "approval.requested"; request: ApprovalRequest }
+  | { type: "approval.decided"; approvalId: string; decision: ApprovalDecision }
+  | { type: "artifact.created"; artifact: ArtifactRef };
+```
+
+RuntimeEvent 命名必须使用 dot event name。后续 phase 可以扩展 union，但不能改回 snake_case。Plan approval 通过 `plan.submit` tool call 复用 `approval.*`。
+
 ```ts
 interface AgentSession {
   id: string;
@@ -1099,11 +1149,68 @@ interface AgentSession {
   usage?: Usage;
   metadata?: Record<string, unknown>;
 }
+
+type RuntimeSession = AgentSession;
 ```
 
 Transcript 是源真相。Provider state 是优化。
 
 ## 21. Persistence
+
+### 21.1 Artifact Schema
+
+Artifact schema 的协议源真相如下。架构和阶段文档可以引用这些类型，但不能重新定义另一套不兼容 union。
+
+```ts
+interface ArtifactRef {
+  id: string;
+  sessionId: string;
+  runId?: string;
+  kind: ArtifactKind;
+  subtype?: string;
+  uri: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  sha256?: string;
+  modelVisibleSummary?: Content[];
+  createdAt: string;
+}
+
+type ArtifactKind =
+  | "file"
+  | "directory"
+  | "terminal_log"
+  | "screenshot"
+  | "diff"
+  | "dataset"
+  | "report"
+  | "plan"
+  | "mcp_discovery"
+  | "mcp_tool_output"
+  | "mcp_server_log"
+  | "mcp_resource"
+  | "mcp_prompt"
+  | "skill_reference"
+  | "skill_resource"
+  | "skill_script_output"
+  | "browser_artifact";
+
+interface ArtifactQuery {
+  runId?: string;
+  kind?: ArtifactKind;
+  cursor?: string;
+  limit?: number;
+}
+
+interface ArtifactBlob {
+  ref: ArtifactRef;
+  content: Content[] | Uint8Array | string;
+}
+```
+
+`runId` 是 optional，因为 workspace/session 级 artifact 可以不属于单个 run；但只要 artifact 是 run 过程中生成的，`ArtifactRef.runId` 和持久化 metadata 的 `run_id` 必须写入同一个 run id。`ArtifactQuery.runId` 只能过滤 metadata 中的 `run_id`，不能靠读取 artifact 文件内容推断。
+
+`ArtifactKind` 是 artifact 分类的唯一源真相。`subtype` 只能用于同一 kind 下的 UI/实现细分，不能代替新增稳定 kind。Phase 1+ 引入的新 artifact 类型必须先扩展这个 union，再同步 phase 文档和测试。
 
 实现应该持久化：
 
@@ -1116,6 +1223,7 @@ Transcript 是源真相。Provider state 是优化。
 - Provider state。
 - Checkpoints。
 - Usage。
+- Artifact metadata。
 
 推荐持久化形态可以是 SQLite 或 append-only 文件日志。当前 Mineco Phase 0 使用 SQLite；导出、fixtures 和轻量实现可以使用 JSONL：
 
@@ -1360,6 +1468,108 @@ export type TerminalReason =
   | "compaction_failed"
   | "permission_blocked"
   | "internal_error";
+
+export type RunStatus =
+  | "created"
+  | "running"
+  | "waiting_for_tool"
+  | "waiting_for_approval"
+  | "cancelling"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type RuntimeSessionStatus =
+  | "created"
+  | "running"
+  | "waiting_for_user"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type ActiveRunStatus =
+  | "running"
+  | "waiting_for_tool"
+  | "waiting_for_approval"
+  | "cancelling";
+
+export type RuntimeEvent =
+  | { type: "session.created"; session: RuntimeSession }
+  | { type: "session.status_changed"; sessionId: string; status: RuntimeSessionStatus }
+  | { type: "run.started"; runId: string; sessionId: string }
+  | { type: "run.status_changed"; runId: string; sessionId: string; status: ActiveRunStatus }
+  | { type: "run.completed"; runId: string; sessionId: string; reason: "completed" }
+  | { type: "run.failed"; runId: string; sessionId: string; reason: TerminalReason; error: AgentError }
+  | { type: "run.cancelled"; runId: string; sessionId: string; reason: TerminalReason }
+  | { type: "assistant.delta"; text: string }
+  | { type: "assistant.message"; message: AssistantMessage }
+  | { type: "tool.started"; call: ToolCallItem }
+  | { type: "tool.finished"; result: ToolResultItem }
+  | { type: "approval.requested"; request: ApprovalRequest }
+  | { type: "approval.decided"; approvalId: string; decision: ApprovalDecision }
+  | { type: "artifact.created"; artifact: ArtifactRef };
+
+export type RuntimeSession = AgentSession;
+
+export interface ApprovalRequest {
+  id: string;
+  callId: string;
+  toolName: string;
+  reason: string;
+  risk: "medium" | "high" | "critical";
+  inputPreview: Content[];
+}
+
+export interface ApprovalDecision {
+  status: "approved" | "denied";
+  decidedBy: "user" | "policy";
+  reason?: string;
+}
+
+export interface ArtifactRef {
+  id: string;
+  sessionId: string;
+  runId?: string;
+  kind: ArtifactKind;
+  subtype?: string;
+  uri: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  sha256?: string;
+  modelVisibleSummary?: Content[];
+  createdAt: string;
+}
+
+export type ArtifactKind =
+  | "file"
+  | "directory"
+  | "terminal_log"
+  | "screenshot"
+  | "diff"
+  | "dataset"
+  | "report"
+  | "plan"
+  | "mcp_discovery"
+  | "mcp_tool_output"
+  | "mcp_server_log"
+  | "mcp_resource"
+  | "mcp_prompt"
+  | "skill_reference"
+  | "skill_resource"
+  | "skill_script_output"
+  | "browser_artifact";
+
+export interface ArtifactQuery {
+  runId?: string;
+  kind?: ArtifactKind;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface ArtifactBlob {
+  ref: ArtifactRef;
+  content: Content[] | Uint8Array | string;
+}
 ```
 
 ## 28. 示例 Session

@@ -290,6 +290,7 @@ interface SandboxSnapshot {
   network?: "disabled" | "enabled" | "allowlist";
   writableRoots?: string[];
 }
+
 ```
 
 ### 8.2 RuntimeEvent
@@ -351,6 +352,8 @@ type RuntimeEvent =
 
 Provider 原始 `RunEvent` 仍要落盘，但 REPL 先消费 runtime 归一化事件。
 
+`RuntimeEvent` schema 源真相是 [Agent Runtime 协议](../protocol/agent-runtime-protocol.md#201-runtimeevent-schema)。本节列出 Phase 0 必须支持的最小事件集；后续 phase 可以扩展 dot event name。
+
 Phase 0 最小终止原因必须能区分正常完成、用户取消、工具拒绝、工具错误、模型错误、上下文阻断和内部错误。REPL 可以只用简单文案展示，但 Store 必须保存结构化 `TerminalReason`。
 
 `RunStatus` 和 `RuntimeSessionStatus` 以 [Agent Runtime 协议](../protocol/agent-runtime-protocol.md#20-session-model) 为唯一源真相。`terminated` 不是 status，runtime 层也不定义 `run.terminated`。Runtime terminal event 必须三选一且只发一次：`run.completed`、`run.failed`、`run.cancelled`。Provider stream 中的 `run_terminated` 只写入 `provider_events`，由 adapter 映射为 runtime terminal event。
@@ -363,6 +366,7 @@ Approval ID 契约：
 - `decideApproval(approvalId, decision)` 的 `approvalId` 必须传 `ApprovalRequest.id`。
 - `ApprovalRequest.callId` 只用于关联 tool call，不作为 approval decision 的主键。
 - `approval.decided.approvalId` 必须等于对应 `ApprovalRequest.id`。
+- Phase 1 的计划批准必须通过 `plan.submit` tool call 复用这个 approval 契约。
 
 ### 8.3 AgentProtocolProvider
 
@@ -616,6 +620,7 @@ CREATE TABLE approvals (
 CREATE TABLE artifacts (
   id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL,
+  run_id TEXT,
   kind TEXT NOT NULL,
   path TEXT NOT NULL,
   mime_type TEXT,
@@ -630,6 +635,7 @@ Store 规则：
 
 - `items` 表是 transcript source of truth。
 - `items`、`runtime_events` 和 `provider_events` 逻辑上 append-only，通过各自表内的 `(session_id, seq)` 保持顺序；`seq` 是 per session、per table 单调递增，不跨表共享。
+- `artifacts.run_id` 对 run 过程中生成的 artifact 必填；只有 session/workspace 级 artifact 可以为空，供 `ArtifactQuery.runId` 精确过滤。
 - 大输出写入 `.mineco/artifacts/`，SQLite 只保存 metadata 和摘要。
 - Kysely 是 Store implementation 的唯一 query/migration API。
 - `DatabaseSync` 只藏在内联 Kysely node:sqlite dialect 内。

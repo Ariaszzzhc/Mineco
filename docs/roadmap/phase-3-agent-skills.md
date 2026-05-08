@@ -169,11 +169,14 @@ policy             组织或本机强制策略
 
 Runtime SDK 至少需要支持：
 
-- list skill roots。
-- list discovered skills。
-- enable / disable skill for session。
-- reload skill roots。
-- get active skill snapshot for session/run。
+- `listSkillRoots(sessionId)`。
+- `listSkills(sessionId, query)`。
+- `setSkillEnabled(sessionId, skillId, enabled)`。
+- `pinSkill(sessionId, skillId, pinned)`。
+- `reloadSkillRoots(sessionId)`。
+- `getActiveSkillSnapshot(sessionId, runId?)`。
+
+TUI 的 list、enable、disable、pin 和 reload 操作只能调用这些 Runtime SDK 方法，由 runtime 内部协调 `SkillRegistry`、`ContextManager` 和 `ToolRuntime`；不能让 TUI 直接读 skill root 或调用 registry。
 
 ### 5.4 Activation Resolver
 
@@ -325,7 +328,7 @@ Phase 3 的 schema change 必须通过 migration 完成，并保持 Phase 0/1 se
 - `run_skill_snapshots`：run id、skill id、source hash、body hash、loaded resource refs、instruction block refs、token estimate。
 - `instruction_blocks` 或等价结构：source、role、priority、scope、content hash、model-visible summary。
 - `runtime_events`：支持 P3 skill events，保持 append-only。
-- `artifacts`：支持 `skill_reference`、`skill_resource`、`skill_script_output` artifact kind，并遵守架构文档中的 `ArtifactKind` union。
+- `artifacts`：支持 `skill_reference`、`skill_resource`、`skill_script_output` artifact kind，并遵守协议文档中的 `ArtifactKind` union。
 
 约束：
 

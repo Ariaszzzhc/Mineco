@@ -374,6 +374,19 @@ interface AgentRuntime {
   listApprovals(sessionId: string, query?: ApprovalQuery): Promise<EventPage<ApprovalRecord>>;
   listArtifacts(sessionId: string, query?: ArtifactQuery): Promise<EventPage<ArtifactRef>>;
   readArtifact(id: string): Promise<ArtifactBlob>;
+  listMcpServers(sessionId: string, query?: McpServerQuery): Promise<EventPage<McpServerSummary>>;
+  listMcpTools(sessionId: string, query?: McpToolQuery): Promise<EventPage<RuntimeToolSpec>>;
+  getMcpToolSpec(sessionId: string, toolId: string): Promise<RuntimeToolSpec>;
+  setMcpServerEnabled(sessionId: string, serverId: string, enabled: boolean): Promise<McpServerSummary>;
+  reloadMcpServer(sessionId: string, serverId: string): Promise<McpServerSummary>;
+  disconnectMcpServer(sessionId: string, serverId: string): Promise<McpServerSummary>;
+  refreshMcpDiscovery(sessionId: string, input?: McpDiscoveryRefreshInput): Promise<McpDiscoveryResult>;
+  listSkillRoots(sessionId: string): Promise<EventPage<SkillRootSummary>>;
+  listSkills(sessionId: string, query?: SkillQuery): Promise<EventPage<SkillSummary>>;
+  getActiveSkillSnapshot(sessionId: string, runId?: string): Promise<ActiveSkillSnapshot>;
+  setSkillEnabled(sessionId: string, skillId: string, enabled: boolean): Promise<SkillSummary>;
+  pinSkill(sessionId: string, skillId: string, pinned: boolean): Promise<SkillSummary>;
+  reloadSkillRoots(sessionId: string): Promise<SkillReloadResult>;
 }
 ```
 
@@ -382,6 +395,7 @@ SDK adapter 负责：
 - `Effect.runPromise` 转 Promise。
 - Effect stream / Queue 转 AsyncIterable。
 - 将 typed errors 映射成 `AgentError` 或 rejected promise。
+- 所有产品动作先落到 Runtime SDK；REPL/TUI 不直接调用 Store、McpClientManager、SkillRegistry 或 ToolRegistry。
 
 不要把 `Effect.Effect<...>` 暴露给 REPL 或外部 API。
 

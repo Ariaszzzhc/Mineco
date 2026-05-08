@@ -25,7 +25,7 @@
 
 - 系统边界、长期组件职责和关键设计决策归属 [AI Agent Runtime 设计](architecture/agent-runtime-design.md)。
 - 技术栈使用规则、库边界和项目内 adapter 策略归属 [Technology Stack 使用说明](architecture/technology-stack.md)。
-- runtime/provider schema、event、item、tool 和 adapter 契约归属 [Agent Runtime 协议](protocol/agent-runtime-protocol.md)。
+- runtime/provider schema、RuntimeEvent、item、tool、approval、artifact DTO 和 adapter 契约归属 [Agent Runtime 协议](protocol/agent-runtime-protocol.md)。
 - 阶段目标、范围、非目标、验收标准和退出条件归属 [roadmap/](roadmap/README.md)。
 - 工程节奏、编码规范、测试要求、review 和 release gate 归属 [开发工作流和规范](process/development-workflow-and-standards.md)。
 - 文档盘点、清理结论和后续整理建议归属 [文档审计](documentation-audit.md)。
@@ -44,7 +44,7 @@
 
 ## 维护规则
 
-- public runtime/provider schema 变化时，更新协议文档。
+- public runtime/provider schema、artifact schema 或 SDK-facing DTO 变化时，更新协议文档。
 - 边界或长期设计决策变化时，更新架构文档。
 - 阶段范围、验收标准或非目标变化时，更新路线图文档。
 - 工程工作流、测试、review 或发布 gate 变化时，更新流程文档。

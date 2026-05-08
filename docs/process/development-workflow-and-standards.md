@@ -234,8 +234,9 @@ Store 规范：
 - 函数和变量使用 camelCase：`runSession`。
 - tool 名称使用 dot namespace：`file.read`、`shell.run`。
 - RuntimeEvent 使用 dot event name：`tool.started`、`approval.requested`。
-- RuntimeEvent schema 的 Phase 0 源真相是 [Phase 0 本地 Agent 执行架构](../roadmap/phase-0-local-agent-execution.md#82-runtimeevent)。其他文档只能扩展，不能使用 snake_case event name。
+- RuntimeEvent 和 SDK-facing DTO 的源真相是 [Agent Runtime 协议](../protocol/agent-runtime-protocol.md)。Phase 文档只能声明本阶段必需子集或扩展，不能使用 snake_case event name。
 - Approval request 必须有稳定 `id`。UI/REPL 调用 `decideApproval` 时传 `ApprovalRequest.id`，不能传 `callId`。
+- Plan approval 必须通过 `plan.submit` tool call 复用 `ApprovalRequest` 与 `decideApproval`，不得新增没有 `callId` 的 approval 变体。
 
 ### 5.3 模块依赖方向
 
