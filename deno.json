@@ -1,0 +1,39 @@
+{
+  "workspace": [
+    "./packages/protocol",
+    "./packages/core"
+  ],
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true
+  },
+  "imports": {
+    "@/protocol": "./packages/protocol/mod.ts",
+    "zod": "npm:zod@^3.23.8",
+    "@anthropic-ai/claude-agent-sdk": "npm:@anthropic-ai/claude-agent-sdk@^0.1.0",
+    "kysely": "npm:kysely@^0.27.6"
+  },
+  "tasks": {
+    "test": "deno test -A",
+    "lint": "deno lint",
+    "fmt": "deno fmt",
+    "fmt:check": "deno fmt --check",
+    "check": "deno check packages",
+    "compile": "deno compile --output macos/Mineco/Resources/mineco-core --target aarch64-apple-darwin --unstable -A packages/core/bin/main.ts"
+  },
+  "fmt": {
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "semiColons": true,
+    "singleQuote": true,
+    "proseWrap": "preserve"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "exclude": ["macos", "backup", "node_modules", ".turbo", "target"]
+}

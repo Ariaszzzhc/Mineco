@@ -2,7 +2,7 @@
   <img src="mineco.png" alt="Mineco" width="128" height="128">
 </p>
 <h1 align="center">Mineco</h1>
-<p align="center">A native desktop AI coding agent.</p>
+<p align="center">A native macOS AI coding agent.</p>
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a> ·
   <a href="#getting-started">Getting Started</a>
@@ -10,41 +10,49 @@
 
 ---
 
-> **Warning:** This project is under rapid development. APIs and internal structures may change without notice.
+> **Note:** Mineco is being rewritten from scratch. See
+> [`docs/PRD.md`](docs/PRD.md) and [`docs/technical-design.md`](docs/technical-design.md)
+> for the v1 design. The `backup/` directory holds the previous codebase for
+> reference only.
 
 ## What is Mineco?
 
-Mineco is a native desktop app that puts an AI coding agent directly in your project. It reads your files, writes code, runs commands — all from a single window.
+Mineco is a native macOS app that puts an AI coding agent directly in your
+project. It reads your files, writes code, runs commands — all from a single
+native window, with multiple sessions running in parallel and explicit approval
+for dangerous operations.
 
-Open a folder. Start building.
+The agent engine is Anthropic's `claude-agent-sdk`; Mineco is the native shell,
+the connection/account management, and the safety + cost controls around it.
 
-## Features
+## Architecture (v1)
 
-- **File operations** — The agent reads and writes files in your workspace directly. Not suggestions — actual changes.
-- **Shell execution** — Run commands, see output, diagnose errors, and fix them in the same conversation.
-- **Extended thinking** — Watch the agent reason step-by-step before making changes.
-- **Subagents** — Spawn child agents to handle subtasks in parallel. Each subagent runs independently with its own context and step limit.
-- **Streaming responses** — Real-time streaming with SSE. See text, tool calls, and results as they happen.
-- **Auto session titles** — AI-generated session titles based on your first message.
-- **Rich rendering** — Markdown with syntax highlighting (Shiki), collapsible thinking blocks, and tool call cards.
-- **Provider system** — Supports any OpenAI-compatible API. Built-in support for Zhipu AI. Add custom providers with your own endpoints and models.
-- **Workspace-centric** — Sessions and configs are scoped to your project directory.
-- **Desktop + Web** — Run as a native Tauri desktop app, or launch in web mode and access from any browser.
+- **`macos/Mineco/`** — native SwiftUI app, a *thin client*. Renders the
+  conversation and forwards user intent over JSON-RPC. No business logic.
+- **`packages/core/`** — the single Deno process (`mineco-core`). Owns all
+  business logic, drives the SDK, and is the sole writer to SQLite.
+- **`packages/protocol/`** — the JSON-RPC wire contract (zod + TS), the shared
+  source of truth for both sides.
+- **Transport:** newline-delimited JSON-RPC 2.0 over stdio (no ports, no
+  handshake).
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js >= 25
-- pnpm 10.29
+- [Deno](https://deno.com) 2.7+
+- Xcode (for the macOS app, when added)
 
-### Install & Run
+### Develop (core)
 
 ```bash
-pnpm install && pnpm start
+deno test        # unit tests (protocol + core)
+deno lint
+deno fmt
+deno check packages
 ```
 
-Add your API key in **Settings**, open a folder, and start coding.
+The macOS SwiftUI project (`macos/`) is added in a later step.
 
 ## License
 

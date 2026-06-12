@@ -1,0 +1,9 @@
+{
+  "name": "@mineco/core",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./server.ts",
+    "./bin": "./bin/main.ts"
+  },
+  "exclude": ["deno.json"]
+}
