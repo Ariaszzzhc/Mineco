@@ -4,15 +4,15 @@
 
 ## 1. 技术选型
 
-| 层 | 选型 | 理由 |
-|---|---|---|
-| Agent 引擎 | **`@anthropic-ai/claude-agent-sdk`(TypeScript)** | 直接复用成熟 agent 引擎(工具/循环/上下文/权限/skills/subagent 全内置),不自研。本质是 spawn 官方原生 `claude` 二进制并经 stdio 驱动。 |
-| 后端运行时 | **Deno**(替代 node) | node 单文件打包有问题;Deno 原生支持 TS、自带 test/lint/fmt、`deno compile` 出单文件可执行;SDK 显式支持 `executable:'deno'`。 |
-| 后端工具链 | **Deno 原生**(`deno.json`/`deno test`/`deno lint`/`deno fmt`) | 取代 pnpm/turbo/vitest/biome/tsc,单一工具链。 |
-| 存储 | **SQLite + kysely + `node:sqlite`** | Deno 2.2+ 支持 `node:sqlite`;复用现有 kysely 体系;单文件、单写者、零运维。DB 在 `~/.mineco/mineco.db`,只存 UI/统计/配置;**转录由 SDK 原生 JSONL 持久化**(`~/.mineco/projects/`),不进 DB。 |
-| 协议 | **stdio newline-delimited JSON-RPC 2.0**(单向 request/response + 双向 notification) | 无端口、最低延迟、生命周期随客户端;JSON-RPC 成熟、带 id 配对。 |
-| 前端 | **原生 SwiftUI(macOS)** | 原生体验;作为 thin client,只渲染 + 转发,不碰业务。 |
-| 配置/凭证存储 | **SQLite 明文**(含 API Key) | 简单;不用 Keychain。 |
+| 层            | 选型                                                                                | 理由                                                                                                                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent 引擎    | **`@anthropic-ai/claude-agent-sdk`(TypeScript)**                                    | 直接复用成熟 agent 引擎(工具/循环/上下文/权限/skills/subagent 全内置),不自研。本质是 spawn 官方原生 `claude` 二进制并经 stdio 驱动。                                                      |
+| 后端运行时    | **Deno**(替代 node)                                                                 | node 单文件打包有问题;Deno 原生支持 TS、自带 test/lint/fmt、`deno compile` 出单文件可执行;SDK 显式支持 `executable:'deno'`。                                                              |
+| 后端工具链    | **Deno 原生**(`deno.json`/`deno test`/`deno lint`/`deno fmt`)                       | 取代 pnpm/turbo/vitest/biome/tsc,单一工具链。                                                                                                                                             |
+| 存储          | **SQLite + kysely + `node:sqlite`**                                                 | Deno 2.2+ 支持 `node:sqlite`;复用现有 kysely 体系;单文件、单写者、零运维。DB 在 `~/.mineco/mineco.db`,只存 UI/统计/配置;**转录由 SDK 原生 JSONL 持久化**(`~/.mineco/projects/`),不进 DB。 |
+| 协议          | **stdio newline-delimited JSON-RPC 2.0**(单向 request/response + 双向 notification) | 无端口、最低延迟、生命周期随客户端;JSON-RPC 成熟、带 id 配对。                                                                                                                            |
+| 前端          | **原生 SwiftUI(macOS)**                                                             | 原生体验;作为 thin client,只渲染 + 转发,不碰业务。                                                                                                                                        |
+| 配置/凭证存储 | **SQLite 明文**(含 API Key)                                                         | 简单;不用 Keychain。                                                                                                                                                                      |
 
 ## 2. 总体架构
 
@@ -31,6 +31,7 @@ core (单一 Deno 进程 = deno compile 产物 mineco-core)
 ```
 
 **关键决策:**
+
 - **单一 core 进程**:SwiftUI 启动时 spawn 一个 core,服务所有会话;core 独占 SQLite(单写者,无锁竞争)。
 - **每会话一个 claude 子进程**:每个 SDK `query()` 本身 spawn 一个独立 `claude` 二进制(OS 级进程隔离),真正干重活的地方已天然隔离。
 - **不引入 Web Worker**:host(core)侧只是薄胶水,重活在 claude child 里;再隔离 host 自己的 GC 收益甚微。N 个 SessionRunner 跑在 core 同一事件循环里,协作式异步(都在等 I/O),互不阻塞。
@@ -45,6 +46,7 @@ core (单一 Deno 进程 = deno compile 产物 mineco-core)
 **SDK 原理**:`query()` = spawn 官方 `claude` 原生二进制 + 经 stdio JSON 控制协议驱动它 + 把事件流式转成类型化 `SDKMessage`。真正的 agent 逻辑(loop/工具/权限/上下文/skills/subagent)都在那个 child 二进制里,和 `claude` CLI 同引擎。SDK 给的是程序化、可流式、可拦截的入口 + 钩子(`canUseTool`/`hooks`/MCP)。
 
 **我们用到的 SDK 能力:**
+
 - `query({ prompt: AsyncIterable<SDKUserMessage>, options })` —— **streaming-input 模式**,多轮交互;`prompt` 传异步队列,塞一条 = 接着对话。
 - `Query` 对象:`interrupt()` / `setModel()` / `setPermissionMode()` / `setMcpServers()` / `applyFlagSettings()` / `close()`(streaming 模式下生效)。
 - `for await (const msg of q)` —— 流式收 `SDKMessage`;其中 `result` 消息带 `usage` + `total_cost_usd`(用量统计来源)。
@@ -55,6 +57,7 @@ core (单一 Deno 进程 = deno compile 产物 mineco-core)
 - `startup()` / `WarmQuery`(可选)—— 预热 child,降首回合延迟。
 
 **鉴权/端点/模型的注入**(全部由 core 从 profile 组装,经 `Options.env` 喂给 child):
+
 - 模型:`Options.model` / `ANTHROPIC_MODEL` env / 运行时 `setModel()`。
 - 鉴权:`ANTHROPIC_API_KEY`(API Key,x-api-key)/ `ANTHROPIC_AUTH_TOKEN`(自定义网关 Bearer)/ `CLAUDE_CODE_OAUTH_TOKEN`(订阅,v1 不做)/ Bedrock/Vertex 各自 env(v1 不做)。
 - 端点:`ANTHROPIC_BASE_URL`(自定义网关)。
@@ -65,11 +68,11 @@ core (单一 Deno 进程 = deno compile 产物 mineco-core)
 
 **单向模型**:只有 SwiftUI 主动发 Request(core 不发 Request);core 只发 Notification。三种消息:
 
-| 种类 | 有无 id | 用途 |
-|---|---|---|
-| Request(SwUI→core) | 有,等 Response | 调命令、要结果 |
-| Response(core→SwUI) | 同 Request id | `{result}` 或 `{error}` |
-| Notification(双向) | 无,不等 | 流式事件、fire-and-forget 动作 |
+| 种类                | 有无 id        | 用途                           |
+| ------------------- | -------------- | ------------------------------ |
+| Request(SwUI→core)  | 有,等 Response | 调命令、要结果                 |
+| Response(core→SwUI) | 同 Request id  | `{result}` 或 `{error}`        |
+| Notification(双向)  | 无,不等        | 流式事件、fire-and-forget 动作 |
 
 ### 4.1 Request(SwiftUI → core)
 
@@ -78,7 +81,7 @@ core (单一 Deno 进程 = deno compile 产物 mineco-core)
 - `session/list { workspacePath? }`
 - `session/create { cwd, profileId?, title? }` → `{ sessionId, init }`(`q.initializationResult()`)
 - `session/resume { sessionId }`
-- `session/send { sessionId, content }` —— *(待定 Request ack 还是 Notification;倾向 Notification 低延迟)*
+- `session/send { sessionId, content }` —— _(待定 Request ack 还是 Notification;倾向 Notification 低延迟)_
 - `session/interrupt { sessionId }` / `session/close { sessionId }` / `session/messages { sessionId, limit?, offset? }`
 - `session/setModel { sessionId, model }` / `session/setPermissionMode { sessionId, mode }` / `session/setMcpServers { sessionId, servers }` / `session/applyFlagSettings { sessionId, settings }`
 - `session/setProfile { sessionId, profileId }` —— 切连接
@@ -101,17 +104,18 @@ SwiftUI(弹原生确认)
   ← response      { ok }
 core 用 toolUseID 解开 Promise → 回复 child
 ```
+
 关联用业务 id(`toolUseID`),非 transport id。core 对 canUseTool 设**自己的超时**(超时默认 deny),不无限等用户。
 
 ## 5. 数据模型(greenfield SQLite,`~/.mineco/mineco.db`)
 
-| 表 | 字段 | 说明 |
-|---|---|---|
-| `workspaces` | id, path(unique), name, last_opened_at, created_at | 结构性:最近项目/session 归属 |
-| `sessions` | id, title, workspace_id, profile_id, created_at, updated_at | 简化,无 worktree 字段 |
-| `messages` | id, session_id, seq, payload(json=SDKMessage), created_at | UI 渲染/历史用的投影缓存(`for await` 流的落库),可重建;**不承担 resume**(转录事实来源是 SDK 原生 JSONL) |
-| `usage_records` | id, session_id, model, provider_id, input_tokens, output_tokens, cache_read, cache_write, cost_usd, created_at | 唯一保留的旧功能 |
-| `provider_profiles` | id, name, provider(anthropic\|custom), api_key, base_url, default_model, permission_mode, allowed_tools(json), mcp_servers(json), is_active | 连接配置,明文 |
+| 表                  | 字段                                                                                                                                        | 说明                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `workspaces`        | id, path(unique), name, last_opened_at, created_at                                                                                          | 结构性:最近项目/session 归属                                                                           |
+| `sessions`          | id, title, workspace_id, profile_id, created_at, updated_at                                                                                 | 简化,无 worktree 字段                                                                                  |
+| `messages`          | id, session_id, seq, payload(json=SDKMessage), created_at                                                                                   | UI 渲染/历史用的投影缓存(`for await` 流的落库),可重建;**不承担 resume**(转录事实来源是 SDK 原生 JSONL) |
+| `usage_records`     | id, session_id, model, provider_id, input_tokens, output_tokens, cache_read, cache_write, cost_usd, created_at                              | 唯一保留的旧功能                                                                                       |
+| `provider_profiles` | id, name, provider(anthropic\|custom), api_key, base_url, default_model, permission_mode, allowed_tools(json), mcp_servers(json), is_active | 连接配置,明文                                                                                          |
 
 迁移从零写(greenfield,不迁旧数据)。单进程单连接 + WAL + 写串行。
 
@@ -197,9 +201,9 @@ macos/                       # SwiftUI(独立 Xcode 工程,不属 Deno workspace
 
 ## 12. 风险与对策
 
-| 风险 | 对策 |
-|---|---|
+| 风险                                                            | 对策                                                                                                                                                                                     |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `deno compile` + SDK 内嵌原生 claude 二进制解析失败(issue #150) | 用 `pathToClaudeCodeExecutable` 指向随包同级 `claude`(已设计)。第 6 步优先验证。Fallback:.app 附带 `deno.json`+缓存用 `deno run`,或回退 bun compile(SDK 官方主推 + `extractFromBunfs`)。 |
-| `node:sqlite` 同步写短暂卡事件循环 | 单写者 + WAL + 写小行通常 sub-ms;child 重活不进 host 事件循环。必要时加写队列批量落盘。 |
-| streaming-input 模式限制 | `setModel` 等仅 streaming 模式生效;协议层保证仅 session 创建后调用,否则返错误码。 |
-| 协议演进(TS↔Swift 漂移) | TS zod schema 单一事实来源 + fixtures 双向 contract 测试。一期人工维护 Swift Codable。 |
+| `node:sqlite` 同步写短暂卡事件循环                              | 单写者 + WAL + 写小行通常 sub-ms;child 重活不进 host 事件循环。必要时加写队列批量落盘。                                                                                                  |
+| streaming-input 模式限制                                        | `setModel` 等仅 streaming 模式生效;协议层保证仅 session 创建后调用,否则返错误码。                                                                                                        |
+| 协议演进(TS↔Swift 漂移)                                         | TS zod schema 单一事实来源 + fixtures 双向 contract 测试。一期人工维护 Swift Codable。                                                                                                   |

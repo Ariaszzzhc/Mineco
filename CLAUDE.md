@@ -8,7 +8,7 @@ code in this repository.
 Mineco is a macOS-native AI coding assistant (desktop app). Architecture per
 `docs/PRD.md` and `docs/technical-design.md`:
 
-- **`macos/Mineco/`** — native SwiftUI app, a *thin client*: only renders and
+- **`macos/Mineco/`** — native SwiftUI app, a _thin client_: only renders and
   forwards JSON-RPC. No business logic, no secrets, no direct DB access.
 - **`packages/core/`** — the single Deno process (compiled to `mineco-core`).
   Owns all business logic: config/profiles, credentials, env assembly, the

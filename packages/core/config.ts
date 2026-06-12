@@ -28,20 +28,24 @@ export function claudeConfigDir(): string {
 }
 
 /**
- * Resolve the bundled native `claude` executable path.
- * - compiled: same directory as the binary (`<exe>/../claude`).
- * - dev:      resolved from the npm cache (TODO step 4/5).
+ * Resolve the Claude Code entry the SDK spawns under `executable: 'deno'`.
  *
- * Works around `deno compile` not embedding the SDK's native binary
- * (SDK issue #150, §9.2).
+ * - dev (`deno run`): the SDK's bundled `cli.js`, resolved from the npm cache.
+ * - compiled: a `claude` binary shipped next to `mineco-core` (§9.2 — works
+ *   around `deno compile` not embedding the SDK's native binary, SDK issue #150).
+ *
+ * Falls back to the compiled-binary layout if dev resolution fails.
  */
 export function pathToClaudeCodeExecutable(): string {
   const exe = Deno.mainModule;
   if (exe.startsWith('file:')) {
-    return join(dirname(fromFileUrl(exe)), 'claude');
+    try {
+      return fromFileUrl(import.meta.resolve('@anthropic-ai/claude-agent-sdk/cli.js'));
+    } catch {
+      return join(dirname(fromFileUrl(exe)), 'claude');
+    }
   }
   // Compiled binary: resources sit next to the binary.
-  // TODO(step 4): dev-mode resolution from the SDK npm package cache.
   return join(dirname(exe), 'claude');
 }
 

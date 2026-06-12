@@ -10,6 +10,8 @@
  */
 import { openDb } from '../db/kysely.ts';
 import { migrate } from '../db/migrator.ts';
+import { migrations } from '../db/migrations/index.ts';
+import { createRepositories } from '../db/repositories.ts';
 import { makeRunnerSink, Server } from '../server.ts';
 import { runStdio, stdoutWriter } from '../transport/stdio.ts';
 import { SessionManager } from '../session/manager.ts';
@@ -18,13 +20,15 @@ const VERSION = '0.1.0';
 
 async function main(): Promise<void> {
   const db = openDb();
-  migrate(db, []); // migrations wired in step 3
+  migrate(db, migrations);
 
+  const repos = createRepositories(db);
   const send = stdoutWriter();
-  const sink = makeRunnerSink(send);
+  const sink = makeRunnerSink(send, repos);
   const server = new Server({
     send,
-    managers: { sessions: new SessionManager(sink) },
+    repos,
+    managers: { sessions: new SessionManager(sink, repos) },
   });
 
   // Diagnostic only (§8).

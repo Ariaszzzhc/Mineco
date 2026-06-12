@@ -27,7 +27,7 @@ the connection/account management, and the safety + cost controls around it.
 
 ## Architecture (v1)
 
-- **`macos/Mineco/`** — native SwiftUI app, a *thin client*. Renders the
+- **`macos/Mineco/`** — native SwiftUI app, a _thin client_. Renders the
   conversation and forwards user intent over JSON-RPC. No business logic.
 - **`packages/core/`** — the single Deno process (`mineco-core`). Owns all
   business logic, drives the SDK, and is the sole writer to SQLite.
