@@ -265,7 +265,7 @@ public struct SessionCreateParams: Encodable {
 }
 
 /// `session/create` result.
-public struct SessionCreateResult: Decodable {
+public struct SessionCreateResult: Decodable, Sendable {
     public let sessionId: String
     /// SDK `initializationResult()`, opaque to the transport layer.
     public let initPayload: AnyJSON
@@ -276,6 +276,45 @@ public struct SessionCreateResult: Decodable {
     }
 }
 
+/// `session/send` params (§4.1). A Request (returns null result) — core only
+/// dispatches frames carrying an `id`, so this MUST be sent as a request, never
+/// a notification.
+public struct SessionSendParams: Encodable {
+    public let sessionId: String
+    public let text: String
+
+    public init(sessionId: String, text: String) {
+        self.sessionId = sessionId
+        self.text = text
+    }
+}
+
+/// `session/interrupt` params.
+public struct SessionIDParams: Encodable {
+    public let sessionId: String
+
+    public init(sessionId: String) { self.sessionId = sessionId }
+}
+
+/// `session/respondPermission` params (§4.3).
+public struct SessionRespondPermissionParams: Encodable {
+    public let sessionId: String
+    public let requestId: String
+    public let behavior: PermissionBehavior
+
+    public init(sessionId: String, requestId: String, behavior: PermissionBehavior) {
+        self.sessionId = sessionId
+        self.requestId = requestId
+        self.behavior = behavior
+    }
+}
+
+/// Generic `{ id }` params (delete/setActive profile).
+public struct IDParam: Encodable {
+    public let id: String
+    public init(_ id: String) { self.id = id }
+}
+
 /// `session/message` notification payload (§4.2).
 public struct SessionMessageNotification: Decodable {
     public let sessionId: String
@@ -283,9 +322,12 @@ public struct SessionMessageNotification: Decodable {
 }
 
 /// `session/permissionRequest` notification payload (§4.3).
-public struct PermissionRequestNotification: Decodable {
+public struct PermissionRequestNotification: Decodable, Identifiable, Sendable {
     public let sessionId: String
     public let requestId: String
     public let toolName: String
     public let input: AnyJSON?
+
+    /// Identifies the sheet item by the SDK toolUseID (unique per request).
+    public var id: String { requestId }
 }

@@ -24,9 +24,9 @@ struct MinecoApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
 
-        // Settings (Profile editor) — wired in step 6.
+        // Settings — profile CRUD, workspace, core launch mode.
         Settings {
-            SettingsPlaceholder()
+            SettingsView()
                 .environment(appModel)
         }
     }

@@ -6,17 +6,44 @@
 
 import Foundation
 
-struct SessionSummary: Codable, Identifiable, Hashable {
+/// `session/list` row — the UI projection of a persisted session (§5).
+/// Mirrors core's `SessionMeta` wire shape (camelCase) exactly, so it decodes
+/// straight from `session/list`. The full transcript lives in core's SQLite +
+/// SDK JSONL; the UI only holds this projection.
+struct SessionMeta: Codable, Identifiable, Hashable, Sendable {
     let id: String
+    let cwd: String
+    let profileId: String?
     let title: String?
-    let workspacePath: String?
-    let updatedAt: Date?
+    let status: String
+    let createdAt: Double
+    let updatedAt: Double
+}
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case title
-        case workspacePath = "workspace_path"
-        case updatedAt = "updated_at"
+extension SessionMeta {
+    /// Build the in-memory `Session` the UI renders, deriving the decorative
+    /// branch/repo/updatedAt fields core doesn't track (no git query in v1).
+    func toSession() -> Session {
+        Session(
+            id: id,
+            title: title ?? "Untitled task",
+            branch: "main",
+            repo: (cwd as NSString).lastPathComponent.isEmpty ? cwd : (cwd as NSString).lastPathComponent,
+            updatedAt: Self.relativeLabel(fromMs: updatedAt)
+        )
+    }
+
+    /// Render an ms-epoch timestamp as a coarse relative label ("now", "2h", …).
+    static func relativeLabel(fromMs ms: Double) -> String {
+        let then = Date(timeIntervalSince1970: ms / 1000.0)
+        let secs = max(0, Date().timeIntervalSince(then))
+        if secs < 60 { return "now" }
+        if secs < 3600 { return "\(Int(secs / 60))m" }
+        if secs < 86_400 { return "\(Int(secs / 3600))h" }
+        if secs < 604_800 { return "\(Int(secs / 86_400))d" }
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f.string(from: then)
     }
 }
 

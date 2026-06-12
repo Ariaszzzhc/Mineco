@@ -3,10 +3,10 @@
 // AppModel — the app's observable root state and the one owner of the
 // JSONRPCClient (§2.2: the UI holds the channel; core holds the logic).
 //
-// Owns the session list + the live conversation of the selected session.
-// Routes inbound `session/message` notifications into the conversation as
-// typed blocks (heuristic mapping in v1; deepened in design step 7). Seeds a
-// demo scenario so the Liquid Glass UI is visible before a real core connects.
+// Owns the session list + the live conversation of the selected session. Routes
+// inbound `session/message` notifications into the conversation as typed blocks
+// (heuristic mapping in v1; deepened in design step 7). No demo seed: the UI
+// renders only real data streamed from a connected core.
 
 import Foundation
 import Observation
@@ -28,10 +28,34 @@ final class AppModel {
     var agentBusy = false
     var workLabel: String?
 
+    /// Connection profiles loaded from core (config/listProfiles).
     var profiles: [Profile] = []
+    /// Locally-tracked active profile id (no getActive RPC in v1; we persist it
+    /// and mirror to core via config/setActiveProfile).
+    var activeProfileID: String? {
+        didSet { UserDefaults.standard.set(activeProfileID, forKey: Keys.activeProfileID) }
+    }
 
-    /// How to locate core. Overridable for dev/test (e.g. a locally built binary).
-    var coreExecutable: CoreExecutable = .bundled
+    /// Working directory for new sessions (cwd). Required by session/create.
+    var workspacePath: String? {
+        didSet { UserDefaults.standard.set(workspacePath, forKey: Keys.workspacePath) }
+    }
+
+    /// Dev-only: how core is launched. Persisted so a developer can point the
+    /// running app at a source checkout without recompiling.
+    var coreMode: CoreMode {
+        didSet { UserDefaults.standard.set(coreMode.rawValue, forKey: Keys.coreMode) }
+    }
+    var devRepoRoot: String {
+        didSet { UserDefaults.standard.set(devRepoRoot, forKey: Keys.devRepoRoot) }
+    }
+
+    /// A pending permission request awaiting the user's decision (§4.3).
+    var pendingPermission: PermissionRequestNotification?
+
+    /// True until at least one profile exists (drives the first-run setup sheet).
+    var needsSetup: Bool = false
+    var showSettings: Bool = false
 
     enum ConnectionState: Equatable {
         case disconnected
@@ -40,8 +64,27 @@ final class AppModel {
         case failed(String)
     }
 
+    /// How the app launches core.
+    enum CoreMode: String, Sendable {
+        /// Use the `mineco-core` binary bundled in Resources (release).
+        case bundled
+        /// Spawn `deno run -A` against a source checkout (dev).
+        case denoRun
+    }
+
+    private enum Keys {
+        static let workspacePath = "mineco.workspacePath"
+        static let coreMode = "mineco.coreMode"
+        static let devRepoRoot = "mineco.devRepoRoot"
+        static let activeProfileID = "mineco.activeProfileID"
+    }
+
     init() {
-        seedDemo()
+        let defaults = UserDefaults.standard
+        workspacePath = defaults.string(forKey: Keys.workspacePath)
+        coreMode = CoreMode(rawValue: defaults.string(forKey: Keys.coreMode) ?? "") ?? .bundled
+        devRepoRoot = defaults.string(forKey: Keys.devRepoRoot) ?? ""
+        activeProfileID = defaults.string(forKey: Keys.activeProfileID)
     }
 
     /// The currently selected session, if any.
@@ -50,52 +93,125 @@ final class AppModel {
         return sessions.first(where: { $0.id == id })
     }
 
-    // MARK: - Demo seed
+    var activeProfile: Profile? {
+        guard let id = activeProfileID else { return profiles.first }
+        return profiles.first(where: { $0.id == id }) ?? profiles.first
+    }
 
-    /// Seed the canonical scenario so the UI renders immediately, independent
-    /// of whether a real core is bundled. Replaced when live sessions arrive.
-    func seedDemo() {
-        let main = Scenario.session()
-        sessions = [main] + Scenario.recentThreads()
-        selectedSessionID = main.id
+    var canStartSession: Bool {
+        activeProfile != nil && workspacePath != nil
     }
 
     // MARK: - Connection
 
+    func resolveCoreExecutable() -> CoreExecutable {
+        switch coreMode {
+        case .bundled: return .bundled
+        case .denoRun: return .denoRun(repoRoot: devRepoRoot)
+        }
+    }
+
     func connect() async {
-        guard connectionState != .connected("") else { return }
+        guard !connectionState.isConnectingOrConnected else { return }
         connectionState = .connecting
-        let c = JSONRPCClient(executable: coreExecutable)
+        let c = JSONRPCClient(executable: resolveCoreExecutable())
         await c.onNotification { [weak self] note in
             Task { @MainActor in self?.handle(note) }
         }
         client = c
         do {
             try await c.start()
-            profiles = (try? await c.send(RPCRequestMethod.configListProfiles, as: [Profile].self)) ?? []
+            try await refreshProfiles()
+            try await refreshSessions()
             connectionState = .connected("ready")
         } catch {
-            // Demo remains visible; surface the failure in the sidebar foot.
             connectionState = .failed(error.localizedDescription)
+            // Open settings so the user can fix the launch config (e.g. switch to
+            // dev mode) and reconnect — common on first run with no bundled binary.
+            showSettings = true
         }
     }
 
-    // MARK: - Actions
-
-    /// Create + select a fresh, empty session (folder/profile flow lands later).
-    func newSession() {
-        let s = Session(
-            id: UUID().uuidString,
-            title: "New task",
-            branch: "main",
-            repo: currentSession?.repo ?? "acme/web-client",
-            updatedAt: "now"
-        )
-        sessions.insert(s, at: 0)
-        selectedSessionID = s.id
+    /// Reconnect after a config change (e.g. switching core mode).
+    func reconnect() async {
+        await client?.stop()
+        client = nil
+        connectionState = .disconnected
+        await connect()
     }
 
-    /// Optimistically append the user's message and forward it to core.
+    // MARK: - Data refresh
+
+    func refreshProfiles() async throws {
+        guard let client else { return }
+        let loaded: [Profile] = (try? await client.send(
+            RPCRequestMethod.configListProfiles, as: [Profile].self
+        )) ?? []
+        profiles = loaded
+        needsSetup = profiles.isEmpty
+        // If no explicit active is set but profiles exist, default to the first
+        // and mirror that choice into core.
+        if activeProfileID == nil, let first = profiles.first {
+            activeProfileID = first.id
+            _ = try? await client.send(
+                RPCRequestMethod.configSetActiveProfile,
+                params: IDParam(first.id), as: AnyJSON.self
+            )
+        }
+    }
+
+    func refreshSessions() async throws {
+        guard let client else { return }
+        let metas: [SessionMeta] = (try? await client.send(
+            RPCRequestMethod.sessionList, as: [SessionMeta].self
+        )) ?? []
+        // Preserve the in-memory conversation of any live session we still hold.
+        let liveConvos = Dictionary(sessions.map { ($0.id, $0.conversation) }) { a, _ in a }
+        sessions = metas.map { meta in
+            var s = meta.toSession()
+            s.conversation = liveConvos[meta.id] ?? Conversation()
+            return s
+        }
+        if selectedSessionID == nil { selectedSessionID = sessions.first?.id }
+    }
+
+    // MARK: - Session actions
+
+    /// Create + select a fresh session against the active profile + workspace.
+    func newSession() async {
+        guard let cwd = workspacePath else { showSettings = true; return }
+        let profileId = activeProfileID ?? activeProfile?.id
+        guard let client else { return }
+
+        do {
+            let result: SessionCreateResult = try await client.send(
+                RPCRequestMethod.sessionCreate,
+                params: SessionCreateParams(cwd: cwd, profileId: profileId, title: "New task"),
+                as: SessionCreateResult.self
+            )
+            var s = Session(
+                id: result.sessionId,
+                title: "New task",
+                branch: "main",
+                repo: (cwd as NSString).lastPathComponent,
+                updatedAt: "now"
+            )
+            s.conversation.append(.task(eyebrow: "New task", title: "New task"))
+            sessions.insert(s, at: 0)
+            selectedSessionID = result.sessionId
+        } catch {
+            // Profile/workspace problems surface as setup; other errors as failed.
+            if let rpc = error as? RPCError, rpc.code == RPCErrorCode.profileNotFound {
+                needsSetup = true
+                showSettings = true
+            } else {
+                connectionState = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    /// Optimistically append the user's message and forward it to core as a
+    /// request (core only dispatches requests; notifications are ignored).
     func send(_ text: String) {
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty,
@@ -104,11 +220,14 @@ final class AppModel {
         else { return }
 
         sessions[idx].conversation.append(.user(text: content, time: nowLabel()))
+        agentBusy = true
+        workLabel = "Thinking"
 
         Task { [client] in
-            try? await client?.notify(
+            _ = try? await client?.send(
                 RPCRequestMethod.sessionSend,
-                params: AnyJSON(["sessionId": id, "text": content])
+                params: SessionSendParams(sessionId: id, text: content),
+                as: AnyJSON.self
             )
         }
     }
@@ -119,11 +238,77 @@ final class AppModel {
         workLabel = nil
         guard let id = selectedSessionID else { return }
         Task { [client] in
-            try? await client?.notify(
+            _ = try? await client?.send(
                 RPCRequestMethod.sessionInterrupt,
-                params: AnyJSON(["sessionId": id])
+                params: SessionIDParams(sessionId: id),
+                as: AnyJSON.self
             )
         }
+    }
+
+    /// Resolve a pending permission request with the user's decision.
+    func respondPermission(_ behavior: PermissionBehavior) {
+        guard let req = pendingPermission, let client else { return }
+        let sessionId = req.sessionId
+        let requestId = req.requestId
+        pendingPermission = nil
+        Task {
+            _ = try? await client.send(
+                RPCRequestMethod.sessionRespondPermission,
+                params: SessionRespondPermissionParams(
+                    sessionId: sessionId, requestId: requestId, behavior: behavior
+                ),
+                as: AnyJSON.self
+            )
+        }
+    }
+
+    // MARK: - Profile CRUD (driven by the settings sheet)
+
+    func saveProfile(_ profile: Profile, makeActive: Bool) async {
+        guard let client else { return }
+        do {
+            let saved: Profile = try await client.send(
+                RPCRequestMethod.configSaveProfile,
+                params: profile,
+                as: Profile.self
+            )
+            if let idx = profiles.firstIndex(where: { $0.id == saved.id }) {
+                profiles[idx] = saved
+            } else {
+                profiles.append(saved)
+            }
+            profiles.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            needsSetup = profiles.isEmpty
+            if makeActive || activeProfileID == nil {
+                activeProfileID = saved.id
+                _ = try? await client.send(
+                    RPCRequestMethod.configSetActiveProfile,
+                    params: IDParam(saved.id), as: AnyJSON.self
+                )
+            }
+        } catch {
+            connectionState = .failed(error.localizedDescription)
+        }
+    }
+
+    func deleteProfile(_ id: String) async {
+        guard let client else { return }
+        _ = try? await client.send(
+            RPCRequestMethod.configDeleteProfile,
+            params: IDParam(id), as: AnyJSON.self
+        )
+        profiles.removeAll { $0.id == id }
+        if activeProfileID == id {
+            activeProfileID = profiles.first?.id
+            if let new = activeProfileID {
+                _ = try? await client.send(
+                    RPCRequestMethod.configSetActiveProfile,
+                    params: IDParam(new), as: AnyJSON.self
+                )
+            }
+        }
+        needsSetup = profiles.isEmpty
     }
 
     // MARK: - Inbound routing
@@ -136,22 +321,34 @@ final class AppModel {
             guard let sid = params?["sessionId"]?.stringValue else { return }
             appendSDKMessage(sessionID: sid, message: params?["message"])
         case RPCNotificationMethod.sessionPermissionRequest:
-            // Permission sheet wiring lands in step 7; acknowledge busy for now.
-            if let tool = params?["toolName"]?.stringValue {
-                agentBusy = true
-                workLabel = "Awaiting approval: \(tool)"
-            }
+            if let req = decodePermission(params) { pendingPermission = req }
         default:
             break
         }
     }
 
+    private func decodePermission(_ params: AnyJSON?) -> PermissionRequestNotification? {
+        guard let params,
+              let data = try? JSONEncoder().encode(params),
+              let req = try? JSONDecoder().decode(PermissionRequestNotification.self, from: data)
+        else { return nil }
+        return req
+    }
+
     /// Heuristic mapping of an SDK message into conversation blocks (v1).
     /// Reads `message.content[]`: text → prose; tool_use → a trace step.
+    /// A top-level `type == "result"` ends the turn (agent idle).
     private func appendSDKMessage(sessionID: String, message: AnyJSON?) {
         guard let msg = message,
               let idx = sessions.firstIndex(where: { $0.id == sessionID })
         else { return }
+
+        // End-of-turn marker: the SDK emits a `result` message when the turn is done.
+        if msg["type"]?.stringValue == "result" {
+            agentBusy = false
+            workLabel = nil
+            return
+        }
 
         // SDK wraps content under `message.content`; tolerate a bare `content`.
         let contentArr = msg["message"]?["content"]?.arrayValue ?? msg["content"]?.arrayValue ?? []
@@ -215,5 +412,14 @@ final class AppModel {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
         return f.string(from: Date())
+    }
+}
+
+private extension AppModel.ConnectionState {
+    var isConnectingOrConnected: Bool {
+        switch self {
+        case .connecting, .connected: return true
+        default: return false
+        }
     }
 }

@@ -36,8 +36,11 @@ public enum RPCClientError: Error, Sendable, LocalizedError {
 public enum CoreExecutable: Sendable {
     /// Look up `mineco-core` copied into the app bundle's Resources.
     case bundled
-    /// An explicit absolute path (dev overrides, tests).
+    /// An explicit absolute path to a compiled binary (dev overrides, tests).
     case path(String)
+    /// Dev mode: spawn `deno run -A <repoRoot>/packages/core/bin/main.ts`.
+    /// Avoids needing a compiled/bundled binary while iterating.
+    case denoRun(repoRoot: String)
 }
 
 public actor JSONRPCClient {
@@ -60,12 +63,13 @@ public actor JSONRPCClient {
     /// Spawn the core process and begin reading its stdout.
     public func start() async throws {
         guard process == nil else { return }
-        let url = try resolveCoreURL()
+        let launch = try resolveLaunch()
 
         let proc = Process()
-        proc.executableURL = url
+        proc.executableURL = launch.url
+        proc.arguments = launch.arguments
         // Inherit env so core sees HOME etc. The compiled binary needs no flags;
-        // dev runs pass a dev binary via CoreExecutable.path.
+        // dev runs pass a dev binary via CoreExecutable.path / .denoRun.
         proc.environment = ProcessInfo.processInfo.environment
 
         let inPipe = Pipe()
@@ -236,20 +240,30 @@ public actor JSONRPCClient {
 
     // MARK: - Core executable resolution
 
-    private func resolveCoreURL() throws -> URL {
+    /// Resolve the executable URL + argv for the configured launch mode.
+    private func resolveLaunch() throws -> (url: URL, arguments: [String]?) {
         switch executable {
         case .bundled:
             guard let url = Bundle.main.url(forResource: "mineco-core", withExtension: nil) else {
                 throw RPCClientError.coreNotFound(
-                    "not in bundle Resources — run `deno task compile`")
+                    "mineco-core not in bundle Resources — run `deno task compile`, or switch to dev mode in Settings")
             }
-            return url
+            return (url, nil)
         case .path(let path):
             let url = URL(fileURLWithPath: path)
             guard FileManager.default.isExecutableFile(atPath: url.path) else {
                 throw RPCClientError.coreNotFound("not executable: \(path)")
             }
-            return url
+            return (url, nil)
+        case .denoRun(let repoRoot):
+            // Resolve `deno` via /usr/bin/env so it works regardless of shell PATH.
+            let entry = (repoRoot as NSString)
+                .appendingPathComponent("packages/core/bin/main.ts")
+            guard FileManager.default.fileExists(atPath: entry) else {
+                throw RPCClientError.coreNotFound("core entry not found: \(entry)")
+            }
+            let url = URL(fileURLWithPath: "/usr/bin/env")
+            return (url, ["deno", "run", "-A", entry])
         }
     }
 }

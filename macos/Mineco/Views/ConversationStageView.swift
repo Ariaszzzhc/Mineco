@@ -65,7 +65,7 @@ struct ConversationStageView: View {
                 .frame(maxWidth: .infinity, maxHeight: 58, alignment: .top)
 
             // 5 — sidebar pinned left
-            SidebarView(onNewTask: { appModel.newSession() })
+            SidebarView(onNewTask: { Task { await appModel.newSession() } })
                 .padding(.leading, 12)
                 .padding(.top, 64)
                 .padding(.bottom, 12)
