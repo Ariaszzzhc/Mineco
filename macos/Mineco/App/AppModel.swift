@@ -322,6 +322,17 @@ final class AppModel {
             appendSDKMessage(sessionID: sid, message: params?["message"])
         case RPCNotificationMethod.sessionPermissionRequest:
             if let req = decodePermission(params) { pendingPermission = req }
+        case RPCNotificationMethod.stderr:
+            // Surface core's stderr to our own stderr so it's visible in the
+            // Xcode console / Console.app — otherwise core boot failures are
+            // invisible and the UI just sits on "connecting".
+            if let line = params?["data"]?.stringValue {
+                FileHandle.standardError.write(Data("[core] \(line)\n".utf8))
+            }
+        case RPCNotificationMethod.error:
+            if let line = params?["message"]?.stringValue {
+                FileHandle.standardError.write(Data("[core/error] \(line)\n".utf8))
+            }
         default:
             break
         }

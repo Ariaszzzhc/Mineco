@@ -67,7 +67,10 @@ public actor JSONRPCClient {
 
         let proc = Process()
         proc.executableURL = launch.url
-        proc.arguments = launch.arguments
+        // macOS 26's `Process.arguments` setter rejects nil (NSInvalidArgument-
+        // Exception "must provide array of arguments") — an Obj-C exception Swift
+        // can't catch, so it aborts the app. Empty array when there are no args.
+        proc.arguments = launch.arguments ?? []
         // Inherit env so core sees HOME etc. The compiled binary needs no flags;
         // dev runs pass a dev binary via CoreExecutable.path / .denoRun.
         proc.environment = ProcessInfo.processInfo.environment
@@ -91,16 +94,18 @@ public actor JSONRPCClient {
 
         // Drive the read loop on a detached task; it hops back to this actor
         // per line to route responses/notifications.
-        let outBytes = outPipe.fileHandleForReading.bytes
+        //
+        // NOT `FileHandle.bytes`: Foundation serializes all AsyncBytes reads
+        // through one shared IO executor, so the (usually silent) stderr
+        // iterator's blocking read() starves the stdout iterator forever — the
+        // UI then sits on "Connecting…" while core's responses rot in the pipe.
+        // `lineStream` is readabilityHandler-driven and never blocks a thread.
+        let outLines = Self.lineStream(from: outPipe.fileHandleForReading)
         self.readTask = Task { [weak self] in
-            do {
-                for try await line in outBytes.lines {
-                    if Task.isCancelled { return }
-                    guard let self else { return }
-                    await self.handleLine(String(line))
-                }
-            } catch {
-                // IO error on core stdout — treat as disconnect.
+            for await line in outLines {
+                if Task.isCancelled { return }
+                guard let self else { return }
+                await self.handleLine(line)
             }
             if let self { await self.handleDisconnect() }
         }
@@ -178,7 +183,13 @@ public actor JSONRPCClient {
         guard let stdin else { throw RPCClientError.notConnected }
         var line = data
         line.append(0x0A) // newline delimiter
-        stdin.write(line)
+        do {
+            // The throwing API surfaces EPIPE as an error; the legacy
+            // `write(_:)` would raise an uncatchable NSException instead.
+            try stdin.write(contentsOf: line)
+        } catch {
+            throw RPCClientError.notConnected
+        }
     }
 
     private func handleLine(_ line: String) {
@@ -214,12 +225,37 @@ public actor JSONRPCClient {
     }
 
     private func startStderrDrain(_ pipe: Pipe) {
+        let errLines = Self.lineStream(from: pipe.fileHandleForReading)
         Task { [weak self] in
-            for try await line in pipe.fileHandleForReading.bytes.lines {
+            for await line in errLines {
                 if Task.isCancelled { return }
                 guard let self else { return }
                 await self.dispatch(.notification(method: RPCNotificationMethod.stderr,
-                                                  params: AnyJSON(["data": String(line)])))
+                                                  params: AnyJSON(["data": line])))
+            }
+        }
+    }
+
+    /// Newline-split text stream over a pipe, driven by `readabilityHandler`
+    /// callbacks. Unlike `FileHandle.bytes` (whose blocking reads share one
+    /// Foundation IO executor — see `start()`), each handle is independent, so
+    /// stdout and stderr can be consumed concurrently. Finishes on EOF.
+    private static func lineStream(from handle: FileHandle) -> AsyncStream<String> {
+        AsyncStream { continuation in
+            let buffer = LineBuffer()
+            handle.readabilityHandler = { fh in
+                let chunk = fh.availableData
+                if chunk.isEmpty { // EOF
+                    fh.readabilityHandler = nil
+                    continuation.finish()
+                    return
+                }
+                for line in buffer.split(appending: chunk) {
+                    continuation.yield(line)
+                }
+            }
+            continuation.onTermination = { _ in
+                handle.readabilityHandler = nil
             }
         }
     }
@@ -265,6 +301,28 @@ public actor JSONRPCClient {
             let url = URL(fileURLWithPath: "/usr/bin/env")
             return (url, ["deno", "run", "-A", entry])
         }
+    }
+}
+
+/// Accumulates pipe chunks and emits complete `\n`-terminated lines. Locked
+/// because `readabilityHandler` gives no isolation guarantee across reinstalls.
+private final class LineBuffer: @unchecked Sendable {
+    private var data = Data()
+    private let lock = NSLock()
+
+    func split(appending chunk: Data) -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        data.append(chunk)
+        var lines: [String] = []
+        while let nl = data.firstIndex(of: 0x0A) {
+            let lineData = data[data.startIndex..<nl]
+            data.removeSubrange(data.startIndex...nl)
+            if let s = String(data: lineData, encoding: .utf8), !s.isEmpty {
+                lines.append(s)
+            }
+        }
+        return lines
     }
 }
 

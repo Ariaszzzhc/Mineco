@@ -13,6 +13,13 @@ import AppKit
 struct MinecoApp: App {
     @State private var appModel = AppModel()
 
+    init() {
+        // Writing to the core's stdin after it exits would deliver SIGPIPE and
+        // abort the app; ignore it process-wide and handle the error at the
+        // write site (JSONRPCClient.writeFrame) instead.
+        signal(SIGPIPE, SIG_IGN)
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
