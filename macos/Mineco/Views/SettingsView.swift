@@ -8,6 +8,27 @@ import AppKit
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var appModel
+    @State private var tab: Tab = .profiles
+
+    /// Settings sections. Rendered via a segmented control rather than `TabView`
+    /// so the sheet stays a plain panel — a `TabView` with `.tabItem` adopts the
+    /// macOS preferences-window chrome (tab strip hoisted into the titlebar, the
+    /// window title set to the active tab, native traffic lights re-shown), which
+    /// collides with this app's custom hidden-titlebar chrome.
+    private enum Tab: String, CaseIterable, Identifiable {
+        case profiles = "Profiles"
+        case workspace = "Workspace"
+        case core = "Core"
+
+        var id: String { rawValue }
+        var icon: String {
+            switch self {
+            case .profiles: return "key"
+            case .workspace: return "folder"
+            case .core: return "gearshape"
+            }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,13 +40,28 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
-            .padding(.bottom, 4)
+            .padding(.bottom, 12)
 
-            TabView {
-                ProfilesTab().tabItem { Label("Profiles", systemImage: "key") }
-                WorkspaceTab().tabItem { Label("Workspace", systemImage: "folder") }
-                CoreTab().tabItem { Label("Core", systemImage: "gearshape") }
+            Picker("Section", selection: $tab) {
+                ForEach(Tab.allCases) { t in
+                    Label(t.rawValue, systemImage: t.icon).tag(t)
+                }
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+
+            Divider()
+
+            Group {
+                switch tab {
+                case .profiles: ProfilesTab()
+                case .workspace: WorkspaceTab()
+                case .core: CoreTab()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 560, height: 460)
     }

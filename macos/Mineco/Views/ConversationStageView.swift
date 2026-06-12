@@ -79,6 +79,11 @@ struct ConversationStageView: View {
                     .padding(.leading, 244)
             }
         }
+        // The hidden native titlebar still contributes a top safe-area inset,
+        // which would push the custom chrome (traffic lights / toolbar) ~28pt
+        // below the window edge. This stage draws its own titlebar, so extend
+        // under the native one.
+        .ignoresSafeArea(.container, edges: .top)
     }
 
     /// Work pill (only while the agent is mid-turn) + composer, centered, max 604.
