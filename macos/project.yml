@@ -1,0 +1,67 @@
+name: Mineco
+# SwiftUI thin client — NOT part of the Deno workspace (docs/technical-design.md §9.1).
+# This file is the single source of truth for the Xcode project; regenerate with
+# `xcodegen generate` (never hand-edit Mineco.xcodeproj).
+
+options:
+  bundleIdPrefix: com.mineco
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_HARDENED_RUNTIME: YES
+    ALWAYS_SEARCH_USER_PATHS: NO
+    GENERATE_INFOPLIST_FILE: NO
+
+targets:
+  Mineco:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Mineco
+        excludes:
+          - "Resources/README.md"
+          - "Resources/mineco-core"
+          - "Resources/claude"
+    info:
+      path: Mineco/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Mineco
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSHighResolutionCapable: true
+        NSSupportsAutomaticTermination: false
+        NSSupportsSuddenTermination: false
+    entitlements:
+      path: Mineco/Resources/Mineco.entitlements
+      properties:
+        # v1 runs unsandboxed: the agent reads/writes arbitrary project dirs and
+        # spawns the bundled `claude` + `mineco-core` binaries (§2.2, §9.2).
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mineco.app
+        PRODUCT_NAME: Mineco
+        INFOPLIST_FILE: Mineco/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Mineco/Resources/Mineco.entitlements
+        CODE_SIGN_IDENTITY: "-"
+        # The compiled core + native claude binaries land in Resources via
+        # `deno task compile` + the extract step (§9.2). They are gitignored
+        # and intentionally NOT declared as build resources here so the project
+        # builds cleanly before they exist.
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks @loader_path/../Resources"
