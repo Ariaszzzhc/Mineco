@@ -60,12 +60,13 @@ export class PermissionGate {
     return true;
   }
 
-  /** Drop a pending request without resolving (e.g. session closed). */
+  /** Cancel a pending request, resolving it with a deny decision (e.g. session closed). */
   cancel(toolUseId: string): void {
     const entry = this.pending.get(toolUseId);
     if (!entry) return;
     this.pending.delete(toolUseId);
     clearTimeout(entry.timer);
+    entry.resolve({ behavior: 'deny', message: 'session closed' });
   }
 
   clear(): void {
