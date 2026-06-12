@@ -14,7 +14,7 @@ struct ContentView: View {
         ConversationStageView()
             .environment(appModel)
             .sheet(isPresented: setupBinding) {
-                SetupView()
+                SettingsView()
                     .environment(appModel)
             }
             .sheet(item: permissionBinding) { req in

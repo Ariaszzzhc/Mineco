@@ -10,12 +10,24 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var appModel
 
     var body: some View {
-        TabView {
-            ProfilesTab().tabItem { Label("Profiles", systemImage: "key") }
-            WorkspaceTab().tabItem { Label("Workspace", systemImage: "folder") }
-            CoreTab().tabItem { Label("Core", systemImage: "gearshape") }
+        VStack(spacing: 0) {
+            HStack {
+                Text("Settings").font(.headline)
+                Spacer()
+                Button("Done") { appModel.showSettings = false }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 4)
+
+            TabView {
+                ProfilesTab().tabItem { Label("Profiles", systemImage: "key") }
+                WorkspaceTab().tabItem { Label("Workspace", systemImage: "folder") }
+                CoreTab().tabItem { Label("Core", systemImage: "gearshape") }
+            }
         }
-        .frame(width: 520, height: 420)
+        .frame(width: 560, height: 460)
     }
 }
 
