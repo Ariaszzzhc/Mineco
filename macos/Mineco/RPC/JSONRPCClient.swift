@@ -222,6 +222,9 @@ public actor JSONRPCClient {
         ready = false
         for cont in pending.values { cont.resume(throwing: RPCClientError.notConnected) }
         pending.removeAll()
+        // Inform registered handlers that core is gone. Fired after all pending
+        // continuations are resolved so handlers observe a clean slate.
+        dispatch(.notification(method: RPCNotificationMethod.coreDisconnected, params: nil))
     }
 
     private func startStderrDrain(_ pipe: Pipe) {

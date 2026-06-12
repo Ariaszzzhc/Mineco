@@ -189,6 +189,10 @@ public enum RPCNotificationMethod {
     public static let ready = "ready"
     public static let stderr = "stderr"
     public static let error = "error"
+    /// Synthetic client-side notification fired when core's stdout hits EOF
+    /// (process exited or crashed). Never sent on the wire; emitted locally by
+    /// `JSONRPCClient.handleDisconnect()` so app-layer handlers can react.
+    public static let coreDisconnected = "core/disconnected"
 }
 
 // MARK: - Domain types

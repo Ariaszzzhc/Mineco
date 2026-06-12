@@ -333,6 +333,13 @@ final class AppModel {
             if let line = params?["message"]?.stringValue {
                 FileHandle.standardError.write(Data("[core/error] \(line)\n".utf8))
             }
+        case RPCNotificationMethod.coreDisconnected:
+            // Core process exited or crashed. Surface the failure so the UI
+            // reflects the broken connection. The user can reconnect via
+            // reconnect() (e.g. from the existing Settings → Core affordance).
+            agentBusy = false
+            workLabel = nil
+            connectionState = .failed("core exited unexpectedly")
         default:
             break
         }
