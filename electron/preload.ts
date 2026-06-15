@@ -1,36 +1,69 @@
 import { contextBridge, ipcRenderer } from "electron";
 import {
-  AGENT_RUN_CHANNEL,
-  type AgentEvent,
-  agentEventChannel,
+  CH,
+  type Message,
+  type NormalizedEvent,
+  type ProfileInput,
+  type ProviderProfile,
+  type Session,
+  turnEventChannel,
 } from "../src/lib/agent-protocol";
 
 let counter = 0;
 
-const agent = {
-  /**
-   * Starts an agent run. `onEvent` fires for each streamed event. Returns an
-   * unsubscribe function that detaches the listener — always call it when the
-   * run is finished or the component unmounts to avoid leaks.
-   */
-  run(prompt: string, onEvent: (event: AgentEvent) => void): () => void {
-    const id = `${Date.now()}-${counter++}`;
-    const channel = agentEventChannel(id);
+const mineco = {
+  profiles: {
+    list: (): Promise<ProviderProfile[]> => ipcRenderer.invoke(CH.profilesList),
+    create: (input: ProfileInput): Promise<ProviderProfile> =>
+      ipcRenderer.invoke(CH.profilesCreate, input),
+    update: (profile: ProviderProfile): Promise<void> =>
+      ipcRenderer.invoke(CH.profilesUpdate, profile),
+    remove: (id: string): Promise<void> =>
+      ipcRenderer.invoke(CH.profilesDelete, id),
+  },
 
-    const listener = (_e: Electron.IpcRendererEvent, payload: AgentEvent) => {
+  sessions: {
+    list: (): Promise<Session[]> => ipcRenderer.invoke(CH.sessionsList),
+    create: (input?: { title?: string; cwd?: string }): Promise<Session> =>
+      ipcRenderer.invoke(CH.sessionsCreate, input ?? {}),
+    remove: (id: string): Promise<void> =>
+      ipcRenderer.invoke(CH.sessionsDelete, id),
+    messages: (sessionId: string): Promise<Message[]> =>
+      ipcRenderer.invoke(CH.sessionMessages, sessionId),
+  },
+
+  /**
+   * Runs one turn. `onEvent` fires for each streamed event. Returns
+   * `{ id, stop }`: call `stop()` to detach the listener and abort the run —
+   * always call it when the run finishes or the component unmounts.
+   */
+  runTurn(
+    req: { sessionId: string; profileId: string; prompt: string },
+    onEvent: (event: NormalizedEvent) => void,
+  ): { id: string; stop: () => void } {
+    const id = `${Date.now()}-${counter++}`;
+    const channel = turnEventChannel(id);
+
+    const listener = (_e: unknown, payload: NormalizedEvent) => {
       onEvent(payload);
-      if (payload.type === "done" || payload.type === "error") {
+      if (payload.type === "result" || payload.type === "error") {
         ipcRenderer.removeListener(channel, listener);
       }
     };
 
     ipcRenderer.on(channel, listener);
-    ipcRenderer.send(AGENT_RUN_CHANNEL, { id, prompt });
+    ipcRenderer.send(CH.turnRun, { id, ...req });
 
-    return () => ipcRenderer.removeListener(channel, listener);
+    return {
+      id,
+      stop: () => {
+        ipcRenderer.removeListener(channel, listener);
+        ipcRenderer.send(CH.turnAbort, id);
+      },
+    };
   },
 };
 
-contextBridge.exposeInMainWorld("agent", agent);
+contextBridge.exposeInMainWorld("mineco", mineco);
 
-export type AgentApi = typeof agent;
+export type MinecoApi = typeof mineco;

@@ -1,0 +1,33 @@
+import { randomUUID } from "node:crypto";
+import type { EngineId, Message } from "../../src/lib/agent-protocol";
+import { getDb } from "./index";
+
+/** The canonical engine-neutral transcript for a session, oldest first. */
+export function listMessages(sessionId: string): Promise<Message[]> {
+  return getDb()
+    .selectFrom("messages")
+    .selectAll()
+    .where("sessionId", "=", sessionId)
+    .orderBy("createdAt")
+    .execute();
+}
+
+export async function addMessage(input: {
+  sessionId: string;
+  turnId: string;
+  role: Message["role"];
+  content: string;
+  engine: EngineId | null;
+}): Promise<Message> {
+  const message: Message = {
+    id: randomUUID(),
+    sessionId: input.sessionId,
+    turnId: input.turnId,
+    role: input.role,
+    content: input.content,
+    engine: input.engine,
+    createdAt: Date.now(),
+  };
+  await getDb().insertInto("messages").values(message).execute();
+  return message;
+}

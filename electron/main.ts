@@ -1,13 +1,22 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { query } from "@anthropic-ai/claude-agent-sdk";
 import { app, BrowserWindow, ipcMain } from "electron";
 import {
-  AGENT_RUN_CHANNEL,
-  type AgentEvent,
-  type AgentRequest,
-  agentEventChannel,
+  CH,
+  type ProfileInput,
+  type ProviderProfile,
+  type TurnRunRequest,
+  turnEventChannel,
 } from "../src/lib/agent-protocol";
+import { listMessages } from "./db/messages";
+import {
+  createProfile,
+  deleteProfile,
+  listProfiles,
+  updateProfile,
+} from "./db/profiles";
+import { createSession, deleteSession, listSessions } from "./db/sessions";
+import { abortTurn, runTurn } from "./session-runner";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,8 +31,8 @@ let win: BrowserWindow | null = null;
 
 function createWindow(): void {
   win = new BrowserWindow({
-    width: 900,
-    height: 720,
+    width: 980,
+    height: 760,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       // Security baseline: the renderer gets no direct Node access; it can only
@@ -42,77 +51,48 @@ function createWindow(): void {
   }
 }
 
-/**
- * Runs one agent turn and streams events back on the request's private channel.
- * The Agent SDK executes here, in the Node-capable main process — never in the
- * renderer.
- */
-function handleAgentRun(event: Electron.IpcMainEvent, req: AgentRequest): void {
-  const channel = agentEventChannel(req.id);
-  const send = (payload: AgentEvent): void => {
-    if (!event.sender.isDestroyed()) event.sender.send(channel, payload);
-  };
+/** Registers the IPC surface: provider/session CRUD plus the streaming turn
+ * runner. Engines run here, in the Node-capable main process — never in the
+ * renderer. */
+function registerIpc(): void {
+  // Provider profiles.
+  ipcMain.handle(CH.profilesList, () => listProfiles());
+  ipcMain.handle(CH.profilesCreate, (_e, input: ProfileInput) =>
+    createProfile(input),
+  );
+  ipcMain.handle(CH.profilesUpdate, (_e, profile: ProviderProfile) =>
+    updateProfile(profile),
+  );
+  ipcMain.handle(CH.profilesDelete, (_e, id: string) => deleteProfile(id));
 
-  void (async () => {
-    try {
-      for await (const message of query({
-        prompt: req.prompt,
-        options: {
-          cwd: process.env.APP_ROOT,
-          includePartialMessages: true,
-          // Minimal read-only agent: no prompts, cannot modify the workspace.
-          permissionMode: "bypassPermissions",
-          allowedTools: ["Read", "Glob", "Grep"],
-          // `env` replaces the subprocess environment wholesale (it is not
-          // merged), so spread process.env to keep PATH / API keys / etc.
-          env: {
-            ...process.env,
-            CLAUDE_CONFIG_DIR: "/Users/arias/.claude-glm",
-          },
-        },
-      })) {
-        switch (message.type) {
-          case "stream_event": {
-            const ev = message.event;
-            if (
-              ev.type === "content_block_delta" &&
-              ev.delta.type === "text_delta"
-            ) {
-              send({ type: "text", text: ev.delta.text });
-            }
-            break;
-          }
-          case "assistant": {
-            for (const block of message.message.content) {
-              if (block.type === "tool_use") {
-                send({ type: "tool", name: block.name });
-              }
-            }
-            break;
-          }
-          case "result": {
-            send({
-              type: "done",
-              result:
-                message.subtype === "success"
-                  ? message.result
-                  : `Run ended: ${message.subtype}`,
-            });
-            break;
-          }
-        }
-      }
-    } catch (err) {
-      send({
-        type: "error",
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
-  })();
+  // Sessions + canonical transcript.
+  ipcMain.handle(CH.sessionsList, () => listSessions());
+  ipcMain.handle(
+    CH.sessionsCreate,
+    (_e, input: { title?: string; cwd?: string }) =>
+      createSession({
+        title: input.title,
+        // The sandboxed renderer can't resolve paths; default to the app root.
+        cwd: input.cwd || process.env.APP_ROOT || process.cwd(),
+      }),
+  );
+  ipcMain.handle(CH.sessionsDelete, (_e, id: string) => deleteSession(id));
+  ipcMain.handle(CH.sessionMessages, (_e, sessionId: string) =>
+    listMessages(sessionId),
+  );
+
+  // Streaming turn run: events go back on the request's private channel.
+  ipcMain.on(CH.turnRun, (event, req: TurnRunRequest) => {
+    const channel = turnEventChannel(req.id);
+    void runTurn(req, (payload) => {
+      if (!event.sender.isDestroyed()) event.sender.send(channel, payload);
+    });
+  });
+  ipcMain.on(CH.turnAbort, (_e, id: string) => abortTurn(id));
 }
 
 app.whenReady().then(() => {
-  ipcMain.on(AGENT_RUN_CHANNEL, handleAgentRun);
+  registerIpc();
   createWindow();
 
   app.on("activate", () => {
