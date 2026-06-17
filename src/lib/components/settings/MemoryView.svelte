@@ -167,7 +167,7 @@ function resizeOnMount(el: HTMLTextAreaElement) {
     {i18n.t("workspace")}
   </span>
   <div class="flex gap-1.5 flex-wrap">
-    <!-- Public / shared -->
+    <!-- No workspace (global memory at ~/.mineco/memory) -->
     <button
       type="button"
       onclick={() => (selectedWsId = null)}
@@ -175,9 +175,9 @@ function resizeOnMount(el: HTMLTextAreaElement) {
         ? 'bg-accent-bg text-accent-tx border-accent-ln'
         : 'border-line bg-card text-ink-2 hover:bg-card-2 hover:text-ink'}"
     >
-      {i18n.t("workspace.shared")}
+      {i18n.t("workspace.none")}
     </button>
-    {#each workspaces.items as ws (ws.id)}
+    {#each workspaces.items.filter((w) => w.rootPath) as ws (ws.id)}
       <button
         type="button"
         onclick={() => (selectedWsId = ws.id)}

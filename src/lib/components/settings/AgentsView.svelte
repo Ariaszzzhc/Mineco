@@ -7,12 +7,19 @@
 -->
 <script lang="ts">
 import Icon from "../../ui/Icon.svelte";
-import { onMount } from "svelte";
+import { onDestroy, onMount } from "svelte";
 import type {
   Agent,
   AgentDetail,
   AgentInput,
   AgentConnection,
+  ModelRole,
+  ModelRoleId,
+} from "../../agent-protocol";
+import {
+  MODEL_ROLES,
+  applyConnectionToEnv,
+  envToConnection,
 } from "../../agent-protocol";
 import { i18n } from "../../stores/i18n.svelte";
 
@@ -52,6 +59,12 @@ onMount(async () => {
   }
 });
 
+// Flush the open agent to disk if the view is torn down mid-edit (e.g. the
+// user navigates away from Settings without going back to the list first).
+onDestroy(() => {
+  void flushToDisk();
+});
+
 // ---- global instructions persist ----
 function onGlobalInstructionsInput(text: string) {
   globalInstructions = text;
@@ -70,11 +83,28 @@ async function addAgent() {
     connection: {
       baseUrl: "https://api.anthropic.com",
       token: "",
-      models: {
-        sonnet: "claude-sonnet-4-5",
-        opus: "claude-opus-4-5",
-        haiku: "claude-haiku-4-5",
-      },
+      roles: [
+        {
+          role: "sonnet",
+          model: "claude-sonnet-4-5",
+          displayName: "sonnet",
+          supports1M: false,
+        },
+        {
+          role: "opus",
+          model: "claude-opus-4-5",
+          displayName: "opus",
+          supports1M: false,
+        },
+        { role: "fable", model: "", displayName: "fable", supports1M: false },
+        {
+          role: "haiku",
+          model: "claude-haiku-4-5",
+          displayName: "haiku",
+          supports1M: false,
+        },
+      ],
+      fallbackModel: "",
     },
   };
   try {
@@ -88,6 +118,9 @@ async function addAgent() {
 
 // ---- load detail + open editor ----
 async function openAgent(a: Agent) {
+  // Persist any agent currently open before switching (defensive — the list is
+  // normally only reachable via goBack, which already flushes).
+  if (editAgent && editAgent.id !== a.id) await flushToDisk();
   showMenu = false;
   showToken = false;
   showRaw = false;
@@ -114,7 +147,7 @@ async function deleteAgent(id: string) {
   }
 }
 
-// ---- update agent (debounced) ----
+// ---- update agent ----
 function buildInput(d: AgentDetail): AgentInput {
   return {
     name: d.name,
@@ -123,12 +156,39 @@ function buildInput(d: AgentDetail): AgentInput {
   };
 }
 
-function patchAgent(patch: Partial<AgentDetail>) {
+/** True when the raw editor holds JSON that failed to parse — shown as a hint;
+ * the structured fields above are left untouched in that case. */
+let rawError = $state(false);
+
+/**
+ * Regenerates the raw settings.json text from the current structured state.
+ * Parses the existing text to preserve any keys mineco doesn't model
+ * (permissions, hooks, …) and only rewrites the `env` block. Called on every
+ * structured edit so the raw view mirrors the fields above live. The textarea
+ * binding updates programmatically, which never re-fires `oninput`, so there is
+ * no feedback loop back into the structured fields.
+ */
+function syncRawFromStructured() {
   if (!editAgent) return;
-  const updated = { ...editAgent, ...patch };
-  editAgent = updated;
-  // sync name into list
-  const idx = agents.findIndex((a) => a.id === updated.id);
+  let obj: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(rawSettings);
+    if (parsed && typeof parsed === "object") obj = parsed;
+  } catch {
+    /* start fresh from {} if the current text is unparseable */
+  }
+  obj.env = applyConnectionToEnv(
+    (obj.env as Record<string, string | undefined>) ?? {},
+    editAgent.connection,
+  );
+  rawSettings = JSON.stringify(obj, null, 2);
+  rawError = false;
+}
+
+/** Mirrors the edited name/model into the agent list row (in memory only). */
+function mirrorToList() {
+  if (!editAgent) return;
+  const idx = agents.findIndex((a) => a.id === editAgent?.id);
   if (idx !== -1) {
     agents[idx] = {
       ...agents[idx],
@@ -136,10 +196,38 @@ function patchAgent(patch: Partial<AgentDetail>) {
       defaultModel: editAgent.defaultModel,
     };
   }
+}
+
+function patchAgent(patch: Partial<AgentDetail>) {
+  if (!editAgent) return;
+  editAgent = { ...editAgent, ...patch };
+  syncRawFromStructured();
+  mirrorToList();
+}
+
+/**
+ * Persists the agent to disk. Called once when leaving the editor (back / open
+ * another / unmount) — all edits in between stay in memory. Writes the manifest
+ * (name/defaultModel) + structured connection, then, if the raw text is valid
+ * JSON, overwrites settings.json with it verbatim so unknown keys
+ * (permissions/hooks) and display names survive exactly as shown. Invalid raw
+ * text is discarded in favour of the structured-derived settings.
+ */
+async function flushToDisk() {
+  if (!editAgent) return;
   const snap = editAgent;
-  debounce(() => {
-    window.mineco.agents.update(snap.id, buildInput(snap)).catch(() => {});
-  });
+  const raw = rawSettings;
+  try {
+    await window.mineco.agents.update(snap.id, buildInput(snap));
+    try {
+      JSON.parse(raw);
+      await window.mineco.agents.writeSettings(snap.id, raw);
+    } catch {
+      /* invalid raw JSON — keep the structured-derived settings just written */
+    }
+  } catch {
+    /* ignore — best effort on leave */
+  }
 }
 
 function patchConnection(patch: Partial<AgentConnection>) {
@@ -147,28 +235,50 @@ function patchConnection(patch: Partial<AgentConnection>) {
   patchAgent({ connection: { ...editAgent.connection, ...patch } });
 }
 
-function patchModels(alias: keyof AgentConnection["models"], model: string) {
+/** Patches one role row in the connection's role mapping. */
+function patchRole(role: ModelRoleId, patch: Partial<ModelRole>) {
   if (!editAgent) return;
-  patchConnection({
-    models: { ...editAgent.connection.models, [alias]: model },
-  });
+  const roles = editAgent.connection.roles.map((r) =>
+    r.role === role ? { ...r, ...patch } : r,
+  );
+  patchConnection({ roles });
 }
 
 // ---- raw settings.json ----
-async function saveRaw() {
+
+/**
+ * Handles raw-editor input: mirrors valid JSON back into the structured fields
+ * live (in memory). Invalid JSON leaves the structured fields untouched and
+ * flags an error; it is discarded on leave rather than written.
+ */
+function onRawInput(text: string) {
+  rawSettings = text;
   if (!editAgent) return;
+  let parsed: unknown;
   try {
-    await window.mineco.agents.writeSettings(editAgent.id, rawSettings);
-    // Reload to get canonical shape
-    const detail = await window.mineco.agents.get(editAgent.id);
-    if (detail) editAgent = detail;
-  } catch (e) {
-    console.error("Failed to write settings:", e);
+    parsed = JSON.parse(text);
+  } catch {
+    rawError = true;
+    return;
   }
+  rawError = false;
+  const env =
+    parsed && typeof parsed === "object"
+      ? ((parsed as { env?: Record<string, string | undefined> }).env ?? {})
+      : {};
+  editAgent = { ...editAgent, connection: envToConnection(env) };
+}
+
+/** Toggles the raw editor, regenerating its text from the structured state on
+ * expand so it always opens in sync. */
+function toggleRaw() {
+  showRaw = !showRaw;
+  if (showRaw) syncRawFromStructured();
 }
 
 // ---- back from detail ----
-function goBack() {
+async function goBack() {
+  await flushToDisk();
   editAgent = null;
   showRaw = false;
 }
@@ -178,30 +288,12 @@ function tokenEstimate(text: string) {
   return Math.max(1, Math.round(text.length / 3.7));
 }
 
-// Alias -> suggested concrete models
-const CLAUDE_MODELS = [
-  "claude-sonnet-4-5",
-  "claude-opus-4-5",
-  "claude-haiku-4-5",
-  "claude-3-5-sonnet-20241022",
-  "claude-3-opus-20240229",
-  "claude-3-haiku-20240307",
-];
-
-const CLAUDE_ALIASES: {
-  id: keyof AgentConnection["models"];
-  label: string;
-  sub: string;
-}[] = [
-  { id: "sonnet", label: "sonnet", sub: "default · main agent" },
-  { id: "opus", label: "opus", sub: "deep reasoning" },
-  { id: "haiku", label: "haiku", sub: "fast · subagents" },
-];
-
-const DEFAULT_MODELS: Record<keyof AgentConnection["models"], string> = {
-  sonnet: "sonnet",
-  opus: "opus",
-  haiku: "haiku",
+/** Per-role copy for the mapping table. */
+const ROLE_META: Record<ModelRoleId, string> = {
+  sonnet: "default · main agent",
+  opus: "deep reasoning",
+  fable: "creative",
+  haiku: "fast · subagents",
 };
 
 // copy to clipboard
@@ -413,18 +505,98 @@ function fmtUpdated(ts: number): string {
     </div>
   </div>
 
-  <!-- Model aliases card -->
+  <!-- Model mapping card -->
   <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
     <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
       <Icon name="sparkle" size={13} class="text-accent-tx" />
-      <span class="font-[650] text-[12.5px] text-ink">Model aliases</span>
-      <span class="ml-auto font-mono text-[10.5px] text-ink-3">alias → concrete model id</span>
+      <span class="font-[650] text-[12.5px] text-ink">Model mapping</span>
+      <span class="ml-auto font-mono text-[10.5px] text-ink-3">role → ANTHROPIC_DEFAULT_&lt;ROLE&gt;_MODEL[_NAME]</span>
     </div>
 
-    <div class="flex flex-col gap-2 px-4 py-3.5">
-      <!-- Default model alias (sonnet/opus/haiku) -->
-      <div class="flex flex-col gap-1.5 mb-2 pb-2 border-b border-line">
-        <label for="agent-default-model" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Default model alias (composer default)</label>
+    <p class="px-4 pt-3 text-[11.5px] text-ink-3 leading-[1.5]">
+      <strong class="text-ink-2">Display name</strong> is the label shown in the composer's model menu
+      (<code class="font-mono">…_MODEL_NAME</code>); <strong class="text-ink-2">Model id</strong> is what's
+      sent on the wire (<code class="font-mono">…_MODEL</code>). Leave the model id empty for the SDK default.
+      “1M” declares 1M-context support (appends <code class="font-mono">[1m]</code>).
+    </p>
+
+    <div class="flex flex-col px-4 py-3.5">
+      <!-- column headers -->
+      <div
+        class="grid items-center gap-2.5 pb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[.06em] text-ink-3"
+        style="grid-template-columns: 104px 1fr 1fr 44px;"
+      >
+        <span>Role</span>
+        <span>Display name</span>
+        <span>Model id</span>
+        <span class="text-center">1M</span>
+      </div>
+
+      {#each agent.connection.roles as r (r.role)}
+        <div
+          class="grid items-center gap-2.5 py-1.5 border-t border-line"
+          style="grid-template-columns: 104px 1fr 1fr 44px;"
+        >
+          <span class="flex flex-col gap-0.5 min-w-0">
+            <strong class="font-mono font-[650] text-[12.5px] text-ink">{r.role}</strong>
+            <span class="text-[10px] text-ink-3 truncate">{ROLE_META[r.role]}</span>
+          </span>
+          <div class="flex items-center bg-card-2 border border-line rounded-[var(--r-field)] px-2.5 h-[32px] focus-within:border-accent transition-all">
+            <input
+              type="text"
+              value={r.displayName}
+              spellcheck="false"
+              placeholder={r.role}
+              aria-label="{r.role} display name"
+              oninput={(e) => patchRole(r.role, { displayName: (e.target as HTMLInputElement).value })}
+              class="flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full"
+            />
+          </div>
+          <div class="flex items-center bg-card-2 border border-line rounded-[var(--r-field)] px-2.5 h-[32px] focus-within:border-accent transition-all">
+            <input
+              type="text"
+              value={r.model}
+              spellcheck="false"
+              placeholder="SDK default"
+              aria-label="{r.role} model id"
+              oninput={(e) => patchRole(r.role, { model: (e.target as HTMLInputElement).value })}
+              class="flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full"
+            />
+          </div>
+          <label class="flex items-center justify-center h-[32px] cursor-pointer" title="Declare 1M context support">
+            <input
+              type="checkbox"
+              checked={r.supports1M}
+              aria-label="{r.role} supports 1M context"
+              onchange={(e) => patchRole(r.role, { supports1M: (e.target as HTMLInputElement).checked })}
+              class="mc-no-drag size-[15px] accent-[var(--accent)] cursor-pointer"
+            />
+          </label>
+        </div>
+      {/each}
+
+      <!-- Fallback model (ANTHROPIC_MODEL) -->
+      <div class="flex flex-col gap-1.5 mt-3 pt-3 border-t border-line">
+        <label for="agent-fallback-model" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Fallback model (ANTHROPIC_MODEL)</label>
+        <div class="flex items-center bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent transition-all">
+          <input
+            id="agent-fallback-model"
+            type="text"
+            value={agent.connection.fallbackModel}
+            spellcheck="false"
+            placeholder="e.g. glm-5.1 — optional"
+            oninput={(e) => patchConnection({ fallbackModel: (e.target as HTMLInputElement).value })}
+            class="flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full"
+          />
+        </div>
+        <span class="text-[10.5px] text-ink-3 leading-[1.5]">
+          Used for requests that don't resolve to a named role. With third-party relays, fill this so background calls don't pass through an unknown Claude model id.
+        </span>
+      </div>
+
+      <!-- Composer default role -->
+      <div class="flex flex-col gap-1.5 mt-3 pt-3 border-t border-line">
+        <label for="agent-default-model" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Composer default role</label>
         <div class="relative flex items-center bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent transition-all">
           <select
             id="agent-default-model"
@@ -432,8 +604,8 @@ function fmtUpdated(ts: number): string {
             onchange={(e) => patchAgent({ defaultModel: (e.target as HTMLSelectElement).value })}
             class="mc-no-drag flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full appearance-none cursor-pointer pr-5"
           >
-            {#each Object.keys(DEFAULT_MODELS) as alias (alias)}
-              <option value={alias}>{alias}</option>
+            {#each MODEL_ROLES as role (role)}
+              <option value={role}>{role}</option>
             {/each}
           </select>
           <span class="absolute right-2 text-ink-3 pointer-events-none">
@@ -441,29 +613,6 @@ function fmtUpdated(ts: number): string {
           </span>
         </div>
       </div>
-
-      {#each CLAUDE_ALIASES as al (al.id)}
-        <div class="grid items-center gap-2.5" style="grid-template-columns: 158px 1fr;">
-          <span class="flex flex-col gap-0.5">
-            <strong class="font-mono font-[650] text-[12.5px] text-ink">{al.label}</strong>
-            <span class="text-[10px] text-ink-3">{al.sub}</span>
-          </span>
-          <div class="relative flex items-center bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent transition-all">
-            <select
-              value={agent.connection.models[al.id]}
-              onchange={(e) => patchModels(al.id, (e.target as HTMLSelectElement).value)}
-              class="mc-no-drag flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full appearance-none cursor-pointer pr-5"
-            >
-              {#each CLAUDE_MODELS as m (m)}
-                <option value={m}>{m}</option>
-              {/each}
-            </select>
-            <span class="absolute right-2 text-ink-3 pointer-events-none">
-              <Icon name="chev" size={12} />
-            </span>
-          </div>
-        </div>
-      {/each}
     </div>
   </div>
 
@@ -471,7 +620,7 @@ function fmtUpdated(ts: number): string {
   <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden flex flex-col">
     <button
       type="button"
-      onclick={() => (showRaw = !showRaw)}
+      onclick={toggleRaw}
       class="mc-no-drag flex items-center gap-2.5 px-4 py-[11px] cursor-pointer hover:bg-card-2 transition-colors text-left w-full border-none bg-transparent"
     >
       <Icon name="code" size={13} class="text-ink-3" />
@@ -484,19 +633,18 @@ function fmtUpdated(ts: number): string {
     {#if showRaw}
       <div class="border-t border-line flex flex-col">
         <textarea
-          bind:value={rawSettings}
+          value={rawSettings}
           spellcheck="false"
           rows={14}
+          oninput={(e) => onRawInput((e.target as HTMLTextAreaElement).value)}
           class="mc-no-drag w-full border-none outline-none resize-y px-4 py-3.5 bg-chrome font-mono text-[12px] leading-[1.6] text-ink"
         ></textarea>
-        <div class="flex justify-end gap-2 px-4 py-2 border-t border-line">
-          <button
-            type="button"
-            onclick={saveRaw}
-            class="mc-no-drag inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--r-field)] border border-accent-ln bg-accent-bg text-accent-tx text-[12px] font-semibold cursor-pointer hover:bg-accent hover:text-white transition-colors"
-          >
-            Save
-          </button>
+        <div class="flex items-center gap-2 px-4 py-2 border-t border-line text-[11px]">
+          {#if rawError}
+            <span class="text-del font-semibold">Invalid JSON — fields above are unchanged; this text is discarded on leave unless it parses.</span>
+          {:else}
+            <span class="text-ink-3">Two-way synced with the fields above · written to disk when you leave this agent.</span>
+          {/if}
         </div>
       </div>
     {/if}

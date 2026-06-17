@@ -24,9 +24,9 @@ future engines.
 ```
 electron/main.ts            Main process: window + IPC surface
 electron/preload.ts         contextBridge -> window.mineco (agents/workspaces/sessions/runTurn)
-electron/session-runner.ts  Orchestrates one turn: resume-vs-seed, context assembly, stream
-electron/engines/           Engine abstraction: types.ts (Engine + NormalizedEvent),
-                            claude.ts (adapter, M1 implementation)
+electron/session-runner.ts  Orchestrates one turn: get-or-open live session, persist, stream
+electron/engines/           Engine abstraction: types.ts (Engine + EngineSession + NormalizedEvent),
+                            claude.ts (persistent-session adapter), async-queue.ts (pushable stream)
 electron/services/          Business logic layer:
                               agent.ts (agent dir contract + model mapping)
                               workspace.ts (workspace switching + state)
@@ -36,6 +36,7 @@ electron/services/          Business logic layer:
                               memory.ts (per-workspace memory injection)
                               context-assembly.ts (inject global instructions + memory + MCP + Skills)
                               run-registry.ts (in-flight session state)
+                              engine-sessions.ts (live persistent EngineSession per mineco session)
 electron/db/                Kysely-on-node:sqlite: workspaces/sessions/turns/messages
                             (config lives in files, not DB)
 src/lib/agent-protocol.ts   Shared domain model + NormalizedEvent + IPC channels
@@ -57,10 +58,27 @@ calls `context-assembly` to merge MCP/Skills/memory from three scopes,
 invokes Claude adapter with isolated `CLAUDE_CONFIG_DIR`, streams
 `NormalizedEvent`s back on per-request channel → preload forwards to callback.
 
-**resume vs re-seed:** the canonical transcript lives in SQLite (`messages`).
-**Same agent** (same `agentId` ⟹ same `CLAUDE_CONFIG_DIR`) → native `resume`
-(`nativeThreadId`); **different agent** → re-seed and prepend prior transcript
-via `buildPrompt`. This ensures agent switching is always clean isolation.
+**Persistent session model:** each mineco session maps to ONE long-lived
+Claude `query()` (a warm native subprocess) held in `engine-sessions.ts`, driven
+with a streaming-input prompt. Each turn pushes a user message into that
+persistent input stream and consumes events until the turn's terminal `result`
+(which ends the *turn*, NOT the query); per-turn `model`/`permissionMode` are
+applied via the SDK's `setModel`/`setPermissionMode` control requests. Stop =
+`interrupt()` (session stays warm); the query is torn down only on session
+delete / agent switch / app quit. A turn NEVER closes the input stream — doing
+so was the original bug (the SDK keeps the transport open until the input
+iterable ends, so the runner hung and never persisted the assistant message).
+
+**Opening a session (resume vs seed):** the canonical transcript lives in SQLite
+(`messages`). A session is bound to one agent (its `CLAUDE_CONFIG_DIR` is fixed).
+On first turn / cold reopen with the **same agent** + a prior `nativeThreadId` →
+native `resume`; **different agent** (or no thread) → open a fresh query and seed
+its first prompt with the prior transcript via `buildFirstPrompt`. Switching
+agents closes the old query and opens a new one — always clean isolation.
+
+**Per-session context:** global instructions + memory + MCP are assembled once,
+when the session's query is opened (fixed for its lifetime, like a real Claude
+session) — NOT re-assembled per turn. Reopen the session to pick up changes.
 
 ## Commands
 
@@ -74,7 +92,7 @@ via `buildPrompt`. This ensures agent switching is always clean isolation.
 - **Configuration** (agents, MCP, skills, memory, global instructions) → files under
   `~/.mineco/` and per-workspace directories (`.mcp.json`, `.claude/skills/`, `.mineco/memory/`, etc.).
 - **Agent credentials** (token, Base URL) → each agent's isolated `~/.mineco/engines/claude/<id>/settings.json` (plaintext, not shared, not in git).
-- **Global instructions** → `~/.mineco/MINECO.md` (appended to system prompt at each turn).
+- **Global instructions** → `~/.mineco/MINECO.md` (appended to system prompt when the session's query is opened).
 - **Per-workspace memory** → `<workspace>/.mineco/memory/` (injected via system prompt append).
 - **Three-level MCP/Skills scopes**: global (`~/.mineco/mcp.json`, `~/.mineco/skills/`) /
   project (`.mcp.json`, `.claude/skills/`, git-tracked) / local (`.mcp.local.json`,
@@ -84,10 +102,12 @@ via `buildPrompt`. This ensures agent switching is always clean isolation.
 ## Conventions & gotchas
 
 - **Claude Agent SDK is main-process only.** Never import it in renderer code.
-- **Engine abstraction:** `Engine` interface (`types.ts`) defines `capabilities()`,
-  `run()`, and the mapping to `NormalizedEvent`. Claude adapter is the v1
-  implementation. Future engines: new adapter in `electron/engines/`, new type
-  branches in `NormalizedEvent`, done—renderer/IPC/persistence unchanged.
+- **Engine abstraction:** `Engine` interface (`types.ts`) defines `capabilities()`
+  and `openSession()`, which returns a persistent `EngineSession` (`runTurn` /
+  `interrupt` / `close`) that maps the native SDK to `NormalizedEvent`s. Claude
+  adapter is the v1 implementation. Future engines: new adapter in
+  `electron/engines/`, new type branches in `NormalizedEvent`,
+  done—renderer/IPC/persistence unchanged.
 - **Agent isolation:** each Agent has its own `CLAUDE_CONFIG_DIR`
   (`~/.mineco/engines/claude/<id>/`). Never set `CLAUDE_CONFIG_DIR` globally or
   to `~/.claude`; mineco must not pollute user's Claude Code environment.

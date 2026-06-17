@@ -12,13 +12,13 @@
 -->
 <script lang="ts">
 import Icon from "../ui/Icon.svelte";
-import Popover from "../ui/Popover.svelte";
 import Composer from "../components/chat/Composer.svelte";
 import MessageStream from "../components/chat/MessageStream.svelte";
 import { onDestroy, onMount, tick } from "svelte";
 import type {
   Agent,
   Message,
+  NormalizedUsage,
   SessionView,
   ToolRecord,
 } from "../agent-protocol";
@@ -41,6 +41,22 @@ let session = $state<SessionView | null>(null);
 let blocks = $state<(Block | LiveBlock)[]>([]);
 let loading = $state(false);
 
+/** Usage of the most recent completed turn — seeds the context ring on load. */
+let seedUsage = $state<NormalizedUsage | null>(null);
+
+/** Live context fill: the latest assistant turn's usage if streamed this
+ * session, else the seeded last-turn usage. Drives the composer's ring. */
+const contextUsage = $derived.by<NormalizedUsage | null>(() => {
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i];
+    if (b.kind === "assistant") {
+      const u = (b as LiveBlock).usage;
+      if (u) return u;
+    }
+  }
+  return seedUsage;
+});
+
 // composer selection
 let agentId = $state<string | null>(null);
 let model = $state<string>("sonnet");
@@ -57,6 +73,14 @@ const curWorkspace = $derived(workspaces.current);
 const curAgent = $derived(
   agents.find((a) => a.id === agentId) ?? agents[0] ?? null,
 );
+
+/** The workspace this session is bound to (fixed at creation). Drives the
+ * composer's read-only workspace chip. */
+const sessionWorkspace = $derived.by(() => {
+  const wsId = session?.workspaceId ?? null;
+  if (!wsId) return null;
+  return workspaces.items.find((w) => w.id === wsId) ?? null;
+});
 
 // scroll container
 let scrollEl = $state<HTMLDivElement | null>(null);
@@ -120,8 +144,10 @@ async function loadMessages(id: string) {
   try {
     const rows = (await window.mineco.sessions.messages(id)) ?? [];
     blocks = rows.map(messageToBlock);
+    seedUsage = await window.mineco.sessions.latestUsage(id).catch(() => null);
   } catch {
     blocks = [];
+    seedUsage = null;
   } finally {
     loading = false;
     await scrollToBottom(true);
@@ -139,6 +165,9 @@ async function loadSession(id: string) {
     }
   }
   session = found;
+  // Reflect the session's own workspace as the active selection so the sidebar
+  // (recent sessions) and the next new-session default match the open session.
+  if (found) workspaces.setCurrent(found.workspaceId);
   await loadMessages(id);
 }
 
@@ -249,23 +278,38 @@ $effect(() => {
   void refreshSessions();
 });
 
-onMount(async () => {
+/** (Re)loads the agent list. Preserves the current selection when it survives. */
+async function loadAgents() {
+  let next: Agent[];
   try {
-    agents = (await window.mineco.agents.list()) ?? [];
+    next = (await window.mineco.agents.list()) ?? [];
   } catch {
-    agents = [];
+    next = [];
   }
-  if (agents.length) agentId = agents[0].id;
-});
+  agents = next;
+  if (!next.length) return;
+  // Keep the user's pick if it still exists; otherwise fall back to the first.
+  if (!next.some((a) => a.id === agentId)) {
+    agentId = next[0].id;
+    model = next[0].defaultModel || "sonnet";
+  }
+}
+
+const unsubAgents = window.mineco.onAgentsChanged(() => void loadAgents());
+
+onMount(() => void loadAgents());
 
 onDestroy(() => {
   if (activeRun) activeRun.stop();
   unsubRunState();
+  unsubAgents();
 });
 
 // session header bits
 const headerScope = $derived(
-  curWorkspace ? `${curWorkspace.name} / main` : i18n.t("workspace.shared"),
+  sessionWorkspace?.rootPath
+    ? `${sessionWorkspace.name} / main`
+    : i18n.t("workspace.none"),
 );
 const sessionTitle = $derived(
   session?.title || nav.activeSessionId || "Session",
@@ -279,27 +323,12 @@ function isRunning(id: string): boolean {
 <div class="absolute inset-0 grid grid-rows-[var(--tbh)_1fr] bg-app font-ui text-ink">
   <!-- titlebar -->
   <div class="mc-drag relative z-20 flex items-center border-b border-line bg-chrome px-2">
-    <div class="mac-controls items-center gap-2 mr-2 mc-no-drag">
-      <button class="mc-no-drag size-3 rounded-full bg-[#FF5F57]" title="Close" aria-label="Close"></button>
-      <button class="mc-no-drag size-3 rounded-full bg-[#FEBC2E]" title="Minimize" aria-label="Minimize"></button>
-      <button class="mc-no-drag size-3 rounded-full bg-[#28C840]" title="Zoom" aria-label="Zoom"></button>
-    </div>
-    <div class="flex items-baseline gap-[7px]">
+    <!-- Reserve space for the native macOS traffic lights overlaid here -->
+    <div class="mac-traffic-spacer flex-none" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute left-1/2 -translate-x-1/2">
       <span class="text-[12.5px] font-bold tracking-[-.01em] text-ink">mineco</span>
-      <span class="font-mono text-[9.5px] font-semibold uppercase tracking-[.08em] text-ink-3">desktop</span>
     </div>
     <div class="flex-1"></div>
-    <div class="win-controls items-center gap-0.5 mc-no-drag">
-      <button class="mc-no-drag grid size-7 place-items-center rounded text-ink-2 hover:bg-chrome-2" title="Minimize" aria-label="Minimize">
-        <svg width="11" height="11" viewBox="0 0 11 11"><path d="M1.5 5.5h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" /></svg>
-      </button>
-      <button class="mc-no-drag grid size-7 place-items-center rounded text-ink-2 hover:bg-chrome-2" title="Maximize" aria-label="Maximize">
-        <svg width="11" height="11" viewBox="0 0 11 11"><rect x="1.9" y="1.9" width="7.2" height="7.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.2" /></svg>
-      </button>
-      <button class="mc-no-drag grid size-7 place-items-center rounded text-ink-2 hover:bg-[#E5484D] hover:text-white" title="Close" aria-label="Close">
-        <svg width="11" height="11" viewBox="0 0 11 11"><path d="M2.2 2.2l6.6 6.6M8.8 2.2l-6.6 6.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" /></svg>
-      </button>
-    </div>
   </div>
 
   <!-- body: sidebar + main -->
@@ -311,60 +340,6 @@ function isRunning(id: string): boolean {
         <span class="text-[15.5px] font-bold tracking-[-.01em] text-ink">mineco</span>
         <span class="ml-auto font-mono text-[9.5px] font-semibold uppercase tracking-[.08em] text-ink-3">agent</span>
       </div>
-
-      <!-- workspace switcher -->
-      {#if workspaces.items.length}
-        <Popover side="bottom" align="start" class="min-w-[220px]">
-          {#snippet trigger()}
-            <button
-              type="button"
-              class="mc-no-drag flex w-full items-center gap-2 rounded-[var(--r-field)] border border-line-2 bg-chrome-2 px-2.5 py-2 text-left outline-none hover:bg-card-2"
-              title="Switch workspace"
-            >
-              <span class="flex-none text-ink-2"><Icon name="workspace" size={15} /></span>
-              <span class="flex min-w-0 flex-col">
-                <span class="truncate text-[12.5px] font-semibold text-ink">
-                  {curWorkspace?.name ?? i18n.t("workspace.shared")}
-                </span>
-                <span class="font-mono text-[9.5px] uppercase tracking-[.06em] text-ink-3">
-                  {i18n.t("workspace")}
-                </span>
-              </span>
-              <span class="ml-auto text-ink-3"><Icon name="chev" size={12} /></span>
-            </button>
-          {/snippet}
-          <div class="px-2 pb-1 pt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[.1em] text-ink-3">
-            {i18n.t("workspace")}
-          </div>
-          <button
-            type="button"
-            onclick={() => workspaces.setCurrent(null)}
-            class="flex w-full items-center gap-2.5 rounded-[var(--r-field)] px-2 py-1.5 text-left outline-none hover:bg-card-2"
-          >
-            <span class="flex-none text-ink-2"><Icon name="workspace" size={14} /></span>
-            <span class="flex-1 text-[13px] text-ink">{i18n.t("workspace.shared")}</span>
-            {#if !curWorkspace}
-              <span class="text-accent-tx"><Icon name="check" size={13} stroke={2.4} /></span>
-            {/if}
-          </button>
-          {#each workspaces.items as w (w.id)}
-            <button
-              type="button"
-              onclick={() => workspaces.setCurrent(w.id)}
-              class="flex w-full items-center gap-2.5 rounded-[var(--r-field)] px-2 py-1.5 text-left outline-none hover:bg-card-2"
-            >
-              <span class="flex-none text-ink-2"><Icon name="workspace" size={14} /></span>
-              <span class="flex min-w-0 flex-col">
-                <span class="truncate text-[13px] text-ink">{w.name}</span>
-                {#if w.rootPath}<span class="truncate text-[11px] text-ink-3">{w.rootPath}</span>{/if}
-              </span>
-              {#if curWorkspace?.id === w.id}
-                <span class="ml-auto text-accent-tx"><Icon name="check" size={13} stroke={2.4} /></span>
-              {/if}
-            </button>
-          {/each}
-        </Popover>
-      {/if}
 
       <button
         type="button"
@@ -471,6 +446,8 @@ function isRunning(id: string): boolean {
               bind:model
               bind:mode
               {busy}
+              usage={contextUsage}
+              workspace={sessionWorkspace}
               onsend={onSend}
               onstop={onStop}
             />

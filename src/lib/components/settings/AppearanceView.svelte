@@ -9,13 +9,10 @@ import Icon from "../../ui/Icon.svelte";
 import { theme } from "../../stores/theme.svelte";
 
 const ACCENTS = ["#43A95A", "#D6A33C", "#8E7BE6", "#3B82C4", "#D9608C"];
-const FONT_SCALES = [0.9, 1, 1.1, 1.2];
 
 // Reactively read from the theme store
 const currentTheme = $derived(theme.theme);
 const currentAccent = $derived(theme.accent);
-const currentPlatform = $derived(theme.platform);
-const currentFontScale = $derived(theme.fontScale);
 const currentLang = $derived(theme.lang);
 </script>
 
@@ -89,63 +86,6 @@ const currentLang = $derived(theme.lang);
               <path d="M5 12.5l4 4 10-10.5" />
             </svg>
           {/if}
-        </button>
-      {/each}
-    </div>
-  </div>
-</div>
-
-<!-- Window & type card -->
-<div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
-  <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
-    <Icon name="mac" size={13} class="text-accent-tx" />
-    <span class="font-[650] text-[12.5px] text-ink">Window &amp; type</span>
-  </div>
-
-  <!-- Window controls row -->
-  <div class="flex items-center gap-4 px-4 py-3.5 border-b border-line">
-    <span class="flex-1 min-w-0 flex flex-col gap-0.5">
-      <span class="font-[650] text-[13px] text-ink">{i18n.t("windowControls")}</span>
-      <span class="text-[11.5px] text-ink-3 leading-[1.4]">Follows the host OS — traffic lights or min/max/close</span>
-    </span>
-    <div class="flex gap-1.5">
-      <button
-        type="button"
-        onclick={() => theme.set({ platform: "mac" })}
-        class="mc-no-drag inline-flex items-center gap-1.5 cursor-pointer border rounded-[var(--r-field)] px-3.5 py-[7px] font-ui font-semibold text-[12.5px] transition-colors {currentPlatform === 'mac'
-          ? 'bg-accent-bg text-accent-tx border-accent-ln'
-          : 'border-line bg-card-2 text-ink-2 hover:bg-raised hover:text-ink'}"
-      >
-        {i18n.t("platform.mac")} · left
-      </button>
-      <button
-        type="button"
-        onclick={() => theme.set({ platform: "win" })}
-        class="mc-no-drag inline-flex items-center gap-1.5 cursor-pointer border rounded-[var(--r-field)] px-3.5 py-[7px] font-ui font-semibold text-[12.5px] transition-colors {currentPlatform === 'win'
-          ? 'bg-accent-bg text-accent-tx border-accent-ln'
-          : 'border-line bg-card-2 text-ink-2 hover:bg-raised hover:text-ink'}"
-      >
-        {i18n.t("platform.win")} · right
-      </button>
-    </div>
-  </div>
-
-  <!-- Font size row -->
-  <div class="flex items-center gap-4 px-4 py-3.5">
-    <span class="flex-1 min-w-0 flex flex-col gap-0.5">
-      <span class="font-[650] text-[13px] text-ink">{i18n.t("fontSize")}</span>
-      <span class="text-[11.5px] text-ink-3 leading-[1.4]">Global type scale</span>
-    </span>
-    <div class="flex gap-1.5 flex-none">
-      {#each FONT_SCALES as scale (scale)}
-        <button
-          type="button"
-          onclick={() => theme.set({ fontScale: scale })}
-          class="mc-no-drag inline-flex items-center gap-1.5 cursor-pointer border rounded-[var(--r-field)] px-3 py-[7px] font-ui font-semibold text-[12.5px] transition-colors {Math.abs(currentFontScale - scale) < 0.001
-            ? 'bg-accent-bg text-accent-tx border-accent-ln'
-            : 'border-line bg-card-2 text-ink-2 hover:bg-raised hover:text-ink'}"
-        >
-          {scale}×
         </button>
       {/each}
     </div>

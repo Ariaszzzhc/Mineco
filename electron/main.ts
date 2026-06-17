@@ -15,6 +15,7 @@ import {
 } from "../src/lib/agent-protocol";
 import { listMessages } from "./db/messages";
 import { createSession, deleteSession, listSessions } from "./db/sessions";
+import { getLastTurn } from "./db/turns";
 import { getEngine } from "./engines/registry";
 import {
   createAgent,
@@ -26,6 +27,10 @@ import {
   writeAgentSettings,
 } from "./services/agent";
 import { getAppearance, setAppearance } from "./services/app-settings";
+import {
+  closeAllSessions,
+  closeSession as closeEngineSession,
+} from "./services/engine-sessions";
 import {
   readGlobalInstructions,
   writeGlobalInstructions,
@@ -46,6 +51,7 @@ import {
   deleteWorkspace,
   ensurePublicWorkspaceExists,
   listWorkspaces,
+  resolveCwdFor,
   updateWorkspace,
 } from "./services/workspace";
 import {
@@ -70,6 +76,16 @@ function createWindow(): void {
   win = new BrowserWindow({
     width: 1100,
     height: 800,
+    title: "mineco",
+    // Use the platform's native window controls, integrated into our own
+    // titlebar region (the renderer no longer draws fake traffic lights /
+    // min-max-close buttons). On macOS "hidden" keeps the native traffic
+    // lights overlaid top-left with no separate title strip; on Windows/Linux
+    // the native controls are overlaid at the right via titleBarOverlay.
+    titleBarStyle: "hidden",
+    ...(process.platform === "darwin"
+      ? { trafficLightPosition: { x: 14, y: 13 } }
+      : { titleBarOverlay: { height: 40 } }),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       // Security baseline: the renderer gets no direct Node access; it can only
@@ -106,21 +122,37 @@ async function listSessionViews(
  */
 function registerIpc(): void {
   // --- Agents (filesystem-backed) -----------------------------------------
+  // Broadcast after a mutation lands so every window refreshes its cached agent
+  // list (Composer model menu, Home picker). Fired post-write to avoid a
+  // read-before-write race with the renderer's own refetch.
+  const broadcastAgentsChanged = () => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.webContents.isDestroyed()) w.webContents.send(CH.agentsChanged);
+    }
+  };
   ipcMain.handle(CH.agentsList, () => listAgents());
-  ipcMain.handle(CH.agentsCreate, (_e, input: AgentInput) =>
-    createAgent(input),
-  );
-  ipcMain.handle(CH.agentsUpdate, (_e, id: string, input: AgentInput) =>
-    updateAgent(id, input),
-  );
-  ipcMain.handle(CH.agentsDelete, (_e, id: string) => deleteAgent(id));
+  ipcMain.handle(CH.agentsCreate, async (_e, input: AgentInput) => {
+    const agent = await createAgent(input);
+    broadcastAgentsChanged();
+    return agent;
+  });
+  ipcMain.handle(CH.agentsUpdate, async (_e, id: string, input: AgentInput) => {
+    const agent = await updateAgent(id, input);
+    broadcastAgentsChanged();
+    return agent;
+  });
+  ipcMain.handle(CH.agentsDelete, async (_e, id: string) => {
+    await deleteAgent(id);
+    broadcastAgentsChanged();
+  });
   ipcMain.handle(CH.agentsGet, (_e, id: string) => getAgentDetail(id));
   ipcMain.handle(CH.agentsReadSettings, (_e, id: string) =>
     readAgentSettings(id),
   );
-  ipcMain.handle(CH.agentsWriteSettings, (_e, id: string, raw: string) =>
-    writeAgentSettings(id, raw),
-  );
+  ipcMain.handle(CH.agentsWriteSettings, async (_e, id: string, raw: string) => {
+    await writeAgentSettings(id, raw);
+    broadcastAgentsChanged();
+  });
 
   // --- Global instructions (~/.mineco/MINECO.md) --------------------------
   ipcMain.handle(CH.globalInstructionsRead, () => readGlobalInstructions());
@@ -156,27 +188,37 @@ function registerIpc(): void {
   );
   ipcMain.handle(
     CH.sessionsCreate,
-    (
+    async (
       _e,
       input: {
         workspaceId: string | null;
         agentId?: string | null;
         title?: string;
-        cwd?: string;
       },
     ) =>
       createSession({
         workspaceId: input.workspaceId ?? null,
         agentId: input.agentId ?? null,
         title: input.title,
-        // The sandboxed renderer can't resolve paths; default to the app root.
-        cwd: input.cwd || process.env.APP_ROOT || process.cwd(),
+        // The sandboxed renderer can't resolve paths; the main process maps the
+        // workspace id to a concrete cwd (real rootPath, or ~/.mineco/public for
+        // the no-workspace case).
+        cwd: await resolveCwdFor(input.workspaceId ?? null),
       }),
   );
-  ipcMain.handle(CH.sessionsDelete, (_e, id: string) => deleteSession(id));
+  ipcMain.handle(CH.sessionsDelete, async (_e, id: string) => {
+    // Tear down the live native query before dropping the transcript.
+    await closeEngineSession(id);
+    await deleteSession(id);
+  });
   ipcMain.handle(CH.sessionMessages, (_e, sessionId: string) =>
     listMessages(sessionId),
   );
+  // Latest completed turn's usage — seeds the composer context ring on reload.
+  ipcMain.handle(CH.sessionLatestUsage, async (_e, sessionId: string) => {
+    const last = await getLastTurn(sessionId);
+    return last?.usage ?? null;
+  });
 
   // --- Memory (filesystem-backed) -----------------------------------------
   ipcMain.handle(CH.memoryList, (_e, workspaceId: string | null) =>
@@ -278,4 +320,9 @@ app.on("window-all-closed", () => {
     app.quit();
     win = null;
   }
+});
+
+// Tear down all warm native queries (and their subprocesses) on shutdown.
+app.on("before-quit", () => {
+  void closeAllSessions();
 });

@@ -1,23 +1,20 @@
 import type { DatabaseSync } from "node:sqlite";
 
 /**
- * Lightweight version-stepped migrations (EDD §11 / ADR-5) over
- * `PRAGMA user_version`, run on the raw `DatabaseSync` BEFORE the Kysely wrap
- * (multi-statement DDL can't go through Kysely's one-statement prepare path).
+ * Schema bootstrap (EDD §11 / ADR-5) over `PRAGMA user_version`, run on the raw
+ * `DatabaseSync` BEFORE the Kysely wrap (multi-statement DDL can't go through
+ * Kysely's one-statement prepare path).
  *
  * mineco.db holds ONLY runtime state — four tables (workspaces / sessions /
  * turns / messages). Agents, MCP, skills, memory, and app settings are
  * filesystem-backed and never live here.
  *
- * Every migration must be idempotent and tolerant of the existing dev DB (which
- * may already have these columns, plus legacy tables from earlier prototypes).
- * Legacy tables (agents / mcp_servers / skills / memory_entries / app_settings)
- * are LEFT IN PLACE unused — we never drop them and never error on their
- * presence.
+ * There is a single baseline migration: create the canonical tables. The DB is
+ * created fresh on first launch; we do NOT upgrade older prototype databases in
+ * place — delete a stale `~/.mineco/mineco.db` to regenerate.
  */
 
-/** v1 baseline: the four runtime tables. `IF NOT EXISTS` makes it a no-op on an
- * existing DB; additive column guards below reconcile partial older shapes. */
+/** v1 baseline: the four runtime tables + their indexes. */
 const V1_BASELINE = `
   CREATE TABLE IF NOT EXISTS workspaces (
     id            TEXT PRIMARY KEY,
@@ -61,77 +58,13 @@ const V1_BASELINE = `
     engine      TEXT,
     created_at  INTEGER NOT NULL
   );
+
+  CREATE INDEX IF NOT EXISTS idx_turns_session ON turns(session_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, created_at);
 `;
 
 /** The latest schema version this build understands. */
 const LATEST_VERSION = 1;
-
-/** Returns whether `table` has a column named `column` (false if the table is
- * absent). */
-function hasColumn(
-  sqlite: DatabaseSync,
-  table: string,
-  column: string,
-): boolean {
-  try {
-    const rows = sqlite.prepare(`PRAGMA table_info(${table})`).all() as Array<{
-      name: string;
-    }>;
-    return rows.some((r) => r.name === column);
-  } catch {
-    return false;
-  }
-}
-
-/** Adds `column` to `table` if missing. Tolerant of an absent table / a racing
- * duplicate. */
-function addColumn(
-  sqlite: DatabaseSync,
-  table: string,
-  column: string,
-  ddl: string,
-): void {
-  if (hasColumn(sqlite, table, column)) return;
-  try {
-    sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
-  } catch {
-    // Table missing or column already added concurrently — safe to ignore.
-  }
-}
-
-/**
- * Reconciles a pre-existing dev DB to the v1 baseline shape. `CREATE TABLE IF
- * NOT EXISTS` won't add columns to a table that already exists, and
- * `node:sqlite` throws on a duplicate-column `ALTER`, so each additive column is
- * guarded by a `table_info` check.
- */
-function reconcileV1(sqlite: DatabaseSync): void {
-  // workspaces: older prototypes used `path`; the runtime shape is root_path +
-  // last-selection pointers.
-  addColumn(sqlite, "workspaces", "root_path", "root_path TEXT");
-  addColumn(sqlite, "workspaces", "last_mode", "last_mode TEXT");
-  addColumn(sqlite, "workspaces", "last_agent_id", "last_agent_id TEXT");
-
-  // sessions: gained workspace_id + agent_id; the old `status` column (if
-  // present) is left in place, unused (run state is in-memory now).
-  addColumn(sqlite, "sessions", "workspace_id", "workspace_id TEXT");
-  addColumn(sqlite, "sessions", "agent_id", "agent_id TEXT");
-
-  // turns: mode is now a string id with a human label; agent_id retained.
-  addColumn(sqlite, "turns", "agent_id", "agent_id TEXT NOT NULL DEFAULT ''");
-  addColumn(sqlite, "turns", "mode", "mode TEXT");
-  addColumn(sqlite, "turns", "mode_label", "mode_label TEXT");
-  addColumn(sqlite, "turns", "model", "model TEXT");
-
-  // messages: reasoning + tools columns.
-  addColumn(
-    sqlite,
-    "messages",
-    "reasoning",
-    "reasoning TEXT NOT NULL DEFAULT ''",
-  );
-  addColumn(sqlite, "messages", "tools", "tools TEXT NOT NULL DEFAULT '[]'");
-}
 
 /**
  * Steps the database up to {@link LATEST_VERSION} using `PRAGMA user_version`.
@@ -146,7 +79,6 @@ export function runMigrations(sqlite: DatabaseSync): void {
 
   if (version < 1) {
     sqlite.exec(V1_BASELINE);
-    reconcileV1(sqlite);
     version = 1;
   }
 

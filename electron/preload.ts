@@ -11,6 +11,7 @@ import {
   type MemoryEntry,
   type Message,
   type NormalizedEvent,
+  type NormalizedUsage,
   type SessionView,
   type SkillEntry,
   type TurnResponse,
@@ -90,12 +91,14 @@ const mineco = {
       workspaceId: string | null;
       agentId?: string | null;
       title?: string;
-      cwd?: string;
     }): Promise<SessionView> => ipcRenderer.invoke(CH.sessionsCreate, input),
     remove: (id: string): Promise<void> =>
       ipcRenderer.invoke(CH.sessionsDelete, id),
     messages: (sessionId: string): Promise<Message[]> =>
       ipcRenderer.invoke(CH.sessionMessages, sessionId),
+    /** The most recent completed turn's usage, or null. */
+    latestUsage: (sessionId: string): Promise<NormalizedUsage | null> =>
+      ipcRenderer.invoke(CH.sessionLatestUsage, sessionId),
   },
 
   // --- Memory (filesystem-backed) -----------------------------------------
@@ -212,6 +215,17 @@ const mineco = {
     const listener = (_e: unknown, ids: string[]) => cb(ids);
     ipcRenderer.on(CH.runStateChanged, listener);
     return () => ipcRenderer.removeListener(CH.runStateChanged, listener);
+  },
+
+  /**
+   * Subscribes to agent-set changes (create / update / delete / settings write).
+   * `cb` fires after the mutation has landed on disk, so a refetch reads fresh
+   * data. Returns an unsubscribe fn.
+   */
+  onAgentsChanged(cb: () => void): () => void {
+    const listener = () => cb();
+    ipcRenderer.on(CH.agentsChanged, listener);
+    return () => ipcRenderer.removeListener(CH.agentsChanged, listener);
   },
 };
 

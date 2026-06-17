@@ -2,6 +2,7 @@ import {
   type CanUseTool,
   type Options,
   type PermissionMode,
+  type Query,
   query,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
@@ -11,7 +12,14 @@ import type {
   NormalizedUsage,
   RunMode,
 } from "../../src/lib/agent-protocol";
-import { buildPrompt, type Engine, type EngineRunInput } from "./types";
+import { AsyncQueue } from "./async-queue";
+import {
+  buildFirstPrompt,
+  type Engine,
+  type EngineSession,
+  type EngineSessionInit,
+  type TurnInput,
+} from "./types";
 
 /**
  * Claude Agent SDK adapter (EDD §3.1–3.3, §1.5).
@@ -20,14 +28,17 @@ import { buildPrompt, type Engine, type EngineRunInput } from "./types";
  * (`agent.configDir`) holding the Claude-native `settings.json` (env with
  * token/baseURL + model aliases; permissions; hooks). The SDK self-manages
  * credentials and the native session JSONL inside it; mineco never touches the
- * user's `~/.claude`. A turn runs that config dir against the workspace `cwd`
- * with global instructions + memory appended to the preset system prompt.
+ * user's `~/.claude`.
  *
- * The adapter wraps `query()` — which spawns the native `claude` CLI — and
- * translates its `SDKMessage` stream into mineco's engine-neutral
- * {@link NormalizedEvent}s. It runs with streaming input
- * (`AsyncIterable<SDKUserMessage>`) so mid-turn control (answering
- * `AskUserQuestion`) is possible.
+ * **Session model.** A mineco session maps to ONE long-lived `query()` driven
+ * with a streaming-input prompt (`AsyncIterable<SDKUserMessage>`). The query —
+ * and its native subprocess — stays warm across turns: each turn pushes a user
+ * message into the persistent input stream and consumes events until that
+ * turn's terminal `result`. A single consumer loop drains the query for the
+ * session's lifetime and demuxes events into the active turn's output channel;
+ * the input stream is closed only on {@link ClaudeSession.close}. Per-turn model
+ * and permission mode are applied via the SDK's `setModel` / `setPermissionMode`
+ * control requests (streaming-input only).
  */
 
 /** Run modes this adapter exposes (carried elsewhere as opaque string ids). */
@@ -55,15 +66,7 @@ const MODES: RunMode[] = [
   },
 ];
 
-/**
- * Maps a mineco {@link RunMode} id to a Claude `permissionMode`.
- *
- * - `default` → `'default'` (edits are gated by `canUseTool`).
- * - `plan` → `'plan'` (read-only planning).
- * - `auto` → `'bypassPermissions'` (no gate).
- * - `acceptEdits` → `'acceptEdits'` (the SDK auto-accepts edits; we still gate
- *   `Write` through `canUseTool` since the mode `requiresApproval`).
- */
+/** Maps a mineco {@link RunMode} id to a Claude `permissionMode`. */
 function toPermissionMode(modeId: string): PermissionMode {
   switch (modeId) {
     case "plan":
@@ -80,38 +83,28 @@ function toPermissionMode(modeId: string): PermissionMode {
 /** Tools that trigger an approval gate when the mode asks for one. */
 const APPROVAL_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 
-/** A blocking question awaiting the renderer's answer. */
-interface PendingQuestion {
-  resolve: (answer: { optionIds: string[]; freeText?: string }) => void;
+/**
+ * Resolves the model role to pass to the CLI. We hand it the role alias
+ * (sonnet/opus/fable/haiku) and let it resolve the concrete id — and any `[1m]`
+ * suffix — from the config dir's `settings.json` env. Returns `undefined` for an
+ * unknown alias, so the CLI's own default drives instead.
+ */
+function resolveModelAlias(alias: string | undefined): string | undefined {
+  const a = (alias || "").trim().toLowerCase();
+  if (a === "sonnet" || a === "opus" || a === "fable" || a === "haiku")
+    return a;
+  return undefined;
 }
 
 /**
- * Resolves the concrete model id for the chosen alias from the agent's
- * `settings.json` env (`ANTHROPIC_DEFAULT_<ALIAS>_MODEL`). Returns `undefined`
- * when no concrete id is configured, so the alias env in the isolated config
- * dir drives model selection instead.
+ * Builds the system-prompt `append` from global instructions + memory. We always
+ * use the `claude_code` preset (NEVER `replace`) so the CLI's own tooling
+ * guidance is preserved; mineco only appends context.
  */
-function resolveModel(input: EngineRunInput): string | undefined {
-  const alias = (input.modelAlias || input.agent.defaultModel || "")
-    .trim()
-    .toLowerCase();
-  if (alias !== "sonnet" && alias !== "opus" && alias !== "haiku") {
-    return undefined;
-  }
-  const key = `ANTHROPIC_DEFAULT_${alias.toUpperCase()}_MODEL`;
-  const configured = process.env[key];
-  return configured?.trim() ? configured : undefined;
-}
-
-/**
- * Builds the system-prompt `append` string from global instructions + memory.
- * We always use the `claude_code` preset (NEVER `replace`) so the CLI's own
- * tooling guidance is preserved; mineco only appends context.
- */
-function buildAppend(input: EngineRunInput): string | undefined {
+function buildAppend(init: EngineSessionInit): string | undefined {
   const parts: string[] = [];
-  if (input.globalInstructions?.trim()) parts.push(input.globalInstructions);
-  if (input.memory?.trim()) parts.push(input.memory);
+  if (init.globalInstructions?.trim()) parts.push(init.globalInstructions);
+  if (init.memory?.trim()) parts.push(init.memory);
   return parts.length ? parts.join("\n\n") : undefined;
 }
 
@@ -156,167 +149,232 @@ function toUsage(
     cache_read_input_tokens?: number;
   },
   totalCostUsd: number,
+  context: { tokens: number; window: number },
 ): NormalizedUsage {
   return {
     inputTokens: usage.input_tokens ?? 0,
     outputTokens: usage.output_tokens ?? 0,
     cachedInputTokens: usage.cache_read_input_tokens ?? 0,
     costUsd: totalCostUsd,
+    ...(context.tokens ? { contextTokens: context.tokens } : {}),
+    ...(context.window ? { contextWindow: context.window } : {}),
   };
 }
 
-export const claudeEngine: Engine = {
-  id: "claude",
+/**
+ * Picks the context window for the live fill ratio. Prefers the model that
+ * produced the turn's final request; falls back to the largest window among
+ * all models used.
+ */
+function pickContextWindow(
+  modelUsage: Record<string, { contextWindow?: number }> | undefined,
+  model: string,
+): number {
+  if (!modelUsage) return 0;
+  const exact = model ? modelUsage[model]?.contextWindow : undefined;
+  if (exact) return exact;
+  let max = 0;
+  for (const mu of Object.values(modelUsage)) {
+    if (mu?.contextWindow && mu.contextWindow > max) max = mu.contextWindow;
+  }
+  return max;
+}
 
-  /** Static capability descriptor surfaced to the renderer. */
-  capabilities(): EngineCapabilities {
-    return {
-      modes: MODES,
-      supportsResume: true,
-      supportsThinking: true,
-      supportsMcp: true,
-      supportsSkills: true,
-    };
-  },
+/** Per-turn streaming state: the output channel + the active bridges + the
+ * input-side context fill accumulated from this turn's requests. */
+interface ActiveTurn {
+  out: AsyncQueue<NormalizedEvent>;
+  onApproval?: TurnInput["onApproval"];
+  onQuestion?: TurnInput["onQuestion"];
+  /** Gate APPROVAL_TOOLS through `onApproval` this turn? */
+  gateEdits: boolean;
+  /** Whether the `thread` event has been forwarded to this turn yet. */
+  threadEmitted: boolean;
+  /** Input tokens + model of this turn's most recent request (the live fill). */
+  lastContextTokens: number;
+  lastModel: string;
+}
 
-  async *run(input: EngineRunInput): AsyncIterable<NormalizedEvent> {
-    const { agent } = input;
+/**
+ * A persistent Claude session: one `query()` kept warm across turns. Construct
+ * once per (mineco session, agent); call {@link runTurn} per user message.
+ */
+class ClaudeSession implements EngineSession {
+  readonly agentId: string;
+
+  /** Persistent streaming-input channel; closed only on {@link close}. */
+  private readonly input = new AsyncQueue<SDKUserMessage>();
+  /** Hard-stop controller for {@link close} (kills the subprocess). */
+  private readonly abortController = new AbortController();
+  private readonly query: Query;
+
+  /** The native session id (constant for the query's life), captured once. */
+  private nativeSessionId: string | null = null;
+  /** True once the first user message's prompt has been built/seeded. */
+  private firstTurn = true;
+  /** The turn currently streaming, or null between turns. */
+  private active: ActiveTurn | null = null;
+  private readonly init: EngineSessionInit;
+
+  constructor(init: EngineSessionInit) {
+    this.init = init;
+    this.agentId = init.agent.id;
 
     // The SDK's `env` REPLACES the subprocess environment wholesale (not
     // merged), so spread `process.env` to keep PATH / HOME / ambient creds.
-    // `CLAUDE_CONFIG_DIR` points the CLI at this agent's isolated dir, where its
-    // settings.json (token/baseURL/model aliases) and native session JSONL live.
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) {
       if (v !== undefined) env[k] = v;
     }
-    env.CLAUDE_CONFIG_DIR = agent.configDir;
+    env.CLAUDE_CONFIG_DIR = init.agent.configDir;
 
-    // Forward the caller's abort signal to the SDK's controller.
-    const abortController = new AbortController();
-    if (input.signal.aborted) abortController.abort();
-    else input.signal.addEventListener("abort", () => abortController.abort());
-
-    // Mid-turn questions: AskUserQuestion arrives as a tool_use in the assistant
-    // stream; we emit a `question`, await the renderer via `onQuestion`, then
-    // feed the answer back through streaming input as the next user message so
-    // the same native turn continues.
-    const pending = new Map<string, PendingQuestion>();
-    let closeInput!: () => void;
-    const inputQueue: SDKUserMessage[] = [];
-    let resolveNext: (() => void) | null = null;
-    let closed = false;
-
-    function pushInput(msg: SDKUserMessage): void {
-      inputQueue.push(msg);
-      resolveNext?.();
-      resolveNext = null;
-    }
-
-    async function* promptStream(): AsyncIterable<SDKUserMessage> {
-      // First message: the (possibly transcript-rehydrated) user prompt.
-      yield {
-        type: "user",
-        parent_tool_use_id: null,
-        message: { role: "user", content: buildPrompt(input) },
-      } as SDKUserMessage;
-
-      while (!closed) {
-        if (inputQueue.length) {
-          const next = inputQueue.shift();
-          if (next) yield next;
-          continue;
-        }
-        await new Promise<void>((r) => {
-          resolveNext = r;
-          closeInput = () => {
-            closed = true;
-            r();
-          };
-        });
-      }
-    }
-
-    const modeId = input.mode?.id ?? "default";
-    const permissionMode = toPermissionMode(modeId);
-    const gateEdits = modeId === "default" || input.mode?.requiresApproval;
-
-    /** Approval + question gate. Defaults to allow so turns never hang. */
-    const canUseTool: CanUseTool = async (name, toolInput) => {
-      if (name === "AskUserQuestion") {
-        const answer = await askQuestion(toolInput);
-        // Pass the user's selection through as the tool's input; the SDK's
-        // built-in AskUserQuestion executes and records the answer.
-        return {
-          behavior: "allow",
-          updatedInput: {
-            ...toolInput,
-            _minecoAnswer: answer,
-          },
-        };
-      }
-
-      if (gateEdits && APPROVAL_TOOLS.has(name)) {
-        const decision = input.onApproval
-          ? await input.onApproval({
-              approvalId: cryptoId(),
-              title: `Allow ${name} on ${summarizeToolInput(toolInput) ?? "file"}?`,
-              diff: toolInput,
-            })
-          : { approve: true };
-        if (!decision.approve) {
-          return {
-            behavior: "deny",
-            message: decision.message ?? "Denied by user.",
-          };
-        }
-      }
-
-      return { behavior: "allow", updatedInput: toolInput };
-    };
-
-    /** Emits a `question` event and blocks on the renderer's answer. */
-    async function askQuestion(
-      toolInput: Record<string, unknown>,
-    ): Promise<{ optionIds: string[]; freeText?: string }> {
-      const q = parseQuestion(toolInput);
-      if (!input.onQuestion) return { optionIds: [], freeText: undefined };
-      return input.onQuestion(q);
-    }
-
+    const append = buildAppend(init);
     const options: Options = {
-      cwd: input.cwd,
+      cwd: init.cwd,
       // Load only this agent's isolated config dir; never the user's ~/.claude.
       settingSources: ["user"],
-      // Preserve the CLI's tooling guidance; append mineco context only.
       systemPrompt: {
         type: "preset",
         preset: "claude_code",
-        ...(buildAppend(input) ? { append: buildAppend(input) } : {}),
+        ...(append ? { append } : {}),
       },
-      ...(resolveModel(input) ? { model: resolveModel(input) } : {}),
-      ...(input.resume ? { resume: input.resume.nativeThreadId } : {}),
-      includePartialMessages: true,
-      permissionMode,
-      ...(permissionMode === "bypassPermissions"
-        ? { allowDangerouslySkipPermissions: true }
+      // Seed the default model; each turn overrides via `setModel`.
+      ...(resolveModelAlias(init.agent.defaultModel)
+        ? { model: resolveModelAlias(init.agent.defaultModel) }
         : {}),
-      canUseTool,
-      abortController,
+      ...(init.resume ? { resume: init.resume.nativeThreadId } : {}),
+      includePartialMessages: true,
+      // Per-turn modes are applied via `setPermissionMode`; the real edit gate
+      // is `canUseTool` below, so we start permissive-by-callback in "default".
+      permissionMode: "default",
+      canUseTool: this.canUseTool,
+      abortController: this.abortController,
       env,
     };
 
-    let threadEmitted = false;
+    this.query = query({ prompt: this.input, options });
+    void this.consume();
+  }
+
+  /** Approval + question gate. Reads the active turn's bridges; defaults to
+   * allow so turns never hang. */
+  private canUseTool: CanUseTool = async (name, toolInput) => {
+    const a = this.active;
+    if (name === "AskUserQuestion") {
+      const q = parseQuestion(toolInput);
+      const answer = a?.onQuestion
+        ? await a.onQuestion(q)
+        : { optionIds: [], freeText: undefined };
+      return {
+        behavior: "allow",
+        updatedInput: { ...toolInput, _minecoAnswer: answer },
+      };
+    }
+
+    if (a?.gateEdits && APPROVAL_TOOLS.has(name)) {
+      const decision = a.onApproval
+        ? await a.onApproval({
+            approvalId: cryptoId(),
+            title: `Allow ${name} on ${summarizeToolInput(toolInput) ?? "file"}?`,
+            diff: toolInput,
+          })
+        : { approve: true };
+      if (!decision.approve) {
+        return {
+          behavior: "deny",
+          message: decision.message ?? "Denied by user.",
+        };
+      }
+    }
+
+    return { behavior: "allow", updatedInput: toolInput };
+  };
+
+  async *runTurn(input: TurnInput): AsyncIterable<NormalizedEvent> {
+    const out = new AsyncQueue<NormalizedEvent>();
+    const active: ActiveTurn = {
+      out,
+      onApproval: input.onApproval,
+      onQuestion: input.onQuestion,
+      gateEdits:
+        input.mode.id === "default" || Boolean(input.mode.requiresApproval),
+      threadEmitted: false,
+      lastContextTokens: 0,
+      lastModel: "",
+    };
+    this.active = active;
+
+    // Apply per-turn model + permission mode on the live query. Best-effort:
+    // `canUseTool` is the real gate, and an unknown alias falls back to default.
+    try {
+      await this.query.setModel(resolveModelAlias(input.modelAlias));
+    } catch {
+      /* control request unavailable; default model stands */
+    }
+    try {
+      await this.query.setPermissionMode(toPermissionMode(input.mode.id));
+    } catch {
+      /* control request unavailable; canUseTool still gates */
+    }
+
+    // Push the user message. The first turn carries seed/transcript shaping.
+    const text = this.firstTurn
+      ? buildFirstPrompt(input.prompt, this.init.seedHistory)
+      : input.prompt;
+    this.firstTurn = false;
+    this.input.push({
+      type: "user",
+      parent_tool_use_id: null,
+      message: { role: "user", content: text },
+    } as SDKUserMessage);
 
     try {
-      for await (const message of query({
-        prompt: promptStream(),
-        options,
-      })) {
-        // Capture the native session id once, for same-config-dir resume.
-        if (!threadEmitted && "session_id" in message && message.session_id) {
-          threadEmitted = true;
-          yield { type: "thread", nativeThreadId: message.session_id };
+      for await (const event of out) yield event;
+    } finally {
+      if (this.active === active) this.active = null;
+    }
+  }
+
+  async interrupt(): Promise<void> {
+    try {
+      await this.query.interrupt();
+    } catch {
+      /* nothing in flight / not supported */
+    }
+  }
+
+  async close(): Promise<void> {
+    // End the input stream so the query finalizes, and hard-abort to stop any
+    // in-flight work and free the subprocess promptly.
+    this.input.end();
+    this.abortController.abort();
+    this.active?.out.end();
+    this.active = null;
+  }
+
+  /** Long-lived consumer: drains the query for the session's life and demuxes
+   * messages into the active turn's output channel. A `result` ends the TURN
+   * (closes the channel); it does NOT end the query — the input stream stays
+   * open so the next turn reuses the same warm session. */
+  private async consume(): Promise<void> {
+    try {
+      for await (const message of this.query) {
+        if (
+          !this.nativeSessionId &&
+          "session_id" in message &&
+          message.session_id
+        ) {
+          this.nativeSessionId = message.session_id;
+        }
+
+        const a = this.active;
+        if (!a) continue; // between turns; the model is idle here in practice
+
+        // Forward the native thread id once per turn so the runner can persist
+        // it (enables cold-reopen resume after a restart).
+        if (!a.threadEmitted && this.nativeSessionId) {
+          a.threadEmitted = true;
+          a.out.push({ type: "thread", nativeThreadId: this.nativeSessionId });
         }
 
         switch (message.type) {
@@ -324,52 +382,68 @@ export const claudeEngine: Engine = {
             const ev = message.event;
             if (ev.type === "content_block_delta") {
               if (ev.delta.type === "text_delta") {
-                yield { type: "text", text: ev.delta.text };
+                a.out.push({ type: "text", text: ev.delta.text });
               } else if (ev.delta.type === "thinking_delta") {
-                yield { type: "reasoning", text: ev.delta.thinking };
+                a.out.push({ type: "reasoning", text: ev.delta.thinking });
               }
             }
             break;
           }
 
           case "assistant": {
+            const am = message.message as {
+              model?: string;
+              usage?: {
+                input_tokens?: number;
+                cache_read_input_tokens?: number;
+                cache_creation_input_tokens?: number;
+              };
+            };
+            if (am.usage) {
+              a.lastContextTokens =
+                (am.usage.input_tokens ?? 0) +
+                (am.usage.cache_read_input_tokens ?? 0) +
+                (am.usage.cache_creation_input_tokens ?? 0);
+            }
+            if (typeof am.model === "string" && am.model)
+              a.lastModel = am.model;
+
             for (const block of message.message.content) {
               if (block.type !== "tool_use") continue;
               const inputObj = block.input as Record<string, unknown>;
 
               if (block.name === "TodoWrite" || block.name === "ExitPlanMode") {
                 const plan = parsePlan(block.name, inputObj);
-                if (plan) yield plan;
+                if (plan) a.out.push(plan);
                 continue;
               }
 
               if (block.name === "AskUserQuestion") {
                 const q = parseQuestion(inputObj);
-                yield {
+                a.out.push({
                   type: "question",
                   questionId: block.id,
                   kind: q.kind,
                   prompt: q.prompt,
                   options: q.options,
                   allowFreeText: q.allowFreeText,
-                };
+                });
                 continue;
               }
 
-              yield {
+              a.out.push({
                 type: "tool",
                 id: block.id,
                 name: block.name,
                 phase: "start",
                 group: toolGroup(block.name),
                 detail: summarizeToolInput(inputObj),
-              };
+              });
             }
             break;
           }
 
           case "user": {
-            // tool_result blocks arrive on the synthetic user message.
             const content = (message.message as { content?: unknown }).content;
             if (!Array.isArray(content)) break;
             for (const block of content) {
@@ -385,7 +459,7 @@ export const claudeEngine: Engine = {
                 is_error?: boolean;
                 content?: unknown;
               };
-              yield {
+              a.out.push({
                 type: "tool",
                 id: tr.tool_use_id,
                 name: "",
@@ -393,40 +467,58 @@ export const claudeEngine: Engine = {
                 status: tr.is_error ? "error" : "ok",
                 result: flattenResult(tr.content),
                 output: flattenResult(tr.content),
-              };
+              });
             }
             break;
           }
 
           case "result": {
             if (message.subtype === "success") {
-              yield {
+              a.out.push({
                 type: "result",
                 text: message.result,
-                usage: toUsage(message.usage, message.total_cost_usd),
-              };
+                usage: toUsage(message.usage, message.total_cost_usd, {
+                  tokens: a.lastContextTokens,
+                  window: pickContextWindow(message.modelUsage, a.lastModel),
+                }),
+              });
             } else {
-              yield {
+              a.out.push({
                 type: "error",
                 message: `Run ended: ${message.subtype}`,
-              };
+              });
             }
+            // Terminal for THIS turn only: close the turn's channel so its
+            // iterator returns. The query stays alive for the next turn.
+            a.out.end();
             break;
           }
         }
       }
+    } catch (err) {
+      this.active?.out.fail(err);
     } finally {
-      // Release any blocked question waiters and close the input stream so the
-      // promptStream generator terminates.
-      for (const p of pending.values()) p.resolve({ optionIds: [] });
-      pending.clear();
-      closed = true;
-      closeInput?.();
+      // Query ended (session closed / aborted): release any waiting turn.
+      this.active?.out.end();
     }
+  }
+}
 
-    // Reference to keep `pushInput` available for future mid-turn injection
-    // (questions are answered through `canUseTool`'s `updatedInput` in v1).
-    void pushInput;
+export const claudeEngine: Engine = {
+  id: "claude",
+
+  capabilities(): EngineCapabilities {
+    return {
+      modes: MODES,
+      supportsResume: true,
+      supportsThinking: true,
+      supportsMcp: true,
+      supportsSkills: true,
+    };
+  },
+
+  openSession(init: EngineSessionInit): EngineSession {
+    return new ClaudeSession(init);
   },
 };
 

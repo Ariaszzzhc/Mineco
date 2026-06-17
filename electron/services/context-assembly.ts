@@ -8,7 +8,7 @@
  *   2. Workspace memory block (budget-capped, assembled from per-workspace .md files)
  *   3. MCP servers (merged from global + project + local scopes)
  *
- * The result is passed into `EngineRunInput` so the Claude adapter can inject
+ * The result is passed into `EngineSessionInit` so the Claude adapter can inject
  * global instructions + memory as system-prompt `append`, and forward MCP
  * servers as the `mcpServers` option.
  *

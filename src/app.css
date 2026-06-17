@@ -166,21 +166,17 @@ html[data-switching] *::after {
 }
 
 /* ===========================================================================
-   Window-control platform switch — mac shows the traffic-light controls,
-   win shows the min/max/close set. Screens render both and tag them
-   .mac-controls / .win-controls; <html data-platform> picks one.
+   Native window controls. The window is frameless (titleBarStyle: "hidden")
+   and the OS overlays its own controls onto our titlebar — traffic lights at
+   the top-left on macOS, min/max/close at the right elsewhere. This spacer
+   reserves room for the macOS traffic lights so the brand clears them; it
+   collapses to nothing on platforms where the controls sit on the right.
    =========================================================================== */
-[data-platform="mac"] .mac-controls {
-  display: flex;
+.mac-traffic-spacer {
+  width: 0;
 }
-[data-platform="mac"] .win-controls {
-  display: none;
-}
-[data-platform="win"] .mac-controls {
-  display: none;
-}
-[data-platform="win"] .win-controls {
-  display: flex;
+[data-platform="mac"] .mac-traffic-spacer {
+  width: 62px;
 }
 
 /* ===========================================================================

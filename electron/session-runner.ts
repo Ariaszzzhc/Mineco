@@ -2,31 +2,33 @@
  * Session runner — orchestrates one turn end-to-end (EDD §6.1).
  *
  * Responsibilities for `runTurn(req, emit)`:
- *   1. Load the session + the selected Agent (filesystem-backed) + the owning
- *      workspace; resolve the chosen model alias to a concrete id.
- *   2. Look up the {@link RunMode} object from the Claude engine's static
- *      capabilities by `req.mode` id (falling back to `default`).
- *   3. Assemble the per-turn injection context (global instructions + memory +
- *      MCP servers) via the context-assembly service.
- *   4. Decide resume-vs-seed by AGENT IDENTITY: if the session is already bound
- *      to `req.agentId` AND its last completed turn carries a `nativeThreadId`,
- *      resume that native thread; otherwise start fresh, rehydrating the new
- *      agent with the prior transcript (`seedHistory`, captured BEFORE this
- *      turn's user message is recorded), and rebind the session to the agent.
- *   5. Persist the turn + the user message, auto-title the session from its
- *      first prompt, and mark the session running in the in-memory run registry.
- *   6. Stream normalized events to `emit`, bridging mid-turn `question` /
- *      `approval` requests back to the renderer via a pending-response map that
- *      {@link resolveTurnResponse} resolves.
- *   7. On completion, persist the assistant message (concatenated reasoning + a
+ *   1. Load the session + the selected Agent (filesystem-backed); resolve the
+ *      chosen model alias to a concrete id for the turn record.
+ *   2. Look up the engine {@link RunMode} by `req.mode` id (falling back to
+ *      `default`).
+ *   3. Get the session's persistent {@link EngineSession} (one warm native
+ *      query). Reuse it when it is already bound to `req.agentId`; otherwise
+ *      OPEN a fresh one — deciding resume-vs-seed by AGENT IDENTITY:
+ *        - same agent + a prior native thread id ⟹ cold-reopen `resume`;
+ *        - otherwise (first turn / agent switch) ⟹ seed the fresh thread with
+ *          the prior canonical transcript (`seedHistory`, captured BEFORE this
+ *          turn's user message is recorded). Opening assembles the per-session
+ *          injection context (global instructions + memory + MCP).
+ *   4. Persist the turn + the user message, auto-title the session from its
+ *      first prompt, rebind the session to the agent, and mark it running.
+ *   5. Stream the turn's normalized events to `emit`, bridging mid-turn
+ *      `question` / `approval` requests back to the renderer via a pending map
+ *      that {@link resolveTurnResponse} resolves.
+ *   6. On completion, persist the assistant message (concatenated reasoning + a
  *      tools JSON array), finish the turn, remember the workspace's last mode +
- *      agent selection, and mark the session idle.
+ *      agent selection, and mark the session idle. The native query stays warm
+ *      for the next turn.
  *
- * Run state lives ONLY in the in-memory run registry (never the DB).
+ * Run state lives ONLY in the in-memory run registry (never the DB). The live
+ * native query lives ONLY in the engine-session registry.
  */
 
 import type {
-  Message,
   NormalizedEvent,
   NormalizedUsage,
   RunMode,
@@ -42,6 +44,13 @@ import { claudeEngine } from "./engines/claude";
 import { getAgentDetail, resolveModel } from "./services/agent";
 import { assembleContext } from "./services/context-assembly";
 import {
+  getLiveSession,
+  getMatchingSession,
+  holdSession,
+  openSession,
+  releaseSession,
+} from "./services/engine-sessions";
+import {
   markIdle,
   markRunning,
   type RunStateListener,
@@ -50,12 +59,13 @@ import {
 import { rememberSelection } from "./services/workspace";
 
 /**
- * Per-request orchestration state for an in-flight turn. Holds the abort
- * controller and the bridge that resolves mid-turn question/approval requests
- * when the renderer answers via {@link resolveTurnResponse}.
+ * Per-request orchestration state for an in-flight turn. Holds the owning
+ * session id (so abort can reach the live query to {@link EngineSession.interrupt})
+ * and the bridge that resolves mid-turn question/approval requests when the
+ * renderer answers via {@link resolveTurnResponse}.
  */
 interface InFlight {
-  controller: AbortController;
+  sessionId: string;
   /** Pending question/approval requests keyed by their question/approval id. */
   pending: Map<
     string,
@@ -70,9 +80,12 @@ interface InFlight {
 /** In-flight turns, keyed by request id, so abort + respond can reach them. */
 const inFlight = new Map<string, InFlight>();
 
-/** Aborts a running turn (no-op if it already finished). */
+/** Interrupts a running turn's live query (no-op if it already finished). The
+ * session/query stays warm — interrupt stops the turn, it does not tear down. */
 export function abortTurn(requestId: string): void {
-  inFlight.get(requestId)?.controller.abort();
+  const flight = inFlight.get(requestId);
+  if (!flight) return;
+  void getLiveSession(flight.sessionId)?.interrupt();
 }
 
 /**
@@ -147,31 +160,40 @@ export async function runTurn(
     return;
   }
 
-  // Resolve the chosen alias to a concrete model id (or the alias itself, which
-  // lets the agent's settings.json env drive selection).
+  // Resolve the chosen alias to a concrete model id for the turn record (the
+  // engine resolves the alias itself per turn via the config dir's env).
   const model = await resolveModel(
     req.agentId,
     req.model || agent.defaultModel,
   );
   const mode = resolveMode(req.mode);
-
-  // Resume-vs-seed by AGENT IDENTITY: only resume the native thread when the
-  // session is already bound to this same agent AND the last completed turn
-  // captured a native thread id (resume is valid only within one config dir).
   const lastTurn = await getLastTurn(req.sessionId);
-  const canResume =
-    session.agentId === req.agentId && lastTurn?.nativeThreadId
-      ? { nativeThreadId: lastTurn.nativeThreadId }
-      : undefined;
 
-  // Capture the prior transcript BEFORE recording this turn's user message —
-  // only needed when starting a fresh native thread (agent switch / first turn).
-  const [seedHistory, ctx] = await Promise.all([
-    canResume
-      ? Promise.resolve<Message[] | undefined>(undefined)
-      : listMessages(req.sessionId),
-    assembleContext({ workspaceId: session.workspaceId }),
-  ]);
+  // Reuse the warm session if it is already bound to this agent; otherwise open
+  // a fresh native query, deciding resume-vs-seed by agent identity.
+  let engineSession = getMatchingSession(req.sessionId, req.agentId);
+  if (!engineSession) {
+    const sameAgent = session.agentId === req.agentId;
+    const resume =
+      sameAgent && lastTurn?.nativeThreadId
+        ? { nativeThreadId: lastTurn.nativeThreadId }
+        : undefined;
+    // Seed history is captured BEFORE this turn's user message is recorded, and
+    // only needed when starting a fresh native thread (agent switch / no resume).
+    const [seedHistory, ctx] = await Promise.all([
+      resume ? Promise.resolve(undefined) : listMessages(req.sessionId),
+      assembleContext({ workspaceId: session.workspaceId }),
+    ]);
+    engineSession = await openSession(req.sessionId, agent.engine, {
+      cwd: session.cwd,
+      agent,
+      globalInstructions: ctx.globalInstructions,
+      memory: ctx.memory,
+      mcpServers: ctx.mcpServers,
+      resume,
+      seedHistory,
+    });
+  }
 
   const turn = await createTurn({
     sessionId: req.sessionId,
@@ -198,14 +220,15 @@ export async function runTurn(
     await setSessionTitle(req.sessionId, deriveTitle(req.prompt));
   }
 
-  const flight: InFlight = {
-    controller: new AbortController(),
-    pending: new Map(),
-  };
+  const flight: InFlight = { sessionId: req.sessionId, pending: new Map() };
   inFlight.set(req.id, flight);
   markRunning(req.sessionId, req.id);
+  // Exempt the warm session from idle eviction for the turn's duration.
+  holdSession(req.sessionId);
 
-  let nativeThreadId: string | null = null;
+  // Seed with the prior native thread id so a resumed turn persists it even if
+  // the engine doesn't re-emit `thread`.
+  let nativeThreadId: string | null = lastTurn?.nativeThreadId ?? null;
   let assistantText = "";
   let reasoning = "";
   /** tool start events keyed by id, so the matching end can enrich them. */
@@ -215,17 +238,10 @@ export async function runTurn(
   let finished = false;
 
   try {
-    for await (const event of claudeEngine.run({
+    for await (const event of engineSession.runTurn({
       prompt: req.prompt,
-      cwd: session.cwd,
-      agent,
       modelAlias: req.model || agent.defaultModel,
       mode,
-      globalInstructions: ctx.globalInstructions,
-      memory: ctx.memory,
-      mcpServers: ctx.mcpServers,
-      resume: canResume,
-      seedHistory,
       onApproval: (request) =>
         new Promise((resolve) => {
           flight.pending.set(request.approvalId, { kind: "approval", resolve });
@@ -248,7 +264,6 @@ export async function runTurn(
             allowFreeText: request.allowFreeText,
           });
         }),
-      signal: flight.controller.signal,
     })) {
       switch (event.type) {
         case "thread":
@@ -269,7 +284,6 @@ export async function runTurn(
             toolStarts.set(event.id, record);
             tools.push(record);
           } else if (event.detail) {
-            // Enrich the matching start record if the end carries more detail.
             const start = toolStarts.get(event.id);
             if (start && !start.detail) start.detail = event.detail;
           }
@@ -319,6 +333,8 @@ export async function runTurn(
     }
     inFlight.delete(req.id);
     markIdle(req.sessionId, req.id);
+    // Restart the session's idle clock; it can now be evicted when idle.
+    releaseSession(req.sessionId);
   }
 }
 

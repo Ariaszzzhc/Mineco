@@ -19,10 +19,13 @@ import os from "node:os";
 import path from "node:path";
 import type {
   Agent,
-  AgentConnection,
   AgentDetail,
   AgentInput,
   EngineId,
+} from "../../src/lib/agent-protocol";
+import {
+  applyConnectionToEnv,
+  envToConnection,
 } from "../../src/lib/agent-protocol";
 
 // ---------------------------------------------------------------------------
@@ -41,14 +44,7 @@ interface AgentManifest {
 /** The subset of `settings.json` that mineco writes / reads structurally.
  * Unknown top-level keys (permissions, hooks, etc.) are preserved on update. */
 interface AgentSettings {
-  env?: {
-    ANTHROPIC_BASE_URL?: string;
-    ANTHROPIC_AUTH_TOKEN?: string;
-    ANTHROPIC_DEFAULT_SONNET_MODEL?: string;
-    ANTHROPIC_DEFAULT_OPUS_MODEL?: string;
-    ANTHROPIC_DEFAULT_HAIKU_MODEL?: string;
-    [key: string]: string | undefined;
-  };
+  env?: Record<string, string | undefined>;
   [key: string]: unknown;
 }
 
@@ -122,31 +118,6 @@ function manifestToAgent(manifest: AgentManifest): Agent {
   };
 }
 
-function settingsToConnection(settings: AgentSettings): AgentConnection {
-  const env = settings.env ?? {};
-  return {
-    baseUrl: env.ANTHROPIC_BASE_URL ?? "",
-    token: env.ANTHROPIC_AUTH_TOKEN ?? "",
-    models: {
-      sonnet: env.ANTHROPIC_DEFAULT_SONNET_MODEL ?? "",
-      opus: env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? "",
-      haiku: env.ANTHROPIC_DEFAULT_HAIKU_MODEL ?? "",
-    },
-  };
-}
-
-function connectionToEnvPatch(
-  connection: AgentConnection,
-): AgentSettings["env"] {
-  return {
-    ANTHROPIC_BASE_URL: connection.baseUrl,
-    ANTHROPIC_AUTH_TOKEN: connection.token,
-    ANTHROPIC_DEFAULT_SONNET_MODEL: connection.models.sonnet,
-    ANTHROPIC_DEFAULT_OPUS_MODEL: connection.models.opus,
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: connection.models.haiku,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -187,7 +158,7 @@ export async function getAgentDetail(
   const settings = await readSettings(agentId);
   return {
     ...manifestToAgent(manifest),
-    connection: settingsToConnection(settings),
+    connection: envToConnection(settings.env ?? {}),
   };
 }
 
@@ -215,7 +186,7 @@ export async function createAgent(input: AgentInput): Promise<Agent> {
   );
 
   const settings: AgentSettings = {
-    env: connectionToEnvPatch(input.connection),
+    env: applyConnectionToEnv({}, input.connection),
   };
   await writeSettings(id, settings);
 
@@ -250,10 +221,7 @@ export async function updateAgent(
   const existingSettings = await readSettings(agentId);
   const mergedSettings: AgentSettings = {
     ...existingSettings,
-    env: {
-      ...(existingSettings.env ?? {}),
-      ...connectionToEnvPatch(input.connection),
-    },
+    env: applyConnectionToEnv(existingSettings.env ?? {}, input.connection),
   };
   await writeSettings(agentId, mergedSettings);
 
@@ -307,8 +275,6 @@ export async function resolveModel(
 ): Promise<string> {
   const settings = await readSettings(agentId);
   const env = settings.env ?? {};
-  const key =
-    `ANTHROPIC_DEFAULT_${alias.toUpperCase()}_MODEL` as keyof typeof env;
-  const resolved = env[key];
+  const resolved = env[`ANTHROPIC_DEFAULT_${alias.toUpperCase()}_MODEL`];
   return typeof resolved === "string" && resolved.trim() ? resolved : alias;
 }

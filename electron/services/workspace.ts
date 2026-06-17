@@ -89,6 +89,28 @@ export async function resolveCwd(workspace: Workspace): Promise<string> {
 }
 
 /**
+ * Resolves the working directory for a session given only its workspace id —
+ * the form the session-create IPC receives. A real workspace uses its
+ * `rootPath`; the public/no-workspace case (id null, missing, or a `rootPath`
+ * null sentinel) resolves to the public scratch dir (`~/.mineco/public`).
+ *
+ * This is where the no-workspace contract lives: the sandboxed renderer never
+ * computes paths, so it just sends the workspace id and the main process maps
+ * it to a concrete, always-valid cwd.
+ */
+export async function resolveCwdFor(
+  workspaceId: string | null,
+): Promise<string> {
+  if (workspaceId) {
+    const ws = await getWorkspace(workspaceId);
+    if (ws) return resolveCwd(ws);
+  }
+  const dir = publicScratchDir();
+  await fs.mkdir(dir, { recursive: true });
+  return dir;
+}
+
+/**
  * Ensures the public/shared workspace sentinel (`rootPath=null`) exists in the
  * DB. Also ensures the public scratch directory exists on disk.
  *

@@ -18,7 +18,7 @@
  * disabled sets from the relevant settings files.
  *
  * `toEngineServers(entries)` converts the merged list to the shape the Claude
- * adapter expects as `EngineRunInput.mcpServers`.
+ * adapter expects as `EngineSessionInit.mcpServers`.
  */
 
 import fs from "node:fs/promises";
@@ -234,7 +234,7 @@ export async function toggle(
 
 /**
  * Converts the merged `McpServerEntry[]` to the shape the Claude adapter
- * consumes via `EngineRunInput.mcpServers` (only enabled, non-overridden servers).
+ * consumes via `EngineSessionInit.mcpServers` (only enabled, non-overridden servers).
  *
  * The adapter itself then maps this to `McpServerConfig` for the SDK — this
  * function just filters and normalises.

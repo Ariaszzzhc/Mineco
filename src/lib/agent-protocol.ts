@@ -30,19 +30,47 @@ export interface Agent {
   engine: EngineId;
   /** Absolute path to `~/.mineco/engines/claude/<id>` (used as CLAUDE_CONFIG_DIR). */
   configDir: string;
-  /** Default model alias (`sonnet` | `opus` | `haiku`) — the composer default. */
+  /** Default model role (`sonnet` | `opus` | `fable` | `haiku`) — the composer
+   * default. Carried as the turn's `model`; the SDK resolves it to a concrete
+   * id via `ANTHROPIC_DEFAULT_<ROLE>_MODEL`. */
   defaultModel: string;
   createdAt: number;
 }
 
-/** Structured view of the agent's `settings.json` `env` (connection details). */
+/** A Claude model role alias. The CLI resolves each to a concrete upstream
+ * model via `ANTHROPIC_DEFAULT_<ROLE>_MODEL`. */
+export type ModelRoleId = "sonnet" | "opus" | "fable" | "haiku";
+
+/** The four roles in display order. */
+export const MODEL_ROLES: ModelRoleId[] = ["sonnet", "opus", "fable", "haiku"];
+
+/** One model-role mapping row. The `role` alias is the value carried as a
+ * turn's `model`; the CLI resolves it to `model` via the role's env var. */
+export interface ModelRole {
+  role: ModelRoleId;
+  /** Concrete upstream model id sent on the wire, stored in
+   * `ANTHROPIC_DEFAULT_<ROLE>_MODEL`. Leave empty for the SDK default. */
+  model: string;
+  /** Human-facing label shown in Claude Code's `/model` menu and mineco's
+   * composer, stored in `ANTHROPIC_DEFAULT_<ROLE>_MODEL_NAME`. Falls back to the
+   * role id when empty. Independent of {@link model} (the wire id). */
+  displayName: string;
+  /** Declare 1M-context support: appends the `[1m]` suffix to the model id,
+   * which the CLI maps to the `context-1m` beta + a 1M context window. */
+  supports1M: boolean;
+}
+
+/** Structured view of the agent's `settings.json` `env` (connection details),
+ * plus the mineco-owned display names read from the manifest. */
 export interface AgentConnection {
   /** ANTHROPIC_BASE_URL. */
   baseUrl: string;
   /** ANTHROPIC_AUTH_TOKEN. */
   token: string;
-  /** Alias -> concrete model id map (ANTHROPIC_DEFAULT_<ALIAS>_MODEL). */
-  models: { sonnet: string; opus: string; haiku: string };
+  /** Per-role model mapping (sonnet/opus/fable/haiku, in display order). */
+  roles: ModelRole[];
+  /** ANTHROPIC_MODEL — fallback for requests not routed to a named role. */
+  fallbackModel: string;
 }
 
 /** An agent plus its decoded connection (settings.json env). */
@@ -55,6 +83,92 @@ export interface AgentInput {
   name: string;
   defaultModel: string;
   connection: AgentConnection;
+}
+
+// ---------------------------------------------------------------------------
+// settings.json `env` <-> AgentConnection (shared by main + renderer so the
+// raw-editor and the structured fields can mirror each other client-side)
+// ---------------------------------------------------------------------------
+
+/** A loose view of `settings.json`'s `env` block (values may be absent). */
+export type SettingsEnv = Record<string, string | undefined>;
+
+/** `env` key carrying a role's concrete wire model id. */
+export function roleModelEnvKey(role: ModelRoleId): string {
+  return `ANTHROPIC_DEFAULT_${role.toUpperCase()}_MODEL`;
+}
+
+/** `env` key carrying a role's display name (`/model` menu label). */
+export function roleNameEnvKey(role: ModelRoleId): string {
+  return `ANTHROPIC_DEFAULT_${role.toUpperCase()}_MODEL_NAME`;
+}
+
+/** Splits a stored env model id into its concrete id + 1M declaration. The CLI
+ * convention is a trailing `[1m]` suffix (e.g. `deepseek-v4-pro[1m]`). */
+export function parseModelValue(raw: string | undefined): {
+  model: string;
+  supports1M: boolean;
+} {
+  const value = (raw ?? "").trim();
+  if (value.toLowerCase().endsWith("[1m]")) {
+    return { model: value.slice(0, -4).trim(), supports1M: true };
+  }
+  return { model: value, supports1M: false };
+}
+
+/** Re-attaches the `[1m]` suffix when the role declares 1M support. */
+export function formatModelValue(model: string, supports1M: boolean): string {
+  const trimmed = model.trim();
+  if (!trimmed) return "";
+  return supports1M ? `${trimmed}[1m]` : trimmed;
+}
+
+/** Decodes a settings.json `env` block into the structured connection. */
+export function envToConnection(env: SettingsEnv): AgentConnection {
+  const roles: ModelRole[] = MODEL_ROLES.map((role) => {
+    const { model, supports1M } = parseModelValue(env[roleModelEnvKey(role)]);
+    return {
+      role,
+      model,
+      displayName: (env[roleNameEnvKey(role)] ?? "").trim(),
+      supports1M,
+    };
+  });
+  return {
+    baseUrl: env.ANTHROPIC_BASE_URL ?? "",
+    token: env.ANTHROPIC_AUTH_TOKEN ?? "",
+    roles,
+    fallbackModel: env.ANTHROPIC_MODEL ?? "",
+  };
+}
+
+/** Folds the structured connection back into an `env` block, preserving any
+ * unrelated keys already present in `existing` and dropping keys whose value is
+ * empty (so settings.json stays clean). */
+export function applyConnectionToEnv(
+  existing: SettingsEnv,
+  connection: AgentConnection,
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [k, v] of Object.entries(existing)) {
+    if (typeof v === "string") env[k] = v;
+  }
+  const setOrDelete = (key: string, value: string) => {
+    const t = value.trim();
+    if (t) env[key] = t;
+    else delete env[key];
+  };
+  setOrDelete("ANTHROPIC_BASE_URL", connection.baseUrl);
+  setOrDelete("ANTHROPIC_AUTH_TOKEN", connection.token);
+  setOrDelete("ANTHROPIC_MODEL", connection.fallbackModel);
+  for (const r of connection.roles) {
+    setOrDelete(
+      roleModelEnvKey(r.role),
+      formatModelValue(r.model, r.supports1M),
+    );
+    setOrDelete(roleNameEnvKey(r.role), r.displayName);
+  }
+  return env;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +312,12 @@ export interface NormalizedUsage {
   outputTokens: number;
   cachedInputTokens?: number;
   costUsd?: number;
+  /** Total input-side tokens of the most recent model request
+   * (input + cache read + cache creation) — the live context-window fill. */
+  contextTokens?: number;
+  /** Context window of the model that produced the latest request, for
+   * computing the fill ratio (`contextTokens / contextWindow`). */
+  contextWindow?: number;
 }
 
 /** The unified event stream the engine adapter emits and the renderer renders.
@@ -325,6 +445,7 @@ export const CH = {
   sessionsCreate: "mineco:sessions:create",
   sessionsDelete: "mineco:sessions:delete",
   sessionMessages: "mineco:sessions:messages",
+  sessionLatestUsage: "mineco:sessions:latestUsage",
 
   // Memory (filesystem-backed)
   memoryList: "mineco:memory:list",
@@ -355,4 +476,6 @@ export const CH = {
   turnRespond: "mineco:turn:respond",
   /** main -> renderer broadcast when a session's run state changes. */
   runStateChanged: "mineco:run:stateChanged",
+  /** main -> renderer broadcast when the agent set/config changes (create/update/delete). */
+  agentsChanged: "mineco:agents:changed",
 } as const;
