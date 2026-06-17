@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { Selectable } from "kysely";
-import type { NormalizedUsage, TurnRecord } from "../../src/lib/agent-protocol";
+import type {
+  NormalizedUsage,
+  RunMode,
+  TurnRecord,
+} from "../../src/lib/agent-protocol";
 import { getDb } from "./index";
 import type { Database } from "./schema";
 
@@ -15,14 +19,18 @@ function toTurn(row: Selectable<Database["turns"]>): TurnRecord {
 
 export async function createTurn(input: {
   sessionId: string;
-  profileId: string;
+  agentId: string;
   engine: TurnRecord["engine"];
+  mode: RunMode;
+  model: string;
 }): Promise<TurnRecord> {
   const turn: TurnRecord = {
     id: randomUUID(),
     sessionId: input.sessionId,
-    profileId: input.profileId,
+    agentId: input.agentId,
     engine: input.engine,
+    mode: input.mode,
+    model: input.model,
     nativeThreadId: null,
     usage: null,
     status: "running",
@@ -33,8 +41,10 @@ export async function createTurn(input: {
     .values({
       id: turn.id,
       sessionId: turn.sessionId,
-      profileId: turn.profileId,
+      agentId: turn.agentId,
       engine: turn.engine,
+      mode: turn.mode,
+      model: turn.model,
       nativeThreadId: null,
       usageJson: null,
       status: turn.status,

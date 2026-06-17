@@ -9,26 +9,53 @@
 /** The agent engines mineco can drive. */
 export type EngineId = "claude" | "codex";
 
-/** User-configured provider: which engine, model, and credentials to run with. */
-export interface ProviderProfile {
+/** How aggressively a turn is allowed to act (mapped to engine permission/sandbox). */
+export type RunMode = "default" | "plan" | "auto" | "acceptEdits";
+
+/**
+ * A named (engine + connection + model(s) + system prompt) unit the user picks
+ * per turn. Claude runs resolve a concrete model via `models` (alias map); Codex
+ * runs use the single `model` + `effort`.
+ */
+export interface Agent {
   id: string;
   name: string;
   engine: EngineId;
-  model: string;
-  /** Plaintext for v1 (Keychain is a follow-up). Empty = rely on ambient env. */
-  apiKey: string;
   /** Optional custom gateway (ANTHROPIC_BASE_URL / Codex baseUrl). */
   baseUrl: string;
+  /** Plaintext for v1 (Keychain is a follow-up). Empty = rely on ambient env. */
+  apiKey: string;
+  /** Claude alias -> concrete model id map. */
+  models: { sonnet: string; opus: string; haiku: string };
+  /** Codex single model (ignored for Claude runs). */
+  model: string;
+  /** Codex reasoning effort. */
+  effort: "low" | "medium" | "high";
+  /** Extra system instructions; appended to or replacing the engine default. */
+  systemPrompt: string;
+  promptMode: "append" | "replace";
+  createdAt: number;
 }
 
-/** Fields a caller supplies to create a profile (server assigns `id`). */
-export type ProfileInput = Omit<ProviderProfile, "id">;
+/** Fields a caller supplies to create an agent (server assigns `id`/`createdAt`). */
+export type AgentInput = Omit<Agent, "id" | "createdAt">;
+
+/** A project root (or shared scratch when `path` is empty). */
+export interface Workspace {
+  id: string;
+  name: string;
+  path: string;
+  createdAt: number;
+}
 
 /** An engine-neutral conversation. Not bound to a single engine. */
 export interface Session {
   id: string;
+  /** Owning workspace, or null for the shared/scratch space. */
+  workspaceId: string | null;
   title: string;
   cwd: string;
+  status: "idle" | "running" | "error";
   createdAt: number;
 }
 
@@ -40,9 +67,56 @@ export interface Message {
   turnId: string;
   role: "user" | "assistant";
   content: string;
+  /** Concatenated thinking/reasoning text for the turn (assistant only). */
+  reasoning: string;
+  /** JSON string of `{ name; detail? }[]` — tools the assistant turn invoked. */
+  tools: string;
   /** Which engine produced this message (null for user messages). */
   engine: EngineId | null;
   createdAt: number;
+}
+
+/** Persistent per-workspace memory injected into seeded prompts. */
+export interface MemoryEntry {
+  id: string;
+  workspaceId: string;
+  kind: "fact" | "convention" | "preference";
+  text: string;
+  createdAt: number;
+}
+
+/** A configured MCP server (Claude tool extension). */
+export interface McpServer {
+  id: string;
+  name: string;
+  transport: "stdio" | "http";
+  scope: "global" | "project" | "local";
+  enabled: boolean;
+  /** For stdio: the command line. For http: the URL. */
+  command: string;
+  /** JSON string of `Record<string,string>` env (stdio) / headers (http). */
+  env: string;
+  createdAt: number;
+}
+
+/** A configured skill (informational for v1). */
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  scope: "global" | "project" | "local";
+  source: string;
+  enabled: boolean;
+  createdAt: number;
+}
+
+/** Appearance + locale settings (stored as a singleton row). */
+export interface Appearance {
+  theme: "dark" | "light";
+  accent: string;
+  platform: "mac" | "win";
+  fontScale: number;
+  lang: "en" | "zh";
 }
 
 /** Token/cost accounting for one turn, normalized across engines. */
@@ -57,13 +131,23 @@ export interface NormalizedUsage {
 export interface TurnRecord {
   id: string;
   sessionId: string;
-  profileId: string;
+  agentId: string;
   engine: EngineId;
+  /** The chosen run mode for this turn. */
+  mode: RunMode;
+  /** The concrete model this turn ran with. */
+  model: string;
   /** The engine's own thread/session id, used to resume same-engine turns. */
   nativeThreadId: string | null;
   usage: NormalizedUsage | null;
   status: "running" | "done" | "error";
   createdAt: number;
+}
+
+/** A single tool invocation recorded for an assistant turn. */
+export interface ToolRecord {
+  name: string;
+  detail?: string;
 }
 
 /** The unified event stream both engine adapters emit and the renderer renders. */
@@ -81,20 +165,52 @@ export type NormalizedEvent =
   /** Terminal failure. */
   | { type: "error"; message: string };
 
+/** Static per-engine run-mode lists (exposed synchronously via the bridge). */
+export const RUN_MODES: Record<EngineId, RunMode[]> = {
+  claude: ["default", "plan", "auto", "acceptEdits"],
+  codex: ["default", "plan", "auto"],
+};
+
 // ---------------------------------------------------------------------------
 // IPC channels
 // ---------------------------------------------------------------------------
 
 /** Request/response CRUD channels (ipcRenderer.invoke / ipcMain.handle). */
 export const CH = {
-  profilesList: "mineco:profiles:list",
-  profilesCreate: "mineco:profiles:create",
-  profilesUpdate: "mineco:profiles:update",
-  profilesDelete: "mineco:profiles:delete",
+  agentsList: "mineco:agents:list",
+  agentsCreate: "mineco:agents:create",
+  agentsUpdate: "mineco:agents:update",
+  agentsDelete: "mineco:agents:delete",
+
+  workspacesList: "mineco:workspaces:list",
+  workspacesCreate: "mineco:workspaces:create",
+  workspacesUpdate: "mineco:workspaces:update",
+  workspacesDelete: "mineco:workspaces:delete",
+  workspacesPick: "mineco:workspaces:pickDirectory",
+
   sessionsList: "mineco:sessions:list",
   sessionsCreate: "mineco:sessions:create",
   sessionsDelete: "mineco:sessions:delete",
   sessionMessages: "mineco:sessions:messages",
+
+  memoryList: "mineco:memory:list",
+  memoryCreate: "mineco:memory:create",
+  memoryUpdate: "mineco:memory:update",
+  memoryDelete: "mineco:memory:delete",
+
+  mcpList: "mineco:mcp:list",
+  mcpCreate: "mineco:mcp:create",
+  mcpUpdate: "mineco:mcp:update",
+  mcpDelete: "mineco:mcp:delete",
+
+  skillsList: "mineco:skills:list",
+  skillsCreate: "mineco:skills:create",
+  skillsUpdate: "mineco:skills:update",
+  skillsDelete: "mineco:skills:delete",
+
+  appearanceGet: "mineco:appearance:get",
+  appearanceSet: "mineco:appearance:set",
+
   /** Streaming run (ipcRenderer.send); events come back on turnEventChannel(id). */
   turnRun: "mineco:turn:run",
   turnAbort: "mineco:turn:abort",
@@ -106,7 +222,10 @@ export interface TurnRunRequest {
   /** Correlates the request with its event stream. */
   id: string;
   sessionId: string;
-  profileId: string;
+  agentId: string;
+  /** The concrete model to run with (Claude). For Codex the agent's model wins. */
+  model: string;
+  mode: RunMode;
   prompt: string;
 }
 

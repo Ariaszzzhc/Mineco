@@ -1,35 +1,103 @@
 import { contextBridge, ipcRenderer } from "electron";
 import {
+  type Agent,
+  type AgentInput,
+  type Appearance,
   CH,
+  type EngineId,
+  type McpServer,
+  type MemoryEntry,
   type Message,
   type NormalizedEvent,
-  type ProfileInput,
-  type ProviderProfile,
+  RUN_MODES,
+  type RunMode,
   type Session,
+  type Skill,
   turnEventChannel,
+  type Workspace,
 } from "../src/lib/agent-protocol";
 
 let counter = 0;
 
 const mineco = {
-  profiles: {
-    list: (): Promise<ProviderProfile[]> => ipcRenderer.invoke(CH.profilesList),
-    create: (input: ProfileInput): Promise<ProviderProfile> =>
-      ipcRenderer.invoke(CH.profilesCreate, input),
-    update: (profile: ProviderProfile): Promise<void> =>
-      ipcRenderer.invoke(CH.profilesUpdate, profile),
+  agents: {
+    list: (): Promise<Agent[]> => ipcRenderer.invoke(CH.agentsList),
+    create: (input: AgentInput): Promise<Agent> =>
+      ipcRenderer.invoke(CH.agentsCreate, input),
+    update: (agent: Agent): Promise<void> =>
+      ipcRenderer.invoke(CH.agentsUpdate, agent),
     remove: (id: string): Promise<void> =>
-      ipcRenderer.invoke(CH.profilesDelete, id),
+      ipcRenderer.invoke(CH.agentsDelete, id),
+  },
+
+  workspaces: {
+    list: (): Promise<Workspace[]> => ipcRenderer.invoke(CH.workspacesList),
+    create: (input: { name: string; path: string }): Promise<Workspace> =>
+      ipcRenderer.invoke(CH.workspacesCreate, input),
+    update: (workspace: Workspace): Promise<void> =>
+      ipcRenderer.invoke(CH.workspacesUpdate, workspace),
+    remove: (id: string): Promise<void> =>
+      ipcRenderer.invoke(CH.workspacesDelete, id),
+    pickDirectory: (): Promise<string | null> =>
+      ipcRenderer.invoke(CH.workspacesPick),
   },
 
   sessions: {
-    list: (): Promise<Session[]> => ipcRenderer.invoke(CH.sessionsList),
-    create: (input?: { title?: string; cwd?: string }): Promise<Session> =>
-      ipcRenderer.invoke(CH.sessionsCreate, input ?? {}),
+    list: (workspaceId?: string | null): Promise<Session[]> =>
+      ipcRenderer.invoke(CH.sessionsList, workspaceId),
+    create: (input: {
+      workspaceId: string | null;
+      title?: string;
+      cwd: string;
+    }): Promise<Session> => ipcRenderer.invoke(CH.sessionsCreate, input),
     remove: (id: string): Promise<void> =>
       ipcRenderer.invoke(CH.sessionsDelete, id),
     messages: (sessionId: string): Promise<Message[]> =>
       ipcRenderer.invoke(CH.sessionMessages, sessionId),
+  },
+
+  memory: {
+    list: (workspaceId: string): Promise<MemoryEntry[]> =>
+      ipcRenderer.invoke(CH.memoryList, workspaceId),
+    create: (input: {
+      workspaceId: string;
+      kind: MemoryEntry["kind"];
+      text: string;
+    }): Promise<MemoryEntry> => ipcRenderer.invoke(CH.memoryCreate, input),
+    update: (entry: MemoryEntry): Promise<void> =>
+      ipcRenderer.invoke(CH.memoryUpdate, entry),
+    remove: (id: string): Promise<void> =>
+      ipcRenderer.invoke(CH.memoryDelete, id),
+  },
+
+  mcp: {
+    list: (): Promise<McpServer[]> => ipcRenderer.invoke(CH.mcpList),
+    create: (input: Omit<McpServer, "id" | "createdAt">): Promise<McpServer> =>
+      ipcRenderer.invoke(CH.mcpCreate, input),
+    update: (server: McpServer): Promise<void> =>
+      ipcRenderer.invoke(CH.mcpUpdate, server),
+    remove: (id: string): Promise<void> => ipcRenderer.invoke(CH.mcpDelete, id),
+  },
+
+  skills: {
+    list: (): Promise<Skill[]> => ipcRenderer.invoke(CH.skillsList),
+    create: (input: Omit<Skill, "id" | "createdAt">): Promise<Skill> =>
+      ipcRenderer.invoke(CH.skillsCreate, input),
+    update: (skill: Skill): Promise<void> =>
+      ipcRenderer.invoke(CH.skillsUpdate, skill),
+    remove: (id: string): Promise<void> =>
+      ipcRenderer.invoke(CH.skillsDelete, id),
+  },
+
+  appearance: {
+    get: (): Promise<Appearance> => ipcRenderer.invoke(CH.appearanceGet),
+    set: (appearance: Appearance): Promise<void> =>
+      ipcRenderer.invoke(CH.appearanceSet, appearance),
+  },
+
+  /** Static per-engine run modes (sync — no IPC round-trip). */
+  runModes(engine: EngineId): RunMode[] {
+    return RUN_MODES[engine] ?? [];
   },
 
   /**
@@ -38,7 +106,13 @@ const mineco = {
    * always call it when the run finishes or the component unmounts.
    */
   runTurn(
-    req: { sessionId: string; profileId: string; prompt: string },
+    req: {
+      sessionId: string;
+      agentId: string;
+      model: string;
+      mode: RunMode;
+      prompt: string;
+    },
     onEvent: (event: NormalizedEvent) => void,
   ): { id: string; stop: () => void } {
     const id = `${Date.now()}-${counter++}`;

@@ -1,296 +1,311 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   mineco design tokens (exact palette from the HTML/CSS prototype)
+   - :root        -> dark (default)
+   - [data-theme] -> light overrides
+   --accent is user-configurable at runtime: the theme store sets `--accent`
+   inline on <html>, and every derived accent var (-tx/-bg/-ln) is computed
+   from it via color-mix so they track the user's choice automatically.
+   =========================================================================== */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --ui:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui,
+    "Helvetica Neue", sans-serif;
+  --mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas,
+    monospace;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* surfaces */
+  --app: #0c0c0e;
+  --chrome: #161618;
+  --chrome-2: #1b1b1e;
+  --canvas: #1a1a1d;
+  --card: #202023;
+  --card-2: #27272b;
+  --raised: #2d2d32;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  /* hairlines */
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.05);
+  --line-3: rgba(255, 255, 255, 0.13);
+
+  /* text */
+  --ink: #ececee;
+  --ink-2: #9f9fa6;
+  --ink-3: #6b6b72;
+
+  /* accent (runtime-overridable: set `--accent` inline on <html>) */
+  --accent: #43a95a;
+  --accent-tx: color-mix(in oklab, var(--accent) 66%, #fff);
+  --accent-dk: color-mix(in oklab, var(--accent) 88%, #fff);
+  --accent-bg: color-mix(in oklab, var(--accent) 18%, #1b1b1e);
+  --accent-ln: color-mix(in oklab, var(--accent) 38%, #1b1b1e);
+
+  /* status */
+  --amber: #d6a33c;
+  --amber-bg: color-mix(in oklab, #d6a33c 18%, #1b1b1e);
+  --ok: #57bd6c;
+  --del: #e5484d;
+
+  /* scale + layout */
+  --fs: 1;
+  --tbh: 40px;
+  --sbw: 244px;
+  --trw: 264px;
+  --r-panel: 14px;
+  --r-card: 12px;
+  --r-field: 10px;
+}
+
+[data-theme="light"] {
+  --app: #e4e1d7;
+  --chrome: #f4f2eb;
+  --chrome-2: #ebe8de;
+  --canvas: #faf9f4;
+  --card: #ffffff;
+  --card-2: #f5f3eb;
+  --raised: #edeae0;
+
+  --line: rgba(48, 42, 28, 0.1);
+  --line-2: rgba(48, 42, 28, 0.055);
+  --line-3: rgba(48, 42, 28, 0.15);
+
+  --ink: #2a2823;
+  --ink-2: #5f5c52;
+  --ink-3: #94917f;
+
+  --accent: #2f9447;
+  --accent-tx: color-mix(in oklab, var(--accent) 84%, #000);
+  --accent-dk: color-mix(in oklab, var(--accent) 90%, #000);
+  --accent-bg: color-mix(in oklab, var(--accent) 10%, #fff);
+  --accent-ln: color-mix(in oklab, var(--accent) 28%, #fff);
+
+  --amber: #b5821f;
+  --amber-bg: color-mix(in oklab, #b5821f 12%, #fff);
+}
+
+/* ===========================================================================
+   Map tokens into Tailwind v4 (@theme inline) so utilities resolve to the
+   live CSS vars: bg-card, text-ink, border-line, text-accent-tx, etc.
+   `inline` keeps the var() reference (so theme switching is instant) instead
+   of snapshotting the value at build time.
+   =========================================================================== */
+@theme inline {
+  --color-app: var(--app);
+  --color-chrome: var(--chrome);
+  --color-chrome-2: var(--chrome-2);
+  --color-canvas: var(--canvas);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-raised: var(--raised);
+
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-line-3: var(--line-3);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+
+  --color-accent: var(--accent);
+  --color-accent-tx: var(--accent-tx);
+  --color-accent-dk: var(--accent-dk);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-ln: var(--accent-ln);
+
+  --color-amber: var(--amber);
+  --color-amber-bg: var(--amber-bg);
+  --color-ok: var(--ok);
+  --color-del: var(--del);
+
+  --font-ui: var(--ui);
+  --font-mono: var(--mono);
+
+  --radius-panel: var(--r-panel);
+  --radius-card: var(--r-card);
+  --radius-field: var(--r-field);
+}
+
+/* ===========================================================================
+   Base
+   =========================================================================== */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--app);
+}
+body {
+  font-family: var(--ui);
+  color: var(--ink);
+  /* font-size scaling: every rem-based size multiplies by --fs */
+  font-size: calc(1rem * var(--fs));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
-}
-
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
 }
 
 #app {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Suppress transitions during a theme/accent switch — Chromium repaints CSS
+   custom properties lazily and would otherwise animate a flash. The theme
+   store toggles html[data-switching] for ~90ms around the change. */
+html[data-switching] *,
+html[data-switching] *::before,
+html[data-switching] *::after {
+  transition: none;
+}
+
+/* ===========================================================================
+   Window-control platform switch — mac shows the traffic-light controls,
+   win shows the min/max/close set. Screens render both and tag them
+   .mac-controls / .win-controls; <html data-platform> picks one.
+   =========================================================================== */
+[data-platform="mac"] .mac-controls {
   display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
 }
-
-#center {
+[data-platform="mac"] .win-controls {
+  display: none;
+}
+[data-platform="win"] .mac-controls {
+  display: none;
+}
+[data-platform="win"] .win-controls {
   display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
+}
 
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
+/* ===========================================================================
+   Thin custom scrollbar — add the .mc-scroll class (or @apply it) to scroll
+   containers. Firefox uses scrollbar-width/color; WebKit uses the pseudos.
+   =========================================================================== */
+.mc-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-3) transparent;
+}
+.mc-scroll::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+.mc-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-3);
+  border-radius: 9px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.mc-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--ink-3) 60%, transparent);
+  background-clip: padding-box;
+}
+.mc-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ===========================================================================
+   Shared keyframes used across screens.
+   =========================================================================== */
+
+/* running dot — radiating pulse ring (sidebar thread / status dot) */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 5px color-mix(in oklab, var(--accent) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 0%, transparent);
   }
 }
 
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
+/* enter transition for streamed paragraphs / cards */
+@keyframes p-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
   }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
+  to {
+    transform: none;
+    opacity: 1;
   }
 }
 
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
+/* popover / menu entrance */
+@keyframes pop {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
   }
 }
 
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
+/* spinner */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
+/* shimmering "live"/streaming label */
+@keyframes sheen {
+  from {
+    background-position: 110% 0;
+  }
+  to {
+    background-position: -110% 0;
+  }
+}
+/* alias the prototype's name so either works */
+@keyframes p-live {
+  from {
+    background-position: 110% 0;
+  }
+  to {
+    background-position: -110% 0;
   }
 }
 
-.ticks {
-  position: relative;
-  width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
+/* blinking caret */
+@keyframes blink {
+  50% {
+    opacity: 0;
   }
+}
 
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
+/* ===========================================================================
+   Convenience helpers
+   =========================================================================== */
+
+/* running status dot */
+.mc-rdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.5s ease-out infinite;
+}
+
+/* App-region drag for the custom titlebar (Electron frameless windows). */
+.mc-drag {
+  -webkit-app-region: drag;
+}
+.mc-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-rdot {
+    animation: none;
   }
 }

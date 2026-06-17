@@ -1,6 +1,73 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { NormalizedEvent } from "../../src/lib/agent-protocol";
-import { buildPrompt, type Engine, type EngineRunInput } from "./types";
+import {
+  type CanUseTool,
+  type McpServerConfig,
+  type PermissionMode,
+  query,
+} from "@anthropic-ai/claude-agent-sdk";
+import type {
+  McpServer,
+  NormalizedEvent,
+  RunMode,
+} from "../../src/lib/agent-protocol";
+import {
+  buildPrompt,
+  type Engine,
+  type EngineRunInput,
+  resolveSystemPrompt,
+} from "./types";
+
+/**
+ * Maps mineco's {@link RunMode} to a Claude `permissionMode`. `default` and
+ * `auto` use `bypassPermissions` so a turn never hangs waiting on a permission
+ * UI we don't have yet; `plan` and `acceptEdits` map straight through.
+ */
+function toPermissionMode(mode: RunMode): PermissionMode {
+  switch (mode) {
+    case "plan":
+      return "plan";
+    case "acceptEdits":
+      return "acceptEdits";
+    default:
+      return "bypassPermissions";
+  }
+}
+
+/** Builds Claude `mcpServers` from enabled MCP rows. Best-effort: a malformed
+ * config is skipped rather than crashing the turn. */
+function buildMcpServers(
+  servers: McpServer[],
+): Record<string, McpServerConfig> {
+  const out: Record<string, McpServerConfig> = {};
+  for (const s of servers) {
+    if (!s.enabled) continue;
+    try {
+      const parsed = s.env ? JSON.parse(s.env) : {};
+      const envOrHeaders =
+        parsed && typeof parsed === "object"
+          ? (parsed as Record<string, string>)
+          : {};
+      if (s.transport === "http") {
+        if (!s.command) continue;
+        out[s.name] = { type: "http", url: s.command, headers: envOrHeaders };
+      } else {
+        if (!s.command) continue;
+        const [command, ...args] = s.command.split(/\s+/).filter(Boolean);
+        if (!command) continue;
+        out[s.name] = { type: "stdio", command, args, env: envOrHeaders };
+      }
+    } catch {
+      // Skip servers with bad env/header JSON.
+    }
+  }
+  return out;
+}
+
+/** Auto-allow every tool so turns never block on a permission prompt (there is
+ * no permission UI in v1). */
+const allowAll: CanUseTool = async (_name, input) => ({
+  behavior: "allow",
+  updatedInput: input,
+});
 
 /**
  * Claude Agent SDK adapter. Wraps `query()` — which spawns the native `claude`
@@ -11,22 +78,25 @@ export const claudeEngine: Engine = {
   id: "claude",
 
   async *run(input: EngineRunInput): AsyncIterable<NormalizedEvent> {
-    const { profile } = input;
+    const { agent, model } = input;
 
     // SDK's `env` replaces the subprocess environment wholesale (not merged),
     // so spread process.env to keep PATH etc. Only override credentials the
-    // profile actually specifies.
+    // agent actually specifies.
     const env: Record<string, string> = { ...process.env } as Record<
       string,
       string
     >;
-    if (profile.apiKey) env.ANTHROPIC_API_KEY = profile.apiKey;
-    if (profile.baseUrl) env.ANTHROPIC_BASE_URL = profile.baseUrl;
+    if (agent.apiKey) env.ANTHROPIC_API_KEY = agent.apiKey;
+    if (agent.baseUrl) env.ANTHROPIC_BASE_URL = agent.baseUrl;
 
     // The SDK cancels via an AbortController; forward the caller's signal.
     const abortController = new AbortController();
     if (input.signal.aborted) abortController.abort();
     else input.signal.addEventListener("abort", () => abortController.abort());
+
+    const systemPrompt = resolveSystemPrompt(agent);
+    const mcpServers = buildMcpServers(input.mcpServers);
 
     let threadEmitted = false;
 
@@ -34,12 +104,14 @@ export const claudeEngine: Engine = {
       prompt: buildPrompt(input),
       options: {
         cwd: input.cwd,
-        ...(profile.model ? { model: profile.model } : {}),
+        ...(model ? { model } : {}),
         ...(input.resume ? { resume: input.resume.nativeThreadId } : {}),
+        ...(systemPrompt ? { systemPrompt } : {}),
+        ...(Object.keys(mcpServers).length ? { mcpServers } : {}),
         includePartialMessages: true,
-        // Minimal read-only agent for v1 (write tools + permission UI later).
-        permissionMode: "bypassPermissions",
-        allowedTools: ["Read", "Glob", "Grep"],
+        permissionMode: toPermissionMode(input.mode),
+        allowedTools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash"],
+        canUseTool: allowAll,
         abortController,
         env,
       },
@@ -65,7 +137,11 @@ export const claudeEngine: Engine = {
         case "assistant": {
           for (const block of message.message.content) {
             if (block.type === "tool_use") {
-              yield { type: "tool", name: block.name };
+              yield {
+                type: "tool",
+                name: block.name,
+                detail: summarizeToolInput(block.input),
+              };
             }
           }
           break;
@@ -91,3 +167,12 @@ export const claudeEngine: Engine = {
     }
   },
 };
+
+/** Best-effort one-line detail for a tool card (file path / command / pattern). */
+function summarizeToolInput(input: unknown): string | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const o = input as Record<string, unknown>;
+  const candidate =
+    o.file_path ?? o.path ?? o.command ?? o.pattern ?? o.query ?? o.url;
+  return typeof candidate === "string" ? candidate : undefined;
+}

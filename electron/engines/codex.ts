@@ -1,11 +1,14 @@
 import {
+  type ApprovalMode,
   Codex,
   type CodexOptions,
+  type ModelReasoningEffort,
+  type SandboxMode,
   type Thread,
   type ThreadItem,
   type ThreadOptions,
 } from "@openai/codex-sdk";
-import type { NormalizedEvent } from "../../src/lib/agent-protocol";
+import type { NormalizedEvent, RunMode } from "../../src/lib/agent-protocol";
 import { buildPrompt, type Engine, type EngineRunInput } from "./types";
 
 /** Maps a Codex thread item to a normalized event (or null to ignore it). */
@@ -28,6 +31,32 @@ function itemToEvent(item: ThreadItem): NormalizedEvent | null {
   }
 }
 
+/** Maps mineco's reasoning effort to Codex's `ModelReasoningEffort`. */
+function toEffort(effort: "low" | "medium" | "high"): ModelReasoningEffort {
+  return effort;
+}
+
+/**
+ * Maps mineco's {@link RunMode} to a Codex sandbox + approval policy. We keep
+ * Codex non-blocking (`approvalPolicy: "never"`) so a turn never hangs waiting
+ * on an approval UI we don't have yet, while widening the sandbox as the mode
+ * gets more permissive. `plan` stays strictly read-only.
+ */
+function toSandbox(mode: RunMode): {
+  sandboxMode: SandboxMode;
+  approvalPolicy: ApprovalMode;
+} {
+  switch (mode) {
+    case "plan":
+      return { sandboxMode: "read-only", approvalPolicy: "never" };
+    case "auto":
+    case "acceptEdits":
+      return { sandboxMode: "workspace-write", approvalPolicy: "never" };
+    default:
+      return { sandboxMode: "read-only", approvalPolicy: "never" };
+  }
+}
+
 /**
  * OpenAI Codex SDK adapter. `@openai/codex-sdk` drives the bundled `codex` CLI
  * (`@openai/codex`); we resume the native thread for same-engine continuation
@@ -37,18 +66,25 @@ export const codexEngine: Engine = {
   id: "codex",
 
   async *run(input: EngineRunInput): AsyncIterable<NormalizedEvent> {
-    const { profile } = input;
+    const { agent } = input;
 
     const codexOptions: CodexOptions = {};
-    if (profile.apiKey) codexOptions.apiKey = profile.apiKey;
-    if (profile.baseUrl) codexOptions.baseUrl = profile.baseUrl;
+    if (agent.apiKey) codexOptions.apiKey = agent.apiKey;
+    if (agent.baseUrl) codexOptions.baseUrl = agent.baseUrl;
     const codex = new Codex(codexOptions);
+
+    const { sandboxMode, approvalPolicy } = toSandbox(input.mode);
+    // Codex uses the agent's single model (the per-turn `model` is a Claude
+    // alias resolution and not meaningful for Codex).
+    const codexModel = agent.model || input.model;
 
     const threadOptions: ThreadOptions = {
       workingDirectory: input.cwd,
-      sandboxMode: "read-only",
+      sandboxMode,
+      approvalPolicy,
+      modelReasoningEffort: toEffort(agent.effort),
       skipGitRepoCheck: true,
-      ...(profile.model ? { model: profile.model } : {}),
+      ...(codexModel ? { model: codexModel } : {}),
     };
     const thread: Thread = input.resume
       ? codex.resumeThread(input.resume.nativeThreadId, threadOptions)

@@ -17,6 +17,8 @@ export async function addMessage(input: {
   turnId: string;
   role: Message["role"];
   content: string;
+  reasoning?: string;
+  tools?: string;
   engine: EngineId | null;
 }): Promise<Message> {
   const message: Message = {
@@ -25,6 +27,8 @@ export async function addMessage(input: {
     turnId: input.turnId,
     role: input.role,
     content: input.content,
+    reasoning: input.reasoning ?? "",
+    tools: input.tools ?? "[]",
     engine: input.engine,
     createdAt: Date.now(),
   };
