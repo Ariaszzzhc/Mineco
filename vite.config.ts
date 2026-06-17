@@ -1,16 +1,20 @@
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import electron from "vite-plugin-electron/simple";
 
 // https://vite.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   plugins: [
     tailwindcss(),
     svelte(),
     electron({
       main: {
-        entry: "electron/main.ts",
+        entry: "src/main/index.ts",
         vite: {
           build: {
             rolldownOptions: {
@@ -18,18 +22,23 @@ export default defineConfig({
               // own bundled assets at runtime — keep it external and load from
               // node_modules instead of bundling it into main.js.
               external: ["@anthropic-ai/claude-agent-sdk"],
+              // Entry source was renamed main.ts -> index.ts; hardcode the
+              // output name so dist-electron/main.js (and package.json "main")
+              // stay unchanged — zero behavior change.
+              output: { entryFileNames: "main.js" },
             },
           },
         },
       },
       preload: {
-        input: "electron/preload.ts",
+        input: "src/preload/index.ts",
         vite: {
           build: {
             // Emit a CommonJS preload (`.cjs`) so it loads under the default
-            // sandbox without the ESM-preload constraints.
+            // sandbox without the ESM-preload constraints. Hardcode the name
+            // (source is now index.ts) so the output stays dist-electron/preload.cjs.
             rolldownOptions: {
-              output: { entryFileNames: "[name].cjs" },
+              output: { entryFileNames: "preload.cjs" },
             },
           },
         },

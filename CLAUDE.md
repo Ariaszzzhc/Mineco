@@ -22,28 +22,36 @@ this cycle; the engine abstraction (types, adapter pattern) is preserved for
 future engines.
 
 ```
-electron/main.ts            Main process: window + IPC surface
-electron/preload.ts         contextBridge -> window.mineco (agents/workspaces/sessions/runTurn)
-electron/session-runner.ts  Orchestrates one turn: get-or-open live session, persist, stream
-electron/engines/           Engine abstraction: types.ts (Engine + EngineSession + NormalizedEvent),
-                            claude.ts (persistent-session adapter), async-queue.ts (pushable stream)
-electron/services/          Business logic layer:
-                              agent.ts (agent dir contract + model mapping)
-                              workspace.ts (workspace switching + state)
-                              scope.ts (three-level scope merging for MCP/Skills)
-                              mcp.ts (MCP server config + status)
-                              skills.ts (Skill directory scanning)
-                              memory.ts (per-workspace memory injection)
-                              context-assembly.ts (inject global instructions + memory + MCP + Skills)
-                              run-registry.ts (in-flight session state)
-                              engine-sessions.ts (live persistent EngineSession per mineco session)
-electron/db/                Kysely-on-node:sqlite: workspaces/sessions/turns/messages
-                            (config lives in files, not DB)
-src/lib/agent-protocol.ts   Shared domain model + NormalizedEvent + IPC channels
-src/App.svelte              Renderer: three-view shell (Home/Session/Settings) + sidebar
-src/main.ts                 Renderer entry (mounts App)
-index.html                  Renderer HTML (+ CSP)
+src/main/index.ts            Main process: window + IPC surface
+src/preload/index.ts         contextBridge -> window.mineco (agents/workspaces/sessions/runTurn)
+src/main/session-runner.ts   Orchestrates one turn: get-or-open live session, persist, stream
+src/main/engines/            Engine abstraction: types.ts (Engine + EngineSession + NormalizedEvent),
+                             claude.ts (persistent-session adapter), async-queue.ts (pushable stream)
+src/main/services/           Business logic layer:
+                               agent.ts (agent dir contract + model mapping)
+                               workspace.ts (workspace switching + state)
+                               scope.ts (three-level scope merging for MCP/Skills)
+                               mcp.ts (MCP server config + status)
+                               skills.ts (Skill directory scanning)
+                               memory.ts (per-workspace memory injection)
+                               context-assembly.ts (inject global instructions + memory + MCP + Skills)
+                               run-registry.ts (in-flight session state)
+                               engine-sessions.ts (live persistent EngineSession per mineco session)
+src/main/db/                 Kysely-on-node:sqlite: workspaces/sessions/turns/messages
+                             (config lives in files, not DB)
+src/shared/agent-protocol.ts Shared domain model + NormalizedEvent + IPC channels (imported by BOTH processes)
+src/renderer/App.svelte      Renderer: three-view shell (Home/Session/Settings) + sidebar
+src/renderer/main.ts         Renderer entry (mounts App)
+index.html                   Renderer HTML (+ CSP)
 ```
+
+**Source layout** (process-role, under one `src/`): `src/main/` (Electron main
+process, Node), `src/preload/` (contextBridge), `src/renderer/` (Svelte client),
+`src/shared/` (cross-process domain model — `agent-protocol.ts`, imported by both
+main and renderer). The `@/` alias (configured in `vite.config.ts` + both
+`tsconfig.*.json`, via `paths` with **no `baseUrl`** — TS 6 deprecates it) maps to
+`src/`, so prefer `@/shared/agent-protocol` over deep `../../` relative paths;
+sibling (`./`) imports stay relative.
 
 **Two-axis model** (core architecture):
 - **Engine axis**: each Agent = `~/.mineco/engines/claude/<id>/` (CLAUDE_CONFIG_DIR),
@@ -106,12 +114,12 @@ session) — NOT re-assembled per turn. Reopen the session to pick up changes.
   and `openSession()`, which returns a persistent `EngineSession` (`runTurn` /
   `interrupt` / `close`) that maps the native SDK to `NormalizedEvent`s. Claude
   adapter is the v1 implementation. Future engines: new adapter in
-  `electron/engines/`, new type branches in `NormalizedEvent`,
+  `src/main/engines/`, new type branches in `NormalizedEvent`,
   done—renderer/IPC/persistence unchanged.
 - **Agent isolation:** each Agent has its own `CLAUDE_CONFIG_DIR`
   (`~/.mineco/engines/claude/<id>/`). Never set `CLAUDE_CONFIG_DIR` globally or
   to `~/.claude`; mineco must not pollute user's Claude Code environment.
-- **Services layer:** business logic lives in `electron/services/`
+- **Services layer:** business logic lives in `src/main/services/`
   (`agent.ts`, `workspace.ts`, `scope.ts`, `mcp.ts`, `skills.ts`, `memory.ts`,
   `context-assembly.ts`, `run-registry.ts`). `session-runner` consumes their
   outputs; keep it clean and testable.
@@ -120,14 +128,17 @@ session) — NOT re-assembled per turn. Reopen the session to pick up changes.
   through the narrow preload bridge.
 - **Preload must be CommonJS** (`dist-electron/preload.cjs`). Vite/rolldown's
   default emits a CJS file with an `.mjs` extension under `"type": "module"`,
-  which crashes — `vite.config.ts` overrides `entryFileNames` to `.cjs`.
+  which crashes — `vite.config.ts` hardcodes `entryFileNames: "preload.cjs"`.
+  The entry moved to `src/preload/index.ts`, so the output name is pinned
+  explicitly (not derived from `[name]`); `dist-electron/main.js` is pinned the
+  same way for `src/main/index.ts`, keeping `package.json`'s `"main"` stable.
 - **`main` build externalizes Claude SDK** (`rolldownOptions.external` —
   note: Vite 8 uses `rolldownOptions`, not `rollupOptions`). The SDK resolves
   its own bundled CLI/assets at runtime.
 - **Persistence is `node:sqlite`** (built into Node 24 bundled with Electron 42;
   no native module rebuild needed). Fallback if disabled: `better-sqlite3` +
   `electron-rebuild`.
-- **Kysely over inlined dialect** (`db/node-sqlite-dialect.ts`): stock Kysely
+- **Kysely over inlined dialect** (`src/main/db/node-sqlite-dialect.ts`): stock Kysely
   targets `better-sqlite3`, so we wrap `DatabaseSync` ourselves. `CamelCasePlugin`
   maps snake_case ↔ camelCase. Repo functions are **async** (Promises); `await`
   them. Kysely is bundled (pure JS), not externalized.

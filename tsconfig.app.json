@@ -6,6 +6,9 @@
     "module": "esnext",
     "types": ["svelte", "vite/client"],
     "noEmit": true,
+    // `paths` resolves relative to this tsconfig dir (no `baseUrl` needed in
+    // TS 5.0+), so `@/` maps to ./src for both type-checking and editor goto.
+    "paths": { "@/*": ["./src/*"] },
     /**
      * Typecheck JS in `.svelte` and `.js` files by default.
      * Disable checkJs if you'd like to use dynamic types in JS.
@@ -16,5 +19,5 @@
     "checkJs": true,
     "moduleDetection": "force"
   },
-  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
+  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.js", "src/renderer/**/*.svelte", "src/shared/**/*.ts"]
 }
