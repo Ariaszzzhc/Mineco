@@ -425,8 +425,16 @@ function isRunning(id: string): boolean {
         </div>
       </div>
 
-      <!-- floating composer -->
-      <div class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-9 pb-6">
+      <!-- floating composer.
+           The composer floats with transparent chip/toolbar rows, so without a
+           backdrop the transcript shows through them (and the gaps) while
+           scrolling. A bottom fade (transparent → canvas) sits above it so the
+           transcript text fades out instead; the gradient reaches solid canvas
+           at the composer's top edge (pt-14 == 56px stop), so nothing bleeds
+           through the composer itself. -->
+      <div
+        class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-[linear-gradient(to_bottom,transparent,var(--canvas)_56px)] px-9 pb-6 pt-14"
+      >
         <div class="pointer-events-auto w-full max-w-[720px]">
           {#if agents.length === 0}
             <div class="flex items-center justify-between gap-3 rounded-[var(--r-panel)] border border-line-3 bg-chrome px-4 py-3 text-[13px] text-ink-2">
