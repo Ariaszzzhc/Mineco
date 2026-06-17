@@ -149,10 +149,27 @@ async function deleteAgent(id: string) {
 
 // ---- update agent ----
 function buildInput(d: AgentDetail): AgentInput {
+  // Rebuild a plain (non-proxy) object tree. `editAgent` is a Svelte 5 `$state`
+  // Proxy, and Electron IPC serialises args via V8's structured clone — which
+  // refuses Proxies ("An object could not be cloned"). Passing the proxied
+  // connection straight through made `agents.update()` reject inside
+  // flushToDisk's catch, so nothing was ever persisted. Reading each field
+  // through the proxy yields its primitive value; reconstructing a plain object
+  // lets it cross the IPC boundary.
   return {
     name: d.name,
     defaultModel: d.defaultModel,
-    connection: d.connection,
+    connection: {
+      baseUrl: d.connection.baseUrl,
+      token: d.connection.token,
+      fallbackModel: d.connection.fallbackModel,
+      roles: d.connection.roles.map((r) => ({
+        role: r.role,
+        model: r.model,
+        displayName: r.displayName,
+        supports1M: r.supports1M,
+      })),
+    },
   };
 }
 
@@ -225,8 +242,10 @@ async function flushToDisk() {
     } catch {
       /* invalid raw JSON — keep the structured-derived settings just written */
     }
-  } catch {
-    /* ignore — best effort on leave */
+  } catch (err) {
+    // Don't swallow this silently: a failed flush (e.g. an IPC clone error) used
+    // to look identical to "saved", which hid the real bug for a long time.
+    console.error("Failed to flush agent to disk:", err);
   }
 }
 
