@@ -220,6 +220,10 @@ function cycleMode() {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  // During IME composition (e.g. typing CJK pinyin) Enter confirms a candidate,
+  // not sends. KeyboardEvent.isComposing is true throughout the composition
+  // session, so guard the submit/cycle shortcuts on it.
+  if (e.isComposing) return;
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     submit();
