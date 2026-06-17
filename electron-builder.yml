@@ -1,0 +1,61 @@
+appId: space.mineco.app
+productName: mineco
+copyright: Copyright © 2026 mineco
+
+directories:
+  output: release/${version}
+  buildResources: build
+
+# Pack the app into app.asar, but keep the Claude Agent SDK unpacked. The SDK
+# reads its own runtime assets from disk (sdk.mjs, manifest.json — the latter is
+# how services/cli-binary.ts verifies the downloaded binary) and spawns a native
+# subprocess, neither of which should go through asar path translation.
+asar: true
+asarUnpack:
+  - node_modules/@anthropic-ai/claude-agent-sdk/**
+
+# Production node_modules are bundled automatically; these add the build output
+# and prune what must NOT ship.
+files:
+  - dist
+  - dist-electron
+  - package.json
+  # The 8 prebuilt native CLI variants are ~235 MB each. mineco downloads the
+  # host's variant on first session into ~/.mineco/.bin (services/cli-binary.ts),
+  # so excluding them keeps the installer ~tens of MB instead of ~250 MB — and
+  # dodges signing a 235 MB binary that's already Anthropic-signed in the user
+  # dir. Keep the JS SDK (@anthropic-ai/claude-agent-sdk, no trailing variant).
+  - "!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: mineco
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # Installer/uninstaller icons default to build/icon.ico (generated from
+  # build/icon.png). To brand the wizard further, add build/installerHeader.bmp
+  # (150x57) and build/installerSidebar.bmp (164x314).
+  # NOTE: no code signing configured — Windows SmartScreen will warn "unknown
+  # publisher" until you add win.signtoolOptions (cert) or Azure Trusted Signing.
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  # The native CLI is fetched at runtime (no quarantine xattr) and lives outside
+  # the bundle, so hardened-runtime signing only needs to cover the app itself.
+  hardenedRuntime: true
+
+linux:
+  category: Development
+  target:
+    - target: AppImage
+      arch: [x64, arm64]

@@ -121,8 +121,8 @@ session) — NOT re-assembled per turn. Reopen the session to pick up changes.
   to `~/.claude`; mineco must not pollute user's Claude Code environment.
 - **Services layer:** business logic lives in `src/main/services/`
   (`agent.ts`, `workspace.ts`, `scope.ts`, `mcp.ts`, `skills.ts`, `memory.ts`,
-  `context-assembly.ts`, `run-registry.ts`). `session-runner` consumes their
-  outputs; keep it clean and testable.
+  `context-assembly.ts`, `run-registry.ts`, `cli-binary.ts`). `session-runner`
+  consumes their outputs; keep it clean and testable.
 - **Security baseline** (do not weaken): `contextIsolation: true`,
   `nodeIntegration: false`, `sandbox: true`. Renderer reaches Node only
   through the narrow preload bridge.
@@ -133,8 +133,25 @@ session) — NOT re-assembled per turn. Reopen the session to pick up changes.
   explicitly (not derived from `[name]`); `dist-electron/main.js` is pinned the
   same way for `src/main/index.ts`, keeping `package.json`'s `"main"` stable.
 - **`main` build externalizes Claude SDK** (`rolldownOptions.external` —
-  note: Vite 8 uses `rolldownOptions`, not `rollupOptions`). The SDK resolves
-  its own bundled CLI/assets at runtime.
+  note: Vite 8 uses `rolldownOptions`, not `rollupOptions`). The SDK's JS
+  (`sdk.mjs`) stays in `node_modules` and is loaded at runtime.
+- **The engine binary is the native CLI, NOT `node cli.js`.** The SDK spawns a
+  self-contained native executable (`claude` / `claude.exe`, ~235 MB Bun build)
+  **directly** — `node` is only prefixed when the executable is a `.js` script
+  (legacy SDK). So a packaged app needs **no bundled Node runtime** for the
+  engine. The binary ships as 8 per-platform npm optional deps
+  (`@anthropic-ai/claude-agent-sdk-<variant>`); mineco does **not** bundle them.
+- **On-demand binary provisioning** (`services/cli-binary.ts`): instead of
+  bundling the ~235 MB binary, mineco downloads the host's variant from the npm
+  registry on first session open and caches it at `~/.mineco/.bin/<version>/`.
+  `session-runner` `await ensureClaudeCli()` before `openSession`, then passes
+  the path via `EngineSessionInit.cliExecutablePath` → the Claude adapter's
+  `options.pathToClaudeCodeExecutable` (which **bypasses** the SDK's own
+  optional-package resolver). Provisioning self-verifies: tarball sha512
+  (registry `dist.integrity`) + extracted-binary sha256/size (the SDK's bundled
+  `manifest.json`, version-locked). Extraction is a pure-Node gunzip + ustar
+  parser (no deps, streams the body to disk). Registry override:
+  `MINECO_CLI_REGISTRY` / `npm_config_registry` (default `registry.npmjs.org`).
 - **Persistence is `node:sqlite`** (built into Node 24 bundled with Electron 42;
   no native module rebuild needed). Fallback if disabled: `better-sqlite3` +
   `electron-rebuild`.
@@ -155,6 +172,36 @@ session) — NOT re-assembled per turn. Reopen the session to pick up changes.
 
 ## Packaging & distribution
 
-`dist-electron/` is gitignored (build output). The SDK spawns `node` from `PATH`
-(fine for dev). A packaged app needs a bundled Node runtime (or explicit
-`executable` / path) plus an installer (`electron-builder`).
+Config lives in **`electron-builder.yml`**; `dist-electron/` and `release/` are
+gitignored (build output). Scripts: `pnpm pack` (→ `release/<version>/*-unpacked/`,
+a fast smoke test) and `pnpm dist` (→ installers). Both run `vite build` first —
+`vite-plugin-electron` only emits `dist-electron/`, it doesn't package. The app
+manifest stays `dist-electron/main.js` (package.json `main`); renderer loads from
+`dist/` via `loadFile` when `VITE_DEV_SERVER_URL` is absent.
+
+The engine no longer needs a bundled Node runtime — the SDK spawns a native
+binary directly (see the gotchas above). The packaging strategy is therefore:
+
+- **Do NOT bundle the native binary.** The `files` negative glob
+  `!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**` drops all platform
+  variants (note: `claude-agent-sdk-*` with the trailing dash matches the
+  variants but NOT the JS SDK `claude-agent-sdk`). On a given host only the
+  matching variant is even installed (~235 MB); it's fetched at runtime by
+  `services/cli-binary.ts` into `~/.mineco/.bin/`. Verified: `win-unpacked` is
+  ~390 MB (Electron runtime) with no `claude-agent-sdk-*` dir anywhere — ~235 MB
+  smaller than bundling it (and dodges signing the binary, which is already
+  Anthropic-signed in the user dir with no macOS quarantine xattr).
+- **Keep + unpack the SDK JS.** `asarUnpack: node_modules/@anthropic-ai/claude-agent-sdk/**`
+  keeps `sdk.mjs` / `manifest.json` readable on disk (the latter is how
+  `cli-binary.ts` verifies the download) and lets the SDK spawn its subprocess
+  without asar path translation. The rest of `node_modules` stays in `app.asar`.
+- **pnpm + electron-builder:** `.npmrc` sets `node-linker=hoisted` so the builder
+  can collect a flat `node_modules` (the default symlinked layout trips it up).
+  Changing the linker requires a fresh `pnpm install`. (`npx`/npm warns
+  "Unknown project config node-linker" — harmless; it's a pnpm-only key.)
+- **No app icon yet** — electron-builder falls back to the default Electron icon
+  (a warning, not an error). Add `build/icon.{ico,icns,png}` to brand it.
+- **First run needs network** to fetch the binary; offline/air-gapped installs
+  need a fallback (ship the binary manually / point at a pre-staged path).
+- Per-platform installers must be built on (or cross-built for) each OS;
+  binaries can't be cross-compiled.

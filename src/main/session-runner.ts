@@ -42,6 +42,7 @@ import { getSession, setSessionTitle } from "./db/sessions";
 import { createTurn, finishTurn, getLastTurn } from "./db/turns";
 import { claudeEngine } from "./engines/claude";
 import { getAgentDetail, resolveModel } from "./services/agent";
+import { ensureClaudeCli } from "./services/cli-binary";
 import { assembleContext } from "./services/context-assembly";
 import {
   getLiveSession,
@@ -180,6 +181,22 @@ export async function runTurn(
         : undefined;
     // Seed history is captured BEFORE this turn's user message is recorded, and
     // only needed when starting a fresh native thread (agent switch / no resume).
+    // The native CLI binary is provisioned on demand (downloaded + verified on
+    // first use); fail the turn cleanly if it can't be obtained.
+    let cliExecutablePath: string;
+    try {
+      cliExecutablePath = await ensureClaudeCli((p) =>
+        emit({ type: "status", phase: "engine-binary", detail: p.phase }),
+      );
+    } catch (err) {
+      emit({
+        type: "error",
+        message: `Could not provision the Claude engine binary: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      });
+      return;
+    }
     const [seedHistory, ctx] = await Promise.all([
       resume ? Promise.resolve(undefined) : listMessages(req.sessionId),
       assembleContext({ workspaceId: session.workspaceId }),
@@ -187,6 +204,7 @@ export async function runTurn(
     engineSession = await openSession(req.sessionId, agent.engine, {
       cwd: session.cwd,
       agent,
+      cliExecutablePath,
       globalInstructions: ctx.globalInstructions,
       memory: ctx.memory,
       mcpServers: ctx.mcpServers,

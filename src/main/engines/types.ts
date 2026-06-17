@@ -31,6 +31,11 @@ export interface EngineSessionInit {
   cwd: string;
   /** The named agent (config dir + default model) bound to this session. */
   agent: Agent;
+  /** Absolute path to the engine's native CLI executable, provisioned on
+   * demand (see `services/cli-binary`). When set, it is passed to the SDK as
+   * `pathToClaudeCodeExecutable`, bypassing the SDK's own optional-package
+   * resolver. Omit to let the SDK resolve its bundled binary itself. */
+  cliExecutablePath?: string;
   /** Contents of `~/.mineco/MINECO.md`, appended to the system prompt. */
   globalInstructions?: string;
   /** Assembled workspace memory block, appended to the system prompt. */

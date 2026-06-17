@@ -368,6 +368,9 @@ export type NormalizedEvent =
         status: "pending" | "active" | "done";
       }[];
     }
+  /** Non-terminal engine lifecycle status (e.g. provisioning the native binary
+   * on first use). Informational; the renderer may surface or ignore it. */
+  | { type: "status"; phase: string; detail?: string }
   /** Terminal success: final text + usage. */
   | { type: "result"; text: string; usage: NormalizedUsage | null }
   /** Terminal failure. */

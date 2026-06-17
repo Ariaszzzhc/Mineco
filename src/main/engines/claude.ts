@@ -243,6 +243,12 @@ class ClaudeSession implements EngineSession {
         ? { model: resolveModelAlias(init.agent.defaultModel) }
         : {}),
       ...(init.resume ? { resume: init.resume.nativeThreadId } : {}),
+      // Use the on-demand-provisioned native binary (see services/cli-binary);
+      // bypasses the SDK's own optional-package resolver. A native binary is
+      // spawned directly — no `node` is involved.
+      ...(init.cliExecutablePath
+        ? { pathToClaudeCodeExecutable: init.cliExecutablePath }
+        : {}),
       includePartialMessages: true,
       // Per-turn modes are applied via `setPermissionMode`; the real edit gate
       // is `canUseTool` below, so we start permissive-by-callback in "default".
