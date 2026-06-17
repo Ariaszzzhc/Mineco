@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import {
   type AgentInput,
   type AppSettings,
@@ -96,6 +96,22 @@ function createWindow(): void {
     },
   });
 
+  // External links — rendered Markdown <a> tags and any other navigation — must
+  // open in the user's system browser, never navigate this renderer away from
+  // the app. `target=_blank` links and `window.open` hit setWindowOpenHandler;
+  // same-frame link clicks hit will-navigate. Either way we hand http(s)/mailto
+  // to the OS and block in-app navigation.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:|^mailto:/i.test(url)) void shell.openExternal(url);
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (event, url) => {
+    if (/^https?:|^mailto:/i.test(url)) {
+      event.preventDefault();
+      void shell.openExternal(url);
+    }
+  });
+
   if (VITE_DEV_SERVER_URL) {
     void win.loadURL(VITE_DEV_SERVER_URL);
     win.webContents.openDevTools({ mode: "detach" });
@@ -149,10 +165,13 @@ function registerIpc(): void {
   ipcMain.handle(CH.agentsReadSettings, (_e, id: string) =>
     readAgentSettings(id),
   );
-  ipcMain.handle(CH.agentsWriteSettings, async (_e, id: string, raw: string) => {
-    await writeAgentSettings(id, raw);
-    broadcastAgentsChanged();
-  });
+  ipcMain.handle(
+    CH.agentsWriteSettings,
+    async (_e, id: string, raw: string) => {
+      await writeAgentSettings(id, raw);
+      broadcastAgentsChanged();
+    },
+  );
 
   // --- Global instructions (~/.mineco/MINECO.md) --------------------------
   ipcMain.handle(CH.globalInstructionsRead, () => readGlobalInstructions());

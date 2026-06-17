@@ -305,3 +305,328 @@ html[data-switching] *::after {
     animation: none;
   }
 }
+
+/* ===========================================================================
+   Markdown body (.mc-md) — rendered agent prose (Markdown.svelte). Scoped so it
+   only styles that output, and built on the live design tokens so it tracks the
+   dark/light + accent switches. Tailwind v4 preflight resets heading/list/code
+   defaults to nothing, so every block's spacing/typography is re-established
+   here. The wrapper carries the base font-size / leading / text-wrap.
+   =========================================================================== */
+.mc-md > :first-child {
+  margin-top: 0;
+}
+.mc-md > :last-child {
+  margin-bottom: 0;
+}
+
+.mc-md p {
+  margin: 0 0 0.85em;
+  overflow-wrap: break-word;
+}
+
+.mc-md h1,
+.mc-md h2,
+.mc-md h3,
+.mc-md h4,
+.mc-md h5,
+.mc-md h6 {
+  margin: 1.35em 0 0.5em;
+  line-height: 1.3;
+  font-weight: 650;
+  color: var(--ink);
+}
+.mc-md h1 {
+  font-size: 1.45em;
+}
+.mc-md h2 {
+  font-size: 1.28em;
+}
+.mc-md h3 {
+  font-size: 1.14em;
+}
+.mc-md h4,
+.mc-md h5,
+.mc-md h6 {
+  font-size: 1.02em;
+}
+.mc-md :first-child:is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 0;
+}
+
+.mc-md a {
+  color: var(--accent-tx);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+  transition: border-color 0.15s ease;
+}
+.mc-md a:hover {
+  border-bottom-color: var(--accent-tx);
+}
+
+.mc-md strong {
+  font-weight: 640;
+  color: var(--ink);
+}
+.mc-md em {
+  font-style: italic;
+}
+
+/* inline code */
+.mc-md :not(pre) > code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  padding: 0.12em 0.4em;
+  background: var(--card-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-field);
+  color: var(--ink);
+  word-break: break-word;
+}
+
+/* fenced code */
+.mc-md pre {
+  position: relative;
+  margin: 0 0 0.9em;
+  padding: 13px 14px;
+  background: var(--card-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-card);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.mc-md pre code {
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  word-break: normal;
+}
+
+/* per-block copy button — injected by Markdown.svelte once the turn settles */
+.mc-md .mc-copy {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-field);
+  opacity: 0;
+  cursor: default;
+  transition:
+    opacity 0.14s ease,
+    color 0.14s ease,
+    background 0.14s ease;
+}
+.mc-md pre:hover .mc-copy,
+.mc-md .mc-copy:focus-visible {
+  opacity: 1;
+}
+.mc-md .mc-copy:hover {
+  color: var(--ink);
+  background: var(--raised);
+}
+.mc-md .mc-copy[data-copied="1"] {
+  color: var(--accent-tx);
+  opacity: 1;
+}
+
+/* blockquote */
+.mc-md blockquote {
+  margin: 0 0 0.9em;
+  padding: 0.1em 0 0.1em 14px;
+  border-left: 2px solid var(--line-3);
+  color: var(--ink-2);
+}
+.mc-md blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* lists */
+.mc-md ul,
+.mc-md ol {
+  margin: 0 0 0.85em;
+  padding-left: 1.5em;
+}
+.mc-md ul {
+  list-style: disc;
+}
+.mc-md ol {
+  list-style: decimal;
+}
+.mc-md li {
+  margin: 0.2em 0;
+}
+.mc-md li::marker {
+  color: var(--ink-3);
+}
+.mc-md li > p {
+  margin: 0.2em 0;
+}
+
+/* GFM task lists — strip the disc and render the checkbox */
+.mc-md ul:has(> li > input[type="checkbox"]) {
+  list-style: none;
+  padding-left: 0.2em;
+}
+.mc-md li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+.mc-md input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: var(--accent);
+}
+
+/* horizontal rule */
+.mc-md hr {
+  margin: 1.2em 0;
+  border: 0;
+  border-top: 1px solid var(--line-2);
+}
+
+/* tables — block + overflow so wide tables scroll instead of breaking layout */
+.mc-md table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 0.9em;
+  border-collapse: collapse;
+  font-size: 0.95em;
+  overflow-x: auto;
+}
+.mc-md th,
+.mc-md td {
+  padding: 6px 11px;
+  border: 1px solid var(--line-2);
+  text-align: left;
+  white-space: normal;
+}
+.mc-md th {
+  background: var(--card-2);
+  font-weight: 620;
+  color: var(--ink);
+}
+.mc-md tr:nth-child(2n) td {
+  background: color-mix(in oklab, var(--card-2) 45%, transparent);
+}
+
+.mc-md img {
+  max-width: 100%;
+  border-radius: var(--r-field);
+}
+
+/* ---------------------------------------------------------------------------
+   highlight.js token palette. Hand-authored (not a fixed theme file) so it
+   tracks the app theme instead of being locked to one. Dark first; the
+   [data-theme="light"] block overrides below.
+   --------------------------------------------------------------------------- */
+.mc-md .hljs {
+  color: var(--ink);
+  background: transparent;
+}
+.mc-md .hljs-comment,
+.mc-md .hljs-quote {
+  color: var(--ink-3);
+  font-style: italic;
+}
+.mc-md .hljs-keyword,
+.mc-md .hljs-selector-tag,
+.mc-md .hljs-literal,
+.mc-md .hljs-symbol,
+.mc-md .hljs-bullet {
+  color: #c678dd;
+}
+.mc-md .hljs-string,
+.mc-md .hljs-regexp,
+.mc-md .hljs-addition {
+  color: #98c379;
+}
+.mc-md .hljs-number {
+  color: #d19a66;
+}
+.mc-md .hljs-title,
+.mc-md .hljs-section {
+  color: #61afef;
+}
+.mc-md .hljs-attr,
+.mc-md .hljs-attribute,
+.mc-md .hljs-variable,
+.mc-md .hljs-property,
+.mc-md .hljs-template-variable {
+  color: #d19a66;
+}
+.mc-md .hljs-built_in,
+.mc-md .hljs-class .hljs-title,
+.mc-md .hljs-type {
+  color: #e5c07b;
+}
+.mc-md .hljs-tag,
+.mc-md .hljs-name,
+.mc-md .hljs-selector-class,
+.mc-md .hljs-selector-id {
+  color: #e06c75;
+}
+.mc-md .hljs-deletion {
+  color: #e06c75;
+}
+.mc-md .hljs-meta {
+  color: var(--ink-2);
+}
+.mc-md .hljs-emphasis {
+  font-style: italic;
+}
+.mc-md .hljs-strong {
+  font-weight: 600;
+}
+.mc-md .hljs-link {
+  text-decoration: underline;
+}
+
+/* light theme overrides */
+[data-theme="light"] .mc-md .hljs-keyword,
+[data-theme="light"] .mc-md .hljs-selector-tag,
+[data-theme="light"] .mc-md .hljs-literal,
+[data-theme="light"] .mc-md .hljs-symbol,
+[data-theme="light"] .mc-md .hljs-bullet {
+  color: #a626a4;
+}
+[data-theme="light"] .mc-md .hljs-string,
+[data-theme="light"] .mc-md .hljs-regexp,
+[data-theme="light"] .mc-md .hljs-addition {
+  color: #50a14f;
+}
+[data-theme="light"] .mc-md .hljs-number,
+[data-theme="light"] .mc-md .hljs-attr,
+[data-theme="light"] .mc-md .hljs-attribute,
+[data-theme="light"] .mc-md .hljs-variable,
+[data-theme="light"] .mc-md .hljs-property,
+[data-theme="light"] .mc-md .hljs-template-variable {
+  color: #986801;
+}
+[data-theme="light"] .mc-md .hljs-title,
+[data-theme="light"] .mc-md .hljs-section {
+  color: #4078f2;
+}
+[data-theme="light"] .mc-md .hljs-built_in,
+[data-theme="light"] .mc-md .hljs-class .hljs-title,
+[data-theme="light"] .mc-md .hljs-type {
+  color: #c18401;
+}
+[data-theme="light"] .mc-md .hljs-tag,
+[data-theme="light"] .mc-md .hljs-name,
+[data-theme="light"] .mc-md .hljs-selector-class,
+[data-theme="light"] .mc-md .hljs-selector-id,
+[data-theme="light"] .mc-md .hljs-deletion {
+  color: #e45649;
+}

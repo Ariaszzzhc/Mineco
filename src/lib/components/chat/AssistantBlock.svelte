@@ -6,6 +6,7 @@
 -->
 <script lang="ts">
 import Icon from "../../ui/Icon.svelte";
+import Markdown from "./Markdown.svelte";
 import ThinkBlock from "./ThinkBlock.svelte";
 import ToolGroup from "./ToolGroup.svelte";
 import type { AssistantBlock, LiveBlock } from "./types";
@@ -43,7 +44,10 @@ const engineIcon = "/brand/claude-icon.png";
   {/if}
 
   {#if block.text}
-    <p class="m-0 max-w-[64ch] whitespace-pre-wrap text-[14.5px] leading-[1.62] text-ink [text-wrap:pretty]">{block.text}{#if block.status === "running"}<span class="mc-caret"></span>{/if}</p>
+    <Markdown text={block.text} streaming={block.status === "running"} />
+    {#if block.status === "running"}
+      <span class="mc-caret"></span>
+    {/if}
   {:else if block.status === "running" && !block.reasoningLive && !block.tools.length}
     <p class="m-0 text-[13px] text-ink-3">
       <span class="mc-caret"></span>
