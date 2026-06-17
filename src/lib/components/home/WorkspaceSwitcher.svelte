@@ -11,14 +11,14 @@ import { workspaces } from "../../stores/workspace.svelte";
 let open = $state(false);
 
 async function pickAndCreate() {
-  const path = await window.mineco.workspaces.pickDirectory();
+  const path = await workspaces.pickDirectory();
   if (!path) return;
   // Derive a name from the last path segment(s)
   const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
   const name =
     parts.slice(-2).join("/") || parts[parts.length - 1] || "workspace";
   open = false;
-  await workspaces.create({ name, path });
+  await workspaces.create({ name, rootPath: path });
 }
 
 function select(id: string) {
@@ -67,6 +67,24 @@ function select(id: string) {
         {i18n.t("workspace")}
       </div>
 
+      <!-- public / shared option -->
+      <button
+        type="button"
+        onclick={() => select("")}
+        class={`flex w-full cursor-pointer items-center gap-[9px] rounded-[8px] border-none px-[9px] py-[7px] text-left font-[var(--ui)] transition-colors ${!workspaces.currentId ? "bg-card-2" : "bg-transparent hover:bg-card-2"}`}
+      >
+        <span class={`grid size-6 flex-none place-items-center rounded-[7px] border ${!workspaces.currentId ? "border-accent-ln bg-accent-bg text-accent-tx" : "border-line bg-raised text-ink-2"}`}>
+          <Icon name="ws" size={14} stroke={1.8} />
+        </span>
+        <span class="flex min-w-0 flex-1 flex-col gap-px">
+          <span class="text-[12.5px] font-semibold text-ink">{i18n.t("workspace.shared")}</span>
+          <span class="truncate font-mono text-[10px] text-ink-3">Public / scratch</span>
+        </span>
+        <span class={`flex-none text-accent-tx transition-opacity ${!workspaces.currentId ? "opacity-100" : "opacity-0"}`}>
+          <Icon name="check" size={13} stroke={2.6} />
+        </span>
+      </button>
+
       <!-- workspace list -->
       {#each workspaces.items as ws (ws.id)}
         {@const isSel = ws.id === workspaces.currentId}
@@ -81,7 +99,7 @@ function select(id: string) {
           <span class="flex min-w-0 flex-1 flex-col gap-px">
             <span class="text-[12.5px] font-semibold text-ink">{ws.name}</span>
             <span class="truncate font-mono text-[10px] text-ink-3">
-              {ws.path || i18n.t("workspace.shared")}
+              {ws.rootPath || i18n.t("workspace.shared")}
             </span>
           </span>
           <span class={`flex-none text-accent-tx transition-opacity ${isSel ? "opacity-100" : "opacity-0"}`}>

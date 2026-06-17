@@ -1,6 +1,7 @@
 <!--
-  RunModePicker — toolbar button that opens a popover to pick the run mode
-  (Default / Plan / Auto / Accept edits). Each mode has a distinct accent color.
+  RunModePicker — toolbar button that opens a popover to pick the run mode.
+  Modes are fetched at runtime from capabilities('claude') so they match exactly
+  what the engine supports. Each known mode id gets a distinct accent color/icon.
   The selected mode is persisted to localStorage (keyed by workspace id).
 -->
 <script lang="ts">
@@ -10,62 +11,77 @@ import { Popover } from "bits-ui";
 import type { EngineId, RunMode } from "../../agent-protocol";
 
 interface Props {
-  mode: RunMode;
+  /** Current run mode id. */
+  mode: string;
   engine: EngineId;
-  onchange: (m: RunMode) => void;
+  onchange: (m: string) => void;
 }
 let { mode, engine, onchange }: Props = $props();
 
 let open = $state(false);
 
-// Each run mode gets a color + icon + label
-const MODE_META: Record<
-  RunMode,
-  { color: string; icon: string; desc: string }
-> = {
-  default: {
-    color: "#5566C9",
-    icon: "sparkle",
-    desc: "Edits and runs commands; asks when unsure",
-  },
-  plan: {
-    color: "#C9890F",
-    icon: "plan",
-    desc: "Researches and plans first — no edits until you approve",
-  },
-  auto: {
-    color: "#D9608C",
-    icon: "bolt",
-    desc: "Full autonomy — edits, runs and commits without pausing",
-  },
-  acceptEdits: {
-    color: "#3E9B4F",
-    icon: "shield",
-    desc: "Pauses for your review before every file edit",
-  },
+/** Modes fetched from capabilities at runtime. */
+let capModes = $state<RunMode[]>([]);
+
+$effect(() => {
+  void engine; // track
+  const api = (
+    globalThis as {
+      mineco?: {
+        capabilities?: (e: EngineId) => Promise<{ modes: RunMode[] }>;
+      };
+    }
+  ).mineco;
+  if (!api?.capabilities) {
+    // Fallback while loading
+    capModes = [
+      {
+        id: "default",
+        label: "Default",
+        description: "Edits and runs commands; asks when unsure",
+      },
+      {
+        id: "plan",
+        label: "Plan",
+        description: "Researches and plans first — no edits until you approve",
+      },
+      {
+        id: "auto",
+        label: "Auto",
+        description: "Full autonomy — edits, runs and commits without pausing",
+      },
+    ];
+    return;
+  }
+  api
+    .capabilities(engine)
+    .then((caps) => {
+      if (caps?.modes?.length) capModes = caps.modes;
+    })
+    .catch(() => {});
+});
+
+// Static per-id style hints (purely cosmetic; unknown ids fall back to defaults).
+const MODE_STYLE: Record<string, { color: string; icon: string }> = {
+  default: { color: "#5566C9", icon: "sparkle" },
+  plan: { color: "#C9890F", icon: "plan" },
+  auto: { color: "#D9608C", icon: "bolt" },
+  acceptEdits: { color: "#3E9B4F", icon: "shield" },
 };
 
-const modeLabel: Record<RunMode, string> = {
-  default: "runMode.default",
-  plan: "runMode.plan",
-  auto: "runMode.auto",
-  acceptEdits: "runMode.acceptEdits",
-};
+function styleFor(id: string): { color: string; icon: string } {
+  return MODE_STYLE[id] ?? { color: "#5566C9", icon: "sparkle" };
+}
 
-function pick(m: RunMode) {
+function pick(m: string) {
   onchange(m);
   open = false;
 }
 
-const availableModes = $derived(
-  (window.mineco?.runModes?.(engine) ?? [
-    "default",
-    "plan",
-    "auto",
-  ]) as RunMode[],
+const curMode = $derived(
+  capModes.find((m) => m.id === mode) ?? capModes[0] ?? null,
 );
-
-const meta = $derived(MODE_META[mode] ?? MODE_META.default);
+const meta = $derived(curMode ? styleFor(curMode.id) : styleFor("default"));
 </script>
 
 <Popover.Root bind:open>
@@ -77,7 +93,7 @@ const meta = $derived(MODE_META[mode] ?? MODE_META.default);
     <span class="inline-flex">
       <Icon name={meta.icon} size={13} stroke={1.8} />
     </span>
-    {i18n.t(modeLabel[mode])}
+    {curMode?.label ?? mode}
     <span class="inline-flex opacity-85">
       <Icon name="chev" size={11} stroke={2.4} />
     </span>
@@ -94,12 +110,12 @@ const meta = $derived(MODE_META[mode] ?? MODE_META.default);
         {i18n.t("runMode")}
       </div>
 
-      {#each availableModes as m (m)}
-        {@const mm = MODE_META[m] ?? MODE_META.default}
-        {@const isSel = m === mode}
+      {#each capModes as m (m.id)}
+        {@const mm = styleFor(m.id)}
+        {@const isSel = m.id === mode}
         <button
           type="button"
-          onclick={() => pick(m)}
+          onclick={() => pick(m.id)}
           class="flex w-full cursor-pointer items-center gap-[10px] rounded-[8px] border-none bg-transparent px-[9px] py-[8px] text-left font-[var(--ui)] transition-colors hover:bg-card-2"
         >
           <span
@@ -110,8 +126,8 @@ const meta = $derived(MODE_META[mode] ?? MODE_META.default);
             <Icon name={mm.icon} size={15} stroke={1.8} />
           </span>
           <span class="flex min-w-0 flex-1 flex-col gap-px">
-            <span class="text-[13px] font-[500] text-ink">{i18n.t(modeLabel[m])}</span>
-            <span class="text-[11.5px] leading-snug text-ink-3">{mm.desc}</span>
+            <span class="text-[13px] font-[500] text-ink">{m.label}</span>
+            <span class="text-[11.5px] leading-snug text-ink-3">{m.description}</span>
           </span>
           <span class={`flex-none text-accent-tx transition-opacity ${isSel ? "opacity-100" : "opacity-0"}`}>
             <Icon name="check" size={15} stroke={2.6} />

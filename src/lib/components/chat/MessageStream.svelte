@@ -6,9 +6,9 @@
 -->
 <script lang="ts">
 import AssistantBlock from "./AssistantBlock.svelte";
-import type { Block } from "./types";
+import type { Block, LiveBlock } from "./types";
 
-let { blocks }: { blocks: Block[] } = $props();
+let { blocks }: { blocks: (Block | LiveBlock)[] } = $props();
 </script>
 
 {#each blocks as block (block.id)}

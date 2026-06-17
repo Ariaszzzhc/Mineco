@@ -2,36 +2,58 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import {
-  type Agent,
   type AgentInput,
-  type Appearance,
+  type AppSettings,
   CH,
-  type McpServer,
+  type EngineId,
+  type McpServerEntry,
   type MemoryEntry,
-  type Skill,
+  type SessionView,
+  type TurnResponse,
   type TurnRunRequest,
   turnEventChannel,
-  type Workspace,
 } from "../src/lib/agent-protocol";
-import { createAgent, deleteAgent, listAgents, updateAgent } from "./db/agents";
-import { getAppearance, setAppearance } from "./db/app-settings";
-import { createMcp, deleteMcp, listMcp, updateMcp } from "./db/mcp";
+import { listMessages } from "./db/messages";
+import { createSession, deleteSession, listSessions } from "./db/sessions";
+import { getEngine } from "./engines/registry";
+import {
+  createAgent,
+  deleteAgent,
+  getAgentDetail,
+  listAgents,
+  readAgentSettings,
+  updateAgent,
+  writeAgentSettings,
+} from "./services/agent";
+import { getAppearance, setAppearance } from "./services/app-settings";
+import {
+  readGlobalInstructions,
+  writeGlobalInstructions,
+} from "./services/global-instructions";
+import { listMcp, toggle as toggleMcp, writeScope } from "./services/mcp";
 import {
   createMemory,
   deleteMemory,
   listMemory,
   updateMemory,
-} from "./db/memory";
-import { listMessages } from "./db/messages";
-import { createSession, deleteSession, listSessions } from "./db/sessions";
-import { createSkill, deleteSkill, listSkills, updateSkill } from "./db/skills";
+} from "./services/memory";
+import { isRunning } from "./services/run-registry";
+import type { Scope } from "./services/scope";
+import { createSkill, listSkills, toggleSkillEnabled } from "./services/skills";
 import {
+  activate,
   createWorkspace,
   deleteWorkspace,
+  ensurePublicWorkspaceExists,
   listWorkspaces,
   updateWorkspace,
-} from "./db/workspaces";
-import { abortTurn, runTurn } from "./session-runner";
+} from "./services/workspace";
+import {
+  abortTurn,
+  onRunStateChanged,
+  resolveTurnResponse,
+  runTurn,
+} from "./session-runner";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -66,28 +88,60 @@ function createWindow(): void {
   }
 }
 
-/** Registers the IPC surface: agent/workspace/session/memory/MCP/skill CRUD,
- * appearance, and the streaming turn runner. Engines run here, in the
- * Node-capable main process — never in the renderer. */
+/**
+ * Merges a session list with the in-memory run registry to produce
+ * {@link SessionView}s (the DB has no run-state column).
+ */
+async function listSessionViews(
+  workspaceId?: string | null,
+): Promise<SessionView[]> {
+  const sessions = await listSessions(workspaceId);
+  return sessions.map((s) => ({ ...s, running: isRunning(s.id) }));
+}
+
+/**
+ * Registers the full IPC surface. Engines + filesystem services run here, in the
+ * Node-capable main process — never in the renderer. Every channel maps to the
+ * agent-protocol `CH` contract and delegates to a db/* or services/* function.
+ */
 function registerIpc(): void {
-  // Agents.
+  // --- Agents (filesystem-backed) -----------------------------------------
   ipcMain.handle(CH.agentsList, () => listAgents());
   ipcMain.handle(CH.agentsCreate, (_e, input: AgentInput) =>
     createAgent(input),
   );
-  ipcMain.handle(CH.agentsUpdate, (_e, agent: Agent) => updateAgent(agent));
+  ipcMain.handle(CH.agentsUpdate, (_e, id: string, input: AgentInput) =>
+    updateAgent(id, input),
+  );
   ipcMain.handle(CH.agentsDelete, (_e, id: string) => deleteAgent(id));
+  ipcMain.handle(CH.agentsGet, (_e, id: string) => getAgentDetail(id));
+  ipcMain.handle(CH.agentsReadSettings, (_e, id: string) =>
+    readAgentSettings(id),
+  );
+  ipcMain.handle(CH.agentsWriteSettings, (_e, id: string, raw: string) =>
+    writeAgentSettings(id, raw),
+  );
 
-  // Workspaces.
+  // --- Global instructions (~/.mineco/MINECO.md) --------------------------
+  ipcMain.handle(CH.globalInstructionsRead, () => readGlobalInstructions());
+  ipcMain.handle(CH.globalInstructionsWrite, (_e, text: string) =>
+    writeGlobalInstructions(text),
+  );
+
+  // --- Workspaces ----------------------------------------------------------
   ipcMain.handle(CH.workspacesList, () => listWorkspaces());
   ipcMain.handle(
     CH.workspacesCreate,
-    (_e, input: { name: string; path: string }) => createWorkspace(input),
+    (_e, input: { name: string; rootPath: string | null }) =>
+      createWorkspace(input),
   );
-  ipcMain.handle(CH.workspacesUpdate, (_e, ws: Workspace) =>
-    updateWorkspace(ws),
+  ipcMain.handle(
+    CH.workspacesUpdate,
+    (_e, input: { id: string; name: string; rootPath: string | null }) =>
+      updateWorkspace(input),
   );
   ipcMain.handle(CH.workspacesDelete, (_e, id: string) => deleteWorkspace(id));
+  ipcMain.handle(CH.workspacesActivate, (_e, id: string) => activate(id));
   ipcMain.handle(CH.workspacesPick, async (): Promise<string | null> => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory", "createDirectory"],
@@ -96,15 +150,24 @@ function registerIpc(): void {
     return result.filePaths[0];
   });
 
-  // Sessions + canonical transcript.
+  // --- Sessions + canonical transcript ------------------------------------
   ipcMain.handle(CH.sessionsList, (_e, workspaceId?: string | null) =>
-    listSessions(workspaceId),
+    listSessionViews(workspaceId),
   );
   ipcMain.handle(
     CH.sessionsCreate,
-    (_e, input: { workspaceId: string | null; title?: string; cwd?: string }) =>
+    (
+      _e,
+      input: {
+        workspaceId: string | null;
+        agentId?: string | null;
+        title?: string;
+        cwd?: string;
+      },
+    ) =>
       createSession({
         workspaceId: input.workspaceId ?? null,
+        agentId: input.agentId ?? null,
         title: input.title,
         // The sandboxed renderer can't resolve paths; default to the app root.
         cwd: input.cwd || process.env.APP_ROOT || process.cwd(),
@@ -115,47 +178,70 @@ function registerIpc(): void {
     listMessages(sessionId),
   );
 
-  // Workspace memory.
-  ipcMain.handle(CH.memoryList, (_e, workspaceId: string) =>
+  // --- Memory (filesystem-backed) -----------------------------------------
+  ipcMain.handle(CH.memoryList, (_e, workspaceId: string | null) =>
     listMemory(workspaceId),
   );
   ipcMain.handle(
     CH.memoryCreate,
-    (
-      _e,
-      input: { workspaceId: string; kind: MemoryEntry["kind"]; text: string },
-    ) => createMemory(input),
+    (_e, workspaceId: string | null, entry: Omit<MemoryEntry, "slug">) =>
+      createMemory(workspaceId, entry),
   );
-  ipcMain.handle(CH.memoryUpdate, (_e, entry: MemoryEntry) =>
-    updateMemory(entry),
-  );
-  ipcMain.handle(CH.memoryDelete, (_e, id: string) => deleteMemory(id));
-
-  // MCP servers.
-  ipcMain.handle(CH.mcpList, () => listMcp());
   ipcMain.handle(
-    CH.mcpCreate,
-    (_e, input: Omit<McpServer, "id" | "createdAt">) => createMcp(input),
+    CH.memoryUpdate,
+    (_e, workspaceId: string | null, entry: MemoryEntry) =>
+      updateMemory(workspaceId, entry),
   );
-  ipcMain.handle(CH.mcpUpdate, (_e, server: McpServer) => updateMcp(server));
-  ipcMain.handle(CH.mcpDelete, (_e, id: string) => deleteMcp(id));
+  ipcMain.handle(
+    CH.memoryDelete,
+    (_e, workspaceId: string | null, slug: string) =>
+      deleteMemory(workspaceId, slug),
+  );
 
-  // Skills.
-  ipcMain.handle(CH.skillsList, () => listSkills());
+  // --- MCP (filesystem-backed) --------------------------------------------
+  ipcMain.handle(CH.mcpList, (_e, workspaceId: string | null) =>
+    listMcp(workspaceId),
+  );
+  ipcMain.handle(
+    CH.mcpWriteScope,
+    (_e, scope: Scope, workspaceId: string | null, entries: McpServerEntry[]) =>
+      writeScope(scope, workspaceId, entries),
+  );
+  ipcMain.handle(
+    CH.mcpToggle,
+    (_e, name: string, enabled: boolean, workspaceId: string | null) =>
+      toggleMcp(name, enabled, workspaceId),
+  );
+
+  // --- Skills (filesystem-backed) -----------------------------------------
+  ipcMain.handle(CH.skillsList, (_e, workspaceId: string | null) =>
+    listSkills(workspaceId),
+  );
+  ipcMain.handle(
+    CH.skillsToggle,
+    (_e, name: string, enabled: boolean, workspaceId: string | null) =>
+      toggleSkillEnabled(name, enabled, workspaceId),
+  );
   ipcMain.handle(
     CH.skillsCreate,
-    (_e, input: Omit<Skill, "id" | "createdAt">) => createSkill(input),
+    (_e, name: string, scope: Scope, workspaceId: string | null) =>
+      createSkill(name, scope, workspaceId),
   );
-  ipcMain.handle(CH.skillsUpdate, (_e, skill: Skill) => updateSkill(skill));
-  ipcMain.handle(CH.skillsDelete, (_e, id: string) => deleteSkill(id));
 
-  // Appearance.
+  // --- Appearance / app settings ------------------------------------------
   ipcMain.handle(CH.appearanceGet, () => getAppearance());
-  ipcMain.handle(CH.appearanceSet, (_e, appearance: Appearance) =>
-    setAppearance(appearance),
+  ipcMain.handle(CH.appearanceSet, (_e, settings: AppSettings) =>
+    setAppearance(settings),
   );
 
-  // Streaming turn run: events go back on the request's private channel.
+  // --- Engine capabilities -------------------------------------------------
+  ipcMain.handle(CH.enginesCapabilities, (_e, engine: EngineId) =>
+    getEngine(engine).capabilities(),
+  );
+
+  // --- Streaming turn run --------------------------------------------------
+  // Events go back on the request's private channel; question/approval bridges
+  // flow back in on `turnRespond`.
   ipcMain.on(CH.turnRun, (event, req: TurnRunRequest) => {
     const channel = turnEventChannel(req.id);
     void runTurn(req, (payload) => {
@@ -163,9 +249,22 @@ function registerIpc(): void {
     });
   });
   ipcMain.on(CH.turnAbort, (_e, id: string) => abortTurn(id));
+  ipcMain.on(CH.turnRespond, (_e, resp: TurnResponse) =>
+    resolveTurnResponse(resp),
+  );
+
+  // Broadcast run-state changes so every window can refresh "running" badges.
+  onRunStateChanged((runningSessionIds) => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.webContents.isDestroyed()) {
+        w.webContents.send(CH.runStateChanged, runningSessionIds);
+      }
+    }
+  });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await ensurePublicWorkspaceExists();
   registerIpc();
   createWindow();
 

@@ -19,35 +19,39 @@ import { onDestroy, onMount, tick } from "svelte";
 import type {
   Agent,
   Message,
-  NormalizedEvent,
-  RunMode,
-  Session,
+  SessionView,
   ToolRecord,
 } from "../agent-protocol";
 import {
   type AssistantBlock,
   type Block,
+  type LiveBlock,
   fmtTime,
 } from "../components/chat/types";
+import { applyEvent, makeLiveBlock } from "../event-reducer";
+import { onRunStateChanged } from "../ipc";
 import { i18n } from "../stores/i18n.svelte";
 import { nav } from "../stores/nav.svelte";
 import { workspaces } from "../stores/workspace.svelte";
 
 // ---- data --------------------------------------------------------------
 let agents = $state<Agent[]>([]);
-let sessions = $state<Session[]>([]);
-let session = $state<Session | null>(null);
-let blocks = $state<Block[]>([]);
+let sessions = $state<SessionView[]>([]);
+let session = $state<SessionView | null>(null);
+let blocks = $state<(Block | LiveBlock)[]>([]);
 let loading = $state(false);
 
 // composer selection
 let agentId = $state<string | null>(null);
-let model = $state<string>("");
-let mode = $state<RunMode>("default");
+let model = $state<string>("sonnet");
+let mode = $state<string>("default");
 
 // live run handle
 let activeRun: { id: string; stop: () => void } | null = null;
 let busy = $state(false);
+
+/** Running session ids from the main process broadcast. */
+let runningIds = $state<Set<string>>(new Set());
 
 const curWorkspace = $derived(workspaces.current);
 const curAgent = $derived(
@@ -69,6 +73,11 @@ async function scrollToBottom(force = false) {
   const el = scrollEl;
   if (el) el.scrollTop = el.scrollHeight;
 }
+
+// Subscribe to run-state broadcasts.
+const unsubRunState = onRunStateChanged((ids) => {
+  runningIds = new Set(ids);
+});
 
 // ---- loading -----------------------------------------------------------
 
@@ -157,40 +166,23 @@ function startTurn(prompt: string) {
     time: fmtTime(Date.now()),
   });
 
-  // live assistant block
-  const ab: AssistantBlock = {
-    kind: "assistant",
+  // live assistant block (using event-reducer helper)
+  const lb = makeLiveBlock({
     id: `a-${Date.now()}`,
-    reasoning: "",
-    reasoningLive: false,
-    reasoningMs: 0,
-    text: "",
-    tools: [],
     agentName: curAgent?.name ?? "mineco",
     model,
     engine: curAgent?.engine ?? null,
     time: fmtTime(Date.now()),
-    status: "running",
-    error: "",
-  };
-  blocks.push(ab);
+  });
+
+  blocks.push(lb);
   const abIndex = blocks.length - 1;
   busy = true;
-
-  const reasoningStart = Date.now();
-  let reasoningStarted = false;
 
   void scrollToBottom(true);
 
   // Always mutate the proxy read back out of the $state array (blocks[i]).
-  const live = () => blocks[abIndex] as AssistantBlock | undefined;
-
-  const endReasoning = (b: AssistantBlock) => {
-    if (b.reasoningLive) {
-      b.reasoningLive = false;
-      b.reasoningMs = Date.now() - reasoningStart;
-    }
-  };
+  const live = () => blocks[abIndex] as LiveBlock | undefined;
 
   const finish = () => {
     busy = false;
@@ -200,38 +192,11 @@ function startTurn(prompt: string) {
 
   activeRun = window.mineco.runTurn(
     { sessionId: sid, agentId: aId, model, mode, prompt },
-    (e: NormalizedEvent) => {
+    (e) => {
       const b = live();
       if (!b || b.kind !== "assistant") return;
-      switch (e.type) {
-        case "reasoning":
-          reasoningStarted = true;
-          b.reasoning += e.text;
-          b.reasoningLive = b.text.length === 0;
-          break;
-        case "text":
-          if (reasoningStarted) endReasoning(b);
-          b.text += e.text;
-          break;
-        case "tool":
-          endReasoning(b);
-          b.tools.push({ name: e.name, detail: e.detail });
-          break;
-        case "result":
-          endReasoning(b);
-          if (e.text && !b.text) b.text = e.text;
-          b.status = "done";
-          finish();
-          break;
-        case "error":
-          b.reasoningLive = false;
-          b.status = "error";
-          b.error = e.message;
-          finish();
-          break;
-        case "thread":
-          break;
-      }
+      const terminal = applyEvent(b, e);
+      if (terminal) finish();
       void scrollToBottom();
     },
   );
@@ -247,10 +212,10 @@ function onStop() {
     activeRun = null;
   }
   const i = blocks.findIndex(
-    (b) => b.kind === "assistant" && b.status === "running",
+    (b) => b.kind === "assistant" && (b as AssistantBlock).status === "running",
   );
   if (i >= 0) {
-    const b = blocks[i] as AssistantBlock;
+    const b = blocks[i] as LiveBlock;
     b.reasoningLive = false;
     b.status = "done";
   }
@@ -295,6 +260,7 @@ onMount(async () => {
 
 onDestroy(() => {
   if (activeRun) activeRun.stop();
+  unsubRunState();
 });
 
 // session header bits
@@ -304,6 +270,10 @@ const headerScope = $derived(
 const sessionTitle = $derived(
   session?.title || nav.activeSessionId || "Session",
 );
+
+function isRunning(id: string): boolean {
+  return runningIds.has(id);
+}
 </script>
 
 <div class="absolute inset-0 grid grid-rows-[var(--tbh)_1fr] bg-app font-ui text-ink">
@@ -386,7 +356,7 @@ const sessionTitle = $derived(
               <span class="flex-none text-ink-2"><Icon name="workspace" size={14} /></span>
               <span class="flex min-w-0 flex-col">
                 <span class="truncate text-[13px] text-ink">{w.name}</span>
-                {#if w.path}<span class="truncate text-[11px] text-ink-3">{w.path}</span>{/if}
+                {#if w.rootPath}<span class="truncate text-[11px] text-ink-3">{w.rootPath}</span>{/if}
               </span>
               {#if curWorkspace?.id === w.id}
                 <span class="ml-auto text-accent-tx"><Icon name="check" size={13} stroke={2.4} /></span>
@@ -412,6 +382,7 @@ const sessionTitle = $derived(
           <div class="px-2 py-2 text-[12px] text-ink-3">{i18n.t("empty.noSessions")}</div>
         {:else}
           {#each sessions as s (s.id)}
+            {@const running = isRunning(s.id) || s.running}
             <button
               type="button"
               onclick={() => openRecent(s.id)}
@@ -427,7 +398,7 @@ const sessionTitle = $derived(
               >
                 {s.title || "Untitled session"}
               </span>
-              {#if s.status === "running"}
+              {#if running}
                 <span class="inline-flex items-center gap-1.5 font-mono text-[9.5px] font-semibold tracking-[.04em] text-accent-tx">
                   <span class="mc-rdot"></span> running
                 </span>

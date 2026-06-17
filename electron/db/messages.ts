@@ -3,13 +3,14 @@ import type { EngineId, Message } from "../../src/lib/agent-protocol";
 import { getDb } from "./index";
 
 /** The canonical engine-neutral transcript for a session, oldest first. */
-export function listMessages(sessionId: string): Promise<Message[]> {
-  return getDb()
+export async function listMessages(sessionId: string): Promise<Message[]> {
+  const rows = await getDb()
     .selectFrom("messages")
     .selectAll()
     .where("sessionId", "=", sessionId)
     .orderBy("createdAt")
     .execute();
+  return rows.map((r) => ({ ...r, engine: r.engine as EngineId | null }));
 }
 
 export async function addMessage(input: {

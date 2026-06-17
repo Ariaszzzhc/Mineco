@@ -1,15 +1,29 @@
 import { randomUUID } from "node:crypto";
 import type { Selectable } from "kysely";
-import type {
-  NormalizedUsage,
-  RunMode,
-  TurnRecord,
-} from "../../src/lib/agent-protocol";
+import type { NormalizedUsage } from "../../src/lib/agent-protocol";
 import { getDb } from "./index";
 import type { Database } from "./schema";
 
-/** Maps a DB row (usage stored as JSON) to the domain `TurnRecord`. */
-function toTurn(row: Selectable<Database["turns"]>): TurnRecord {
+/** A persisted turn with `usageJson` decoded back to a `NormalizedUsage`. The
+ * canonical engine-neutral turn record (mineco.db only; no agent-protocol type
+ * since turns are an internal persistence concern). */
+export interface Turn {
+  id: string;
+  sessionId: string;
+  agentId: string;
+  /** Run mode id (string). */
+  mode: string | null;
+  /** Human-readable run-mode label captured at turn time. */
+  modeLabel: string | null;
+  model: string | null;
+  nativeThreadId: string | null;
+  usage: NormalizedUsage | null;
+  status: string;
+  createdAt: number;
+}
+
+/** Maps a DB row (usage stored as JSON) to a {@link Turn}. */
+function toTurn(row: Selectable<Database["turns"]>): Turn {
   const { usageJson, ...rest } = row;
   return {
     ...rest,
@@ -20,16 +34,16 @@ function toTurn(row: Selectable<Database["turns"]>): TurnRecord {
 export async function createTurn(input: {
   sessionId: string;
   agentId: string;
-  engine: TurnRecord["engine"];
-  mode: RunMode;
-  model: string;
-}): Promise<TurnRecord> {
-  const turn: TurnRecord = {
+  mode: string | null;
+  modeLabel?: string | null;
+  model: string | null;
+}): Promise<Turn> {
+  const turn: Turn = {
     id: randomUUID(),
     sessionId: input.sessionId,
     agentId: input.agentId,
-    engine: input.engine,
     mode: input.mode,
+    modeLabel: input.modeLabel ?? null,
     model: input.model,
     nativeThreadId: null,
     usage: null,
@@ -42,8 +56,8 @@ export async function createTurn(input: {
       id: turn.id,
       sessionId: turn.sessionId,
       agentId: turn.agentId,
-      engine: turn.engine,
       mode: turn.mode,
+      modeLabel: turn.modeLabel,
       model: turn.model,
       nativeThreadId: null,
       usageJson: null,
@@ -72,10 +86,8 @@ export async function finishTurn(input: {
 }
 
 /** The most recent completed turn for a session — drives the resume-vs-seed
- * decision when switching engines. */
-export async function getLastTurn(
-  sessionId: string,
-): Promise<TurnRecord | null> {
+ * decision when switching agents. */
+export async function getLastTurn(sessionId: string): Promise<Turn | null> {
   const row = await getDb()
     .selectFrom("turns")
     .selectAll()

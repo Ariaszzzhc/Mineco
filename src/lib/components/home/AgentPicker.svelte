@@ -23,15 +23,13 @@ function pick(a: Agent) {
   open = false;
 }
 
-function engineIcon(engine: string): string {
-  return engine === "claude" ? "sdkA" : "sdkX";
+function engineIcon(_engine: string): string {
+  // v1 is Claude-only; icon is always the Claude icon.
+  return "sdkA";
 }
 
 function agentSub(a: Agent): string {
-  if (a.engine === "claude") {
-    return `Claude Code · ${a.models?.sonnet ?? a.model ?? ""}`;
-  }
-  return `Codex · ${a.model ?? ""}`;
+  return `Claude Code · ${a.defaultModel}`;
 }
 </script>
 

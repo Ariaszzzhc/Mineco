@@ -5,8 +5,9 @@
   attach/dictate icon buttons, and a cosmetic context ring.
 
   Enter sends; Shift+Enter newlines; Shift+Tab cycles run mode. The model
-  catalog is per-engine: claude resolves Opus/Sonnet/Haiku against the selected
-  agent's `models` map; codex offers the agent's single `model`.
+  catalog is per-agent: Claude resolves sonnet/opus/haiku alias from the agent's
+  settings (stored in configDir/settings.json). We pass the alias as `model`
+  and let the adapter map it to a concrete id.
 -->
 <script lang="ts">
 import { i18n } from "../../stores/i18n.svelte";
@@ -14,6 +15,7 @@ import Icon from "../../ui/Icon.svelte";
 import Popover from "../../ui/Popover.svelte";
 import type { Agent, EngineId, RunMode } from "../../agent-protocol";
 import { workspaces } from "../../stores/workspace.svelte";
+import { onMount } from "svelte";
 
 let {
   agents,
@@ -27,13 +29,14 @@ let {
   agents: Agent[];
   agentId: string | null;
   model: string;
-  mode: RunMode;
+  mode: string;
   busy?: boolean;
   onsend: (text: string) => void;
   onstop: () => void;
 } = $props();
 
 let value = $state("");
+let runModeList = $state<RunMode[]>([]);
 
 const curAgent = $derived(
   agents.find((a) => a.id === agentId) ?? agents[0] ?? null,
@@ -46,37 +49,53 @@ interface ModelOpt {
   ds: string;
 }
 
-/** Per-engine model catalog resolved against the selected agent. */
+/**
+ * Per-agent model options. For Claude, we offer the three alias ids
+ * (sonnet/opus/haiku) — the adapter maps them to concrete model ids via the
+ * agent's settings.json env. We use alias ids as the value so `model` carries
+ * a stable alias regardless of how the user reconfigures concrete models.
+ */
 const models = $derived.by<ModelOpt[]>(() => {
   if (!curAgent) return [];
-  if (curAgent.engine === "codex") {
-    const m = curAgent.model || "";
-    return m ? [{ id: m, nm: m, ds: "Configured model" }] : [];
-  }
-  const map = curAgent.models;
-  const out: ModelOpt[] = [];
-  if (map.opus)
-    out.push({ id: map.opus, nm: "Opus", ds: "Highest capability" });
-  if (map.sonnet)
-    out.push({ id: map.sonnet, nm: "Sonnet", ds: "Balanced default" });
-  if (map.haiku)
-    out.push({ id: map.haiku, nm: "Haiku", ds: "Fastest, lowest cost" });
-  return out;
+  // v1 is Claude-only; offer the three standard aliases.
+  return [
+    { id: "sonnet", nm: "Sonnet", ds: "Balanced default" },
+    { id: "opus", nm: "Opus", ds: "Highest capability" },
+    { id: "haiku", nm: "Haiku", ds: "Fastest, lowest cost" },
+  ];
 });
 
 const curModel = $derived(
   models.find((m) => m.id === model) ?? models[0] ?? null,
 );
 
-const runModeList = $derived<RunMode[]>(
-  (
-    globalThis as {
-      mineco?: { runModes?: (e: EngineId) => RunMode[] };
-    }
-  ).mineco?.runModes?.(engine) ?? ["default", "plan", "auto"],
-);
-
 const curWorkspace = $derived(workspaces.current);
+
+// Load capabilities once when the engine changes.
+$effect(() => {
+  void engine; // track
+  const api = (
+    globalThis as {
+      mineco?: {
+        capabilities?: (e: EngineId) => Promise<{ modes: RunMode[] }>;
+      };
+    }
+  ).mineco;
+  if (!api?.capabilities) {
+    runModeList = [
+      { id: "default", label: "Default", description: "" },
+      { id: "plan", label: "Plan", description: "" },
+      { id: "auto", label: "Auto", description: "" },
+    ];
+    return;
+  }
+  api
+    .capabilities(engine)
+    .then((caps) => {
+      if (caps?.modes?.length) runModeList = caps.modes;
+    })
+    .catch(() => {});
+});
 
 // keep model valid when the agent / its catalog changes
 $effect(() => {
@@ -86,9 +105,17 @@ $effect(() => {
 });
 // keep mode valid for the engine
 $effect(() => {
-  if (runModeList.length && !runModeList.includes(mode)) {
-    mode = runModeList[0];
+  if (runModeList.length && !runModeList.some((m) => m.id === mode)) {
+    mode = runModeList[0].id;
   }
+});
+
+// Initialise model alias on first mount if empty
+onMount(() => {
+  if (!model && models.length) {
+    model = models[0].id;
+  }
+  if (!mode) mode = "default";
 });
 
 let agentOpen = $state(false);
@@ -103,10 +130,9 @@ function submit() {
 }
 
 function cycleMode() {
-  const list = runModeList;
-  if (!list.length) return;
-  const i = list.indexOf(mode);
-  mode = list[(i + 1) % list.length];
+  if (!runModeList.length) return;
+  const i = runModeList.findIndex((m) => m.id === mode);
+  mode = runModeList[(i + 1) % runModeList.length].id;
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -122,10 +148,20 @@ function onKeydown(e: KeyboardEvent) {
 
 const hot = $derived(value.trim().length > 0 && !busy);
 
-function agentIcon(a: Agent): string {
-  return a.engine === "codex"
-    ? "/brand/codex-icon.png"
-    : "/brand/claude-icon.png";
+function agentIcon(_a: Agent): string {
+  return "/brand/claude-icon.png";
+}
+
+const curModeObj = $derived(runModeList.find((m) => m.id === mode) ?? null);
+
+function modeIcon(id: string): string {
+  const map: Record<string, string> = {
+    plan: "list",
+    auto: "bolt",
+    acceptEdits: "shield",
+    default: "sparkle",
+  };
+  return map[id] ?? "sparkle";
 }
 </script>
 
@@ -138,7 +174,7 @@ function agentIcon(a: Agent): string {
       <Icon name="folder" size={12.5} />
       {curWorkspace?.name ?? i18n.t("workspace.shared")}
     </span>
-    {#if curWorkspace?.path}
+    {#if curWorkspace?.rootPath}
       <span class="h-3 w-px bg-line-2"></span>
       <span
         class="inline-flex items-center gap-1.5 rounded-[var(--r-field)] border border-line-2 bg-chrome-2 px-2 py-1 text-[11.5px] text-ink-2"
@@ -179,9 +215,7 @@ function agentIcon(a: Agent): string {
               <img class="size-4 flex-none rounded" src={agentIcon(a)} alt="" />
               <span class="flex min-w-0 flex-col">
                 <span class="truncate text-[13px] text-ink">{a.name}</span>
-                <span class="truncate text-[11px] text-ink-3">
-                  {a.engine === "codex" ? "Codex" : "Claude Code"}
-                </span>
+                <span class="truncate text-[11px] text-ink-3">Claude Code</span>
               </span>
               {#if a.id === (agentId ?? curAgent.id)}
                 <span class="ml-auto text-accent-tx"><Icon name="check" size={13} stroke={2.4} /></span>
@@ -273,28 +307,33 @@ function agentIcon(a: Agent): string {
           class="mc-no-drag inline-flex items-center gap-1.5 rounded-[var(--r-field)] border border-accent-ln bg-accent-bg px-2 py-1 text-[11.5px] font-medium text-accent-tx"
           title={i18n.t("runMode")}
         >
-          <Icon name={mode === "plan" ? "list" : mode === "auto" ? "bolt" : mode === "acceptEdits" ? "shield" : "sparkle"} size={12} />
-          {i18n.t(`runMode.${mode}`)}
+          <Icon name={modeIcon(mode)} size={12} />
+          {curModeObj?.label ?? mode}
           <Icon name="chev" size={11} />
         </span>
       {/snippet}
       <div class="px-2 pb-1 pt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[.1em] text-ink-3">
         {i18n.t("runMode")}
       </div>
-      {#each runModeList as m (m)}
+      {#each runModeList as m (m.id)}
         <button
           type="button"
           onclick={() => {
-            mode = m;
+            mode = m.id;
             modeOpen = false;
           }}
           class="flex w-full items-center gap-2.5 rounded-[var(--r-field)] px-2 py-1.5 text-left outline-none hover:bg-card-2"
         >
           <span class="flex-none text-ink-2">
-            <Icon name={m === "plan" ? "list" : m === "auto" ? "bolt" : m === "acceptEdits" ? "shield" : "sparkle"} size={14} />
+            <Icon name={modeIcon(m.id)} size={14} />
           </span>
-          <span class="text-[13px] text-ink">{i18n.t(`runMode.${m}`)}</span>
-          {#if m === mode}
+          <span class="flex min-w-0 flex-col">
+            <span class="text-[13px] text-ink">{m.label}</span>
+            {#if m.description}
+              <span class="text-[11px] text-ink-3">{m.description}</span>
+            {/if}
+          </span>
+          {#if m.id === mode}
             <span class="ml-auto text-accent-tx"><Icon name="check" size={13} stroke={2.4} /></span>
           {/if}
         </button>

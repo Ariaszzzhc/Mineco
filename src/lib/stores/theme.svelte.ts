@@ -9,14 +9,10 @@
  * Chromium custom-property repaint flash.
  */
 
-/** Matches the contract `Appearance` (backend owns the canonical type). */
-export interface Appearance {
-  theme: "dark" | "light";
-  accent: string;
-  platform: "mac" | "win";
-  fontScale: number;
-  lang: "en" | "zh";
-}
+import type { AppSettings } from "../agent-protocol";
+
+/** Appearance shape used throughout the renderer (alias of the shared AppSettings). */
+export type Appearance = AppSettings;
 
 /**
  * Narrow view of the parts of window.mineco this store calls. The backend

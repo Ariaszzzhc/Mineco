@@ -24,7 +24,10 @@ let agents = $state<Agent[]>([]);
 let selectedAgent = $state<Agent | null>(null);
 
 // ── run mode ──────────────────────────────────────────────────────────────────
-let runMode = $state<RunMode>("default");
+/** Mode id string — fetched from capabilities at runtime. */
+let runMode = $state<string>("default");
+/** Available modes for the current agent's engine, loaded once. */
+let availableModes = $state<RunMode[]>([]);
 
 // ── composer ──────────────────────────────────────────────────────────────────
 let textareaEl = $state<HTMLTextAreaElement | null>(null);
@@ -54,7 +57,7 @@ function loadPrefs(agentList: Agent[]) {
       const found = agentList.find((a) => a.id === agentId);
       if (found) selectedAgent = found;
     }
-    const savedMode = localStorage.getItem(lsKey("runMode")) as RunMode | null;
+    const savedMode = localStorage.getItem(lsKey("runMode"));
     if (savedMode) runMode = savedMode;
   } catch {
     /* ignore */
@@ -63,12 +66,39 @@ function loadPrefs(agentList: Agent[]) {
   if (!selectedAgent && agentList.length > 0) selectedAgent = agentList[0];
 }
 
+// ── load capabilities (modes) ─────────────────────────────────────────────────
+async function loadModes(engine: Agent["engine"]) {
+  try {
+    const caps = await window.mineco.capabilities(engine);
+    availableModes = caps.modes ?? [];
+    // Validate current mode is in the list
+    if (
+      availableModes.length &&
+      !availableModes.some((m) => m.id === runMode)
+    ) {
+      runMode = availableModes[0].id;
+    }
+  } catch {
+    // Provide sensible fallback
+    availableModes = [
+      {
+        id: "default",
+        label: "Default",
+        description: "Edits and runs commands",
+      },
+      { id: "plan", label: "Plan", description: "Plan first" },
+      { id: "auto", label: "Auto", description: "Full autonomy" },
+    ];
+  }
+}
+
 // ── load agents ───────────────────────────────────────────────────────────────
 async function loadAgents() {
   try {
     const list = await window.mineco.agents.list();
     agents = list;
     loadPrefs(list);
+    if (selectedAgent) await loadModes(selectedAgent.engine);
   } catch {
     agents = [];
   }
@@ -118,7 +148,8 @@ async function submit() {
     const ws = workspaces.current;
     const session = await window.mineco.sessions.create({
       workspaceId: workspaces.currentId,
-      cwd: ws?.path ?? "",
+      agentId: selectedAgent.id,
+      cwd: ws?.rootPath ?? "",
       title: promptTrimmed.slice(0, 60),
     });
     savePrefs();
@@ -135,11 +166,10 @@ function onKeydown(e: KeyboardEvent) {
     void submit();
   }
   // Shift+Tab cycles run modes
-  if (e.key === "Tab" && e.shiftKey && selectedAgent) {
+  if (e.key === "Tab" && e.shiftKey && availableModes.length) {
     e.preventDefault();
-    const modes = window.mineco.runModes(selectedAgent.engine) as RunMode[];
-    const idx = modes.indexOf(runMode);
-    runMode = modes[(idx + 1) % modes.length];
+    const idx = availableModes.findIndex((m) => m.id === runMode);
+    runMode = availableModes[(idx + 1) % availableModes.length].id;
     savePrefs();
   }
 }
@@ -149,15 +179,13 @@ function newSession() {
   tick().then(() => textareaEl?.focus());
 }
 
-function selectAgent(a: Agent) {
+async function selectAgent(a: Agent) {
   selectedAgent = a;
+  await loadModes(a.engine);
   savePrefs();
-  // Reset mode if selected mode unavailable for new engine
-  const available = window.mineco.runModes(a.engine) as RunMode[];
-  if (!available.includes(runMode)) runMode = available[0] ?? "default";
 }
 
-function setRunMode(m: RunMode) {
+function setRunMode(m: string) {
   runMode = m;
   savePrefs();
 }
@@ -180,12 +208,12 @@ function fillStarter(text: string) {
 
 // ── workspace empty state ─────────────────────────────────────────────────────
 async function pickWorkspace() {
-  const path = await window.mineco.workspaces.pickDirectory();
+  const path = await workspaces.pickDirectory();
   if (!path) return;
   const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
   const name =
     parts.slice(-2).join("/") || parts[parts.length - 1] || "workspace";
-  await workspaces.create({ name, path });
+  await workspaces.create({ name, rootPath: path });
 }
 </script>
 

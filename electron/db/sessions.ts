@@ -3,7 +3,9 @@ import type { Session } from "../../src/lib/agent-protocol";
 import { getDb } from "./index";
 
 /** Lists sessions, optionally filtered to one workspace. Pass `undefined` for
- * all sessions, or `null` for the shared/scratch (no-workspace) space. */
+ * all sessions, or `null` for the public/shared (no-workspace) space. Returns
+ * plain {@link Session} rows — main.ts merges in-memory run state to produce
+ * `SessionView`. */
 export function listSessions(workspaceId?: string | null): Promise<Session[]> {
   let q = getDb().selectFrom("sessions").selectAll();
   if (workspaceId !== undefined) {
@@ -26,30 +28,20 @@ export async function getSession(id: string): Promise<Session | null> {
 
 export async function createSession(input: {
   workspaceId: string | null;
+  agentId: string | null;
   title?: string;
   cwd: string;
 }): Promise<Session> {
   const session: Session = {
     id: randomUUID(),
     workspaceId: input.workspaceId ?? null,
+    agentId: input.agentId ?? null,
     title: input.title?.trim() || "Untitled",
     cwd: input.cwd,
-    status: "idle",
     createdAt: Date.now(),
   };
   await getDb().insertInto("sessions").values(session).execute();
   return session;
-}
-
-export async function setSessionStatus(
-  id: string,
-  status: Session["status"],
-): Promise<void> {
-  await getDb()
-    .updateTable("sessions")
-    .set({ status })
-    .where("id", "=", id)
-    .execute();
 }
 
 export async function setSessionTitle(

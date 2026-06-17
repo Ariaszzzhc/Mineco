@@ -8,13 +8,12 @@
 import Icon from "../../ui/Icon.svelte";
 import ThinkBlock from "./ThinkBlock.svelte";
 import ToolGroup from "./ToolGroup.svelte";
-import type { AssistantBlock } from "./types";
+import type { AssistantBlock, LiveBlock } from "./types";
 
-let { block }: { block: AssistantBlock } = $props();
+let { block }: { block: AssistantBlock | LiveBlock } = $props();
 
-const engineIcon = $derived(
-  block.engine === "codex" ? "/brand/codex-icon.png" : "/brand/claude-icon.png",
-);
+// Single engine (Claude) in v1; the byline icon is constant.
+const engineIcon = "/brand/claude-icon.png";
 </script>
 
 <div class="flex w-full flex-col items-start gap-3 [animation:p-rise_.4s_cubic-bezier(.2,.7,.3,1)_both]">

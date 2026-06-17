@@ -14,10 +14,10 @@ export default defineConfig({
         vite: {
           build: {
             rolldownOptions: {
-              // Both Agent SDKs spawn a CLI subprocess and resolve their own
-              // bundled assets at runtime — keep them external and load from
-              // node_modules instead of bundling them into main.js.
-              external: ["@anthropic-ai/claude-agent-sdk", "@openai/codex-sdk"],
+              // The Claude Agent SDK spawns a CLI subprocess and resolves its
+              // own bundled assets at runtime — keep it external and load from
+              // node_modules instead of bundling it into main.js.
+              external: ["@anthropic-ai/claude-agent-sdk"],
             },
           },
         },

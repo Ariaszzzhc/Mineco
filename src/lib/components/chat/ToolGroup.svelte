@@ -8,16 +8,29 @@
 <script lang="ts">
 import Icon from "../../ui/Icon.svelte";
 import type { ToolRecord } from "../../agent-protocol";
+import type { ToolItem } from "../../event-reducer";
 
 let {
   tools,
   running = false,
 }: {
-  /** Tool records for this group, in invocation order. */
-  tools: ToolRecord[];
+  /** Tool records for this group, in invocation order (ToolItem during streaming, ToolRecord from DB). */
+  tools: (ToolItem | ToolRecord)[];
   /** True while the turn is still streaming (last tool may be in-flight). */
   running?: boolean;
 } = $props();
+
+/** Whether a tool entry is "complete" (end phase). */
+function isDone(t: ToolItem | ToolRecord): boolean {
+  if ("phase" in t) return t.phase === "end";
+  return true; // ToolRecord from DB is always done
+}
+
+/** Status of a tool item. */
+function statusOf(t: ToolItem | ToolRecord): "ok" | "error" | undefined {
+  if ("status" in t) return t.status;
+  return undefined;
+}
 
 /** Map a tool name to one of the stroke icons. */
 function iconFor(name: string): string {
@@ -61,13 +74,16 @@ function iconFor(name: string): string {
   >
     {#each tools as tool, i (i)}
       {@const isLast = i === tools.length - 1}
-      {@const isRunning = running && isLast}
+      {@const isRunning = running && isLast && !isDone(tool)}
+      {@const st = statusOf(tool)}
       <div
         class="flex items-center gap-2.5 rounded-[var(--r-field)] px-2 py-1.5"
       >
         <span class="grid size-4 flex-none place-items-center text-ink-3">
           {#if isRunning}
             <span class="mc-spin"></span>
+          {:else if st === "error"}
+            <span class="text-del"><Icon name="info" size={12} stroke={2} /></span>
           {:else}
             <span class="text-accent-tx"><Icon name="check" size={12} stroke={2.6} /></span>
           {/if}

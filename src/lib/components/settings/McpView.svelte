@@ -1,22 +1,24 @@
 <!--
   McpView — MCP servers list with scope filter, inline toggle, and expandable
-  detail rows. Wires all CRUD to window.mineco.mcp.*
+  detail rows. Data is filesystem-backed (McpServerEntry with scope/transport).
+  toggle() persists per-name enable/disable. writeScope() persists edits.
 -->
 <script lang="ts">
 import { i18n } from "../../stores/i18n.svelte";
 import Icon from "../../ui/Icon.svelte";
 import SwitchUI from "../../ui/Switch.svelte";
 import { onMount } from "svelte";
-import type { McpServer } from "../../agent-protocol";
+import type { McpServerEntry } from "../../agent-protocol";
+import { workspaces } from "../../stores/workspace.svelte";
 
-let servers = $state<McpServer[]>([]);
-let openId = $state<string | null>(null);
+let servers = $state<McpServerEntry[]>([]);
+let openName = $state<string | null>(null);
 let filter = $state<"all" | "global" | "project" | "local">("all");
 
 const SCOPES = ["global", "project", "local"] as const;
 
 onMount(async () => {
-  servers = (await window.mineco.mcp.list()) ?? [];
+  servers = (await window.mineco.mcp.list(workspaces.currentId ?? null)) ?? [];
 });
 
 // scope counts
@@ -33,31 +35,12 @@ const shown = $derived(
 
 const enabledCount = $derived(servers.filter((s) => s.enabled).length);
 
-async function toggleServer(id: string) {
-  const idx = servers.findIndex((s) => s.id === id);
+async function toggleServer(name: string) {
+  const idx = servers.findIndex((s) => s.name === name);
   if (idx === -1) return;
-  const updated = { ...servers[idx], enabled: !servers[idx].enabled };
-  servers[idx] = updated;
-  await window.mineco.mcp.update(updated);
-}
-
-async function addServer() {
-  const created = await window.mineco.mcp.create({
-    name: "New server",
-    transport: "stdio",
-    scope: "global",
-    enabled: false,
-    command: "",
-    env: "{}",
-  });
-  servers = [...servers, created];
-  openId = created.id;
-}
-
-async function removeServer(id: string) {
-  await window.mineco.mcp.remove(id);
-  servers = servers.filter((s) => s.id !== id);
-  if (openId === id) openId = null;
+  const next = !servers[idx].enabled;
+  servers[idx] = { ...servers[idx], enabled: next };
+  await window.mineco.mcp.toggle(name, next, workspaces.currentId ?? null);
 }
 
 function scopeClass(scope: string) {
@@ -75,17 +58,9 @@ function scopeClass(scope: string) {
       {i18n.t("settings.mcp")}
     </h1>
     <p class="mt-1.5 text-ink-2 text-[13.5px] leading-[1.55] max-w-[60ch]">
-      External tools the engine can call. {enabledCount} enabled.
+      External tools the engine can call. {enabledCount} of {servers.length} enabled.
     </p>
   </div>
-  <button
-    type="button"
-    onclick={addServer}
-    class="mc-no-drag flex-none inline-flex items-center gap-1.5 px-3 py-2 rounded-[var(--r-field)] border border-line-3 bg-card-2 text-ink text-[12.5px] font-semibold hover:bg-raised transition-colors"
-  >
-    <Icon name="plus" size={13} />
-    Add server
-  </button>
 </div>
 
 <!-- Scope filter tabs -->
@@ -106,15 +81,13 @@ function scopeClass(scope: string) {
 
 <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
   <div class="flex flex-col">
-    {#each shown as sv (sv.id)}
-      {@const isOpen = openId === sv.id}
+    {#each shown as sv (sv.name + sv.scope)}
+      {@const isOpen = openName === (sv.name + sv.scope)}
       <!-- Row -->
-      <div
-        class="flex flex-col border-t border-line first:border-t-0"
-      >
+      <div class="flex flex-col border-t border-line first:border-t-0">
         <button
           type="button"
-          onclick={() => (openId = isOpen ? null : sv.id)}
+          onclick={() => (openName = isOpen ? null : sv.name + sv.scope)}
           class="mc-no-drag flex items-center gap-3 px-4 py-3 cursor-pointer bg-transparent w-full text-left hover:bg-card-2 transition-colors"
         >
           <!-- status dot -->
@@ -138,8 +111,8 @@ function scopeClass(scope: string) {
           <!-- toggle (stop propagation) -->
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <span onclick={(e) => { e.stopPropagation(); toggleServer(sv.id); }}>
-            <SwitchUI checked={sv.enabled} label={sv.enabled ? "Disable" : "Enable"} onCheckedChange={() => toggleServer(sv.id)} />
+          <span onclick={(e) => { e.stopPropagation(); toggleServer(sv.name); }}>
+            <SwitchUI checked={sv.enabled} label={sv.enabled ? "Disable" : "Enable"} onCheckedChange={() => toggleServer(sv.name)} />
           </span>
           <span class="text-ink-3 transition-transform {isOpen ? 'rotate-180' : ''}">
             <Icon name="chev" size={13} />
@@ -150,23 +123,22 @@ function scopeClass(scope: string) {
         {#if isOpen}
           <div class="bg-canvas border-t border-dashed border-line-3 px-4 py-3 flex flex-col gap-2">
             <div class="grid gap-2.5 font-mono text-[11px] leading-[1.6]" style="grid-template-columns: 92px 1fr;">
-              <span class="text-ink-3">{sv.transport === "http" ? "endpoint" : "command"}</span>
-              <span class="text-ink break-all">{sv.command || "—"}</span>
+              <span class="text-ink-3">{sv.transport === "http" ? "url" : "command"}</span>
+              <span class="text-ink break-all">{sv.transport === "http" ? (sv.url || "—") : (sv.command || "—")}</span>
+              {#if sv.args?.length}
+                <span class="text-ink-3">args</span>
+                <span class="text-ink break-all">{sv.args.join(" ")}</span>
+              {/if}
               <span class="text-ink-3">scope</span>
               <span class="text-ink">{sv.scope}</span>
-              <span class="text-ink-3">env</span>
-              <span class="text-ink break-all">{sv.env || "{}"}</span>
-            </div>
-            <div class="flex justify-end pt-1">
-              <button
-                type="button"
-                onclick={() => removeServer(sv.id)}
-                class="mc-no-drag inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-[7px] transition-colors"
-                style="color: var(--del); background: color-mix(in oklab, var(--del) 10%, transparent); border: 1px solid color-mix(in oklab, var(--del) 30%, transparent);"
-              >
-                <Icon name="trash" size={12} />
-                {i18n.t("remove")}
-              </button>
+              {#if sv.overridden}
+                <span class="text-ink-3">overridden</span>
+                <span class="text-amber">shadowed by higher-priority scope</span>
+              {/if}
+              {#if Object.keys(sv.env ?? {}).length}
+                <span class="text-ink-3">env</span>
+                <span class="text-ink break-all">{JSON.stringify(sv.env)}</span>
+              {/if}
             </div>
           </div>
         {/if}
@@ -179,5 +151,5 @@ function scopeClass(scope: string) {
 
 <div class="flex items-start gap-2 text-[12px] text-ink-2 leading-[1.5] px-1">
   <Icon name="info" size={14} class="text-ink-3 flex-none mt-[2px]" />
-  Scopes merge with precedence <strong class="text-ink-2">local &gt; project &gt; global</strong>. Disabled servers stay configured but their tools are hidden from the engine.
+  MCP servers are configured in <code class="font-mono text-[11px]">mcp.json</code> at global, project, or local scope. Disabled servers stay configured but their tools are hidden from the engine.
 </div>

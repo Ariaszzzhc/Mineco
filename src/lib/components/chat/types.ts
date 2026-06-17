@@ -2,9 +2,10 @@
  * In-memory view models for the live chat stream. These are renderer-only and
  * not persisted — the backend owns the canonical transcript (SQLite). On load
  * we map stored `Message` rows into these blocks; during a live turn we build
- * an assistant block incrementally from `NormalizedEvent`s.
+ * an assistant block incrementally from `NormalizedEvent`s via `applyEvent`.
  */
 import type { EngineId, ToolRecord } from "../../agent-protocol";
+import type { ToolItem } from "../../event-reducer";
 
 /** A user message bubble. */
 export interface UserBlock {
@@ -14,7 +15,11 @@ export interface UserBlock {
   time: string;
 }
 
-/** An assistant turn: reasoning + prose + the tools it invoked. */
+/**
+ * An assistant turn: reasoning + prose + the tools it invoked.
+ * During streaming this is a LiveBlock (from event-reducer); once the turn is
+ * persisted and loaded from SQLite we reconstruct it from ToolRecord[].
+ */
 export interface AssistantBlock {
   kind: "assistant";
   id: string;
@@ -26,8 +31,8 @@ export interface AssistantBlock {
   reasoningMs: number;
   /** Streamed / stored prose text. */
   text: string;
-  /** Tools invoked this turn, in order. */
-  tools: ToolRecord[];
+  /** Tools invoked this turn, in order. ToolItem during streaming; ToolRecord from DB. */
+  tools: ToolItem[] | ToolRecord[];
   /** Engine + model byline. */
   agentName: string;
   model: string;
@@ -38,6 +43,9 @@ export interface AssistantBlock {
   /** Error text when status === 'error'. */
   error: string;
 }
+
+/** Re-export LiveBlock from event-reducer so it can be used as a block. */
+export type { LiveBlock } from "../../event-reducer";
 
 export type Block = UserBlock | AssistantBlock;
 

@@ -1,21 +1,26 @@
 <!--
   RecentSessions — the sidebar list of sessions for the current workspace.
-  Polls once on mount (and when workspace changes) and shows a pulsing dot for
-  running sessions. Clicking a row opens the chat view via nav.openSession().
+  Polls once on mount (and when workspace changes) and subscribes to
+  onRunStateChanged to show a pulsing dot for running sessions.
+  Clicking a row opens the chat view via nav.openSession().
 -->
 <script lang="ts">
 import { i18n } from "../../stores/i18n.svelte";
 import { nav } from "../../stores/nav.svelte";
-import type { Session } from "../../agent-protocol";
+import type { SessionView } from "../../agent-protocol";
 import { workspaces } from "../../stores/workspace.svelte";
+import { onRunStateChanged } from "../../ipc";
+import { onDestroy } from "svelte";
 
-let sessions = $state<Session[]>([]);
+let sessions = $state<SessionView[]>([]);
+/** Set of currently-running session ids, fed by onRunStateChanged broadcast. */
+let runningIds = $state<Set<string>>(new Set());
 
 async function load(workspaceId: string | null | undefined) {
   try {
-    sessions = await window.mineco.sessions.list(workspaceId ?? null);
+    const raw = await window.mineco.sessions.list(workspaceId ?? null);
     // Sort by createdAt descending
-    sessions = [...sessions].sort((a, b) => b.createdAt - a.createdAt);
+    sessions = [...raw].sort((a, b) => b.createdAt - a.createdAt);
   } catch {
     sessions = [];
   }
@@ -24,6 +29,17 @@ async function load(workspaceId: string | null | undefined) {
 $effect(() => {
   void load(workspaces.currentId);
 });
+
+// Subscribe to run-state broadcasts.
+const unsubscribe = onRunStateChanged((ids) => {
+  runningIds = new Set(ids);
+});
+
+onDestroy(unsubscribe);
+
+function isRunning(id: string): boolean {
+  return runningIds.has(id);
+}
 
 function relTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -49,6 +65,7 @@ function relTime(ts: number): string {
     </div>
   {:else}
     {#each sessions as session (session.id)}
+      {@const running = isRunning(session.id) || session.running}
       <button
         type="button"
         onclick={() => nav.openSession(session.id)}
@@ -57,7 +74,7 @@ function relTime(ts: number): string {
         <span class="truncate text-[12.5px] font-[500] text-ink">
           {session.title || "Untitled session"}
         </span>
-        {#if session.status === "running"}
+        {#if running}
           <span class="inline-flex items-center gap-[5px] font-mono text-[9.5px] font-semibold tracking-[.04em] text-accent-tx">
             <span class="mc-rdot"></span>
             running
