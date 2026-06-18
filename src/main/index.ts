@@ -22,6 +22,7 @@ import {
   type TurnResponse,
   type TurnRunRequest,
   turnEventChannel,
+  type UpdateState,
 } from "@/shared/agent-protocol";
 import { listMessages } from "./db/messages";
 import { createSession, deleteSession, listSessions } from "./db/sessions";
@@ -60,6 +61,13 @@ import {
   logoutSubscription,
   subscriptionStatus,
 } from "./services/subscription-auth";
+import {
+  checkForUpdates,
+  downloadUpdate,
+  getUpdateState,
+  initUpdater,
+  quitAndInstall,
+} from "./services/updater";
 import {
   activate,
   createWorkspace,
@@ -395,6 +403,17 @@ function registerIpc(): void {
     }),
   );
 
+  // --- Auto-update (electron-updater) -------------------------------------
+  ipcMain.handle(CH.updatesGetState, () => getUpdateState());
+  ipcMain.handle(CH.updatesCheck, () => checkForUpdates());
+  ipcMain.handle(CH.updatesDownload, () => downloadUpdate());
+  ipcMain.handle(CH.updatesInstall, () => {
+    // The close-to-tray handler would otherwise veto the quit the installer
+    // triggers; flip to a real shutdown first.
+    isQuitting = true;
+    quitAndInstall();
+  });
+
   // --- Streaming turn run --------------------------------------------------
   // Events go back on the request's private channel; question/approval bridges
   // flow back in on `turnRespond`.
@@ -436,6 +455,18 @@ if (!gotTheLock) {
     registerIpc();
     createTray();
     createWindow();
+
+    // Broadcast auto-update transitions to every window so the Settings card
+    // reflects checking / available / downloading / downloaded / error live.
+    initUpdater((state: UpdateState) => {
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.webContents.isDestroyed()) {
+          w.webContents.send(CH.updatesChanged, state);
+        }
+      }
+    });
+    // Check once at startup (no-op in dev). Manual re-checks come from the UI.
+    void checkForUpdates();
 
     app.on("activate", () => {
       // Reopening from the dock (macOS) or after a hide should resurface the

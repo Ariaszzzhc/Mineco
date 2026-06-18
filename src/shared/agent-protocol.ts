@@ -354,6 +354,37 @@ export interface AppInfo {
   chrome: string;
 }
 
+/**
+ * Lifecycle of the auto-updater (electron-updater). Drives the Updates card in
+ * Settings; the main process owns the transitions and broadcasts each change.
+ */
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "downloaded"
+  | "error";
+
+/** Current auto-update state — broadcast to the renderer on every change. */
+export interface UpdateState {
+  status: UpdateStatus;
+  /** Installed version (always present). */
+  currentVersion: string;
+  /** Version offered by the feed, when one is newer (available/downloaded). */
+  newVersion?: string;
+  /** Download progress 0–100, while `status === "downloading"`. */
+  percent?: number;
+  /** Human-readable failure, when `status === "error"`. */
+  error?: string;
+  /**
+   * Whether self-update is even possible on this build: false in dev (no feed)
+   * and on platforms/builds that can't auto-update (e.g. unsigned macOS).
+   */
+  supported: boolean;
+}
+
 /** Appearance + locale settings (`~/.mineco/settings.json`). */
 export interface AppSettings {
   theme: "dark" | "light";
@@ -540,6 +571,14 @@ export const CH = {
 
   // App info (version + runtime)
   appGetInfo: "mineco:app:getInfo",
+
+  // Auto-update (electron-updater)
+  updatesGetState: "mineco:updates:getState",
+  updatesCheck: "mineco:updates:check",
+  updatesDownload: "mineco:updates:download",
+  updatesInstall: "mineco:updates:install",
+  /** main -> renderer broadcast on every update-state transition. */
+  updatesChanged: "mineco:updates:changed",
 
   // Turn run (send) / events come back on turnEventChannel(id)
   turnRun: "mineco:turn:run",

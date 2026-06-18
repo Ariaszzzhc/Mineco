@@ -6,6 +6,18 @@ directories:
   output: release/${version}
   buildResources: build
 
+# Auto-update feed. Configuring a provider makes electron-builder embed
+# `app-update.yml` in the packaged resources (electron-updater reads it at
+# runtime to know where to look) and emit the `latest*.yml` metadata next to the
+# installers. We do NOT let electron-builder publish — CI builds with
+# `--publish never` and the release workflow uploads artifacts via `gh release`
+# — but the feed files still need to land on the GitHub Release for updates to
+# resolve. The owner/repo are the canonical case of the GitHub repo.
+publish:
+  provider: github
+  owner: Ariaszzzhc
+  repo: Mineco
+
 # Pack the app into app.asar, but keep the Claude Agent SDK unpacked. The SDK
 # reads its own runtime assets from disk (sdk.mjs, manifest.json — the latter is
 # how services/cli-binary.ts verifies the downloaded binary) and spawns a native
@@ -49,6 +61,12 @@ mac:
   category: public.app-category.developer-tools
   target:
     - target: dmg
+      arch: [arm64, x64]
+    # Squirrel.Mac (electron-updater's macOS backend) updates from a zipped app,
+    # not the dmg — without a zip target the mac feed has no payload to download.
+    # NOTE: macOS auto-update also requires a *signed* build; the unsigned CI
+    # artifacts install fine but can't self-update until signing is configured.
+    - target: zip
       arch: [arm64, x64]
   # The native CLI is fetched at runtime (no quarantine xattr) and lives outside
   # the bundle, so hardened-runtime signing only needs to cover the app itself.

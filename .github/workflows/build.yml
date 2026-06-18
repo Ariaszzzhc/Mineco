@@ -72,4 +72,7 @@ jobs:
             release/**/*.exe
             release/**/*.exe.blockmap
             release/**/*.AppImage
+            # macOS auto-update payload (Squirrel.Mac downloads the zip, not the dmg).
+            release/**/*.zip
+            release/**/*.zip.blockmap
             release/**/latest*.yml

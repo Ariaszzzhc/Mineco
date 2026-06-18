@@ -96,6 +96,8 @@ const ICONS: Record<string, typeof X> = {
   think: Lightbulb,
   sparkle: Sparkles,
   replay: RotateCcw,
+  refresh: RotateCcw,
+  download: ArrowDown,
   term: Terminal,
   list: List,
   arrowDown: ArrowDown,

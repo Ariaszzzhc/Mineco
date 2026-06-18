@@ -4,7 +4,7 @@
   Font size, Interface language. Each calls theme.set() which persists + applies.
 -->
 <script lang="ts">
-import type { AppInfo } from "@/shared/agent-protocol";
+import type { AppInfo, UpdateState } from "@/shared/agent-protocol";
 import { i18n } from "@/renderer/lib/stores/i18n.svelte";
 import Icon from "@/renderer/lib/ui/Icon.svelte";
 import Card from "@/renderer/lib/ui/Card.svelte";
@@ -27,6 +27,41 @@ $effect(() => {
     info = i;
   });
 });
+
+// Auto-update state — seeded once, then kept live by the main-process broadcast.
+let update = $state<UpdateState | null>(null);
+$effect(() => {
+  void window.mineco.updates.getState().then((s) => {
+    update = s;
+  });
+  return window.mineco.updates.onChanged((s) => {
+    update = s;
+  });
+});
+
+const updateBusy = $derived(
+  update?.status === "checking" || update?.status === "downloading",
+);
+
+// One-line summary of where the updater is, used as the card's status text.
+function updateSummary(s: UpdateState | null): string {
+  if (!s) return "—";
+  if (!s.supported) return "Updates are only available in packaged builds";
+  switch (s.status) {
+    case "checking":
+      return "Checking for updates…";
+    case "available":
+      return `Version ${s.newVersion} is available`;
+    case "downloading":
+      return `Downloading… ${s.percent ?? 0}%`;
+    case "downloaded":
+      return `Version ${s.newVersion} is ready to install`;
+    case "error":
+      return s.error ?? "Update check failed";
+    default:
+      return "You're on the latest version";
+  }
+}
 </script>
 
 <div class="mb-3">
@@ -146,5 +181,55 @@ $effect(() => {
     <span class="font-mono text-[11.5px] text-ink-3 tabular-nums">
       {info ? `${info.electron} · ${info.node} · ${info.chrome}` : "—"}
     </span>
+  </div>
+</Card>
+
+<!-- Updates card -->
+<Card>
+  <CardHeader icon="download" title="Updates" />
+
+  <div class="flex items-center gap-4 px-4 py-3.5">
+    <span class="flex-1 min-w-0 flex flex-col gap-0.5">
+      <span class="font-[650] text-[13px] text-ink">Software update</span>
+      <span
+        class="text-[11.5px] leading-[1.4] {update?.status === 'error'
+          ? 'text-del'
+          : 'text-ink-3'}"
+      >
+        {updateSummary(update)}
+      </span>
+    </span>
+
+    {#if update?.supported}
+      {#if update.status === "available"}
+        <button
+          type="button"
+          onclick={() => window.mineco.updates.download()}
+          class="mc-no-drag inline-flex items-center gap-1.5 cursor-pointer border rounded-[var(--r-field)] px-3.5 py-[7px] font-ui font-semibold text-[12.5px] transition-colors bg-accent-bg text-accent-tx border-accent-ln hover:opacity-90"
+        >
+          <Icon name="download" size={14} />
+          Download
+        </button>
+      {:else if update.status === "downloaded"}
+        <button
+          type="button"
+          onclick={() => window.mineco.updates.install()}
+          class="mc-no-drag inline-flex items-center gap-1.5 cursor-pointer border rounded-[var(--r-field)] px-3.5 py-[7px] font-ui font-semibold text-[12.5px] transition-colors bg-accent-bg text-accent-tx border-accent-ln hover:opacity-90"
+        >
+          <Icon name="replay" size={14} />
+          Restart to install
+        </button>
+      {:else}
+        <button
+          type="button"
+          disabled={updateBusy}
+          onclick={() => window.mineco.updates.check()}
+          class="mc-no-drag inline-flex items-center gap-1.5 cursor-pointer border border-line bg-card-2 text-ink-2 rounded-[var(--r-field)] px-3.5 py-[7px] font-ui font-semibold text-[12.5px] transition-colors hover:bg-raised hover:text-ink disabled:opacity-50 disabled:cursor-default"
+        >
+          <Icon name="refresh" size={14} />
+          {update.status === "checking" ? "Checking…" : "Check for updates"}
+        </button>
+      {/if}
+    {/if}
   </div>
 </Card>
