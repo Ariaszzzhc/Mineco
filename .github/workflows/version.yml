@@ -1,0 +1,71 @@
+# Cut a release. Manually dispatched: bumps the version in package.json, commits
+# and tags it, pushes, then triggers release.yml to build & publish for the new
+# tag.
+#
+# Note: a tag pushed with the default GITHUB_TOKEN does NOT trigger other
+# workflows (GitHub blocks that recursion), so we dispatch release.yml
+# explicitly via `gh workflow run` — no Personal Access Token required.
+name: Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Semver bump (ignored if an explicit version is given).
+        type: choice
+        default: patch
+        options: [patch, minor, major]
+      version:
+        description: Explicit version, e.g. 0.4.0 (overrides bump).
+        required: false
+        type: string
+
+permissions:
+  contents: write # push the commit + tag
+  actions: write # dispatch release.yml
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            tag=$(npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version)
+          else
+            tag=$(npm version "${{ inputs.bump }}" --no-git-tag-version)
+          fi
+          # npm version prints the new version as `vX.Y.Z`.
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit, tag & push
+        shell: bash
+        run: |
+          tag="${{ steps.bump.outputs.tag }}"
+          git add package.json
+          git commit -m "chore: release $tag"
+          git tag "$tag"
+          git push origin HEAD
+          git push origin "$tag"
+
+      - name: Trigger release build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run release.yml -f tag="${{ steps.bump.outputs.tag }}"

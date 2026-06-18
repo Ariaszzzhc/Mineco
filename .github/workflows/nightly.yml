@@ -1,0 +1,62 @@
+# Nightly build. Runs once a day (and on demand) and publishes the result to a
+# single rolling pre-release tagged `nightly` — the tag and release are deleted
+# and recreated each run so the `nightly` download URL always points at the
+# latest build.
+name: Nightly
+
+on:
+  schedule:
+    # 02:00 UTC daily. Skipped automatically on forks with no recent activity.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # Compute a distinguishable version: <base>-nightly.<date>.<shortsha>.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        run: |
+          base=$(node -p "require('./package.json').version")
+          stamp="${base}-nightly.$(date -u +%Y%m%d).$(git rev-parse --short HEAD)"
+          echo "version=$stamp" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  publish:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+          pattern: installers-*
+          merge-multiple: true
+
+      - name: Refresh rolling `nightly` release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          files=$(find dist-artifacts -type f)
+          # Drop the old tag+release so the new one re-points at this commit.
+          gh release delete nightly --cleanup-tag --yes || true
+          gh release create nightly \
+            --prerelease \
+            --target "${{ github.sha }}" \
+            --title "Nightly ${{ needs.version.outputs.version }}" \
+            --notes "Automated nightly build of \`${{ github.sha }}\` ($(date -u +%Y-%m-%dT%H:%MZ)). Unsigned — for testing only." \
+            $files

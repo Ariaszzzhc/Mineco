@@ -1,0 +1,64 @@
+# Release build. Triggered by a pushed `v*` tag, or manually via the Actions UI
+# (or by version.yml, which bumps the version and dispatches this with the new
+# tag). Builds the three installers and publishes a real GitHub Release.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and release (e.g. v0.4.0).
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.t.outputs.tag }}
+    steps:
+      - id: t
+        shell: bash
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: meta
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.meta.outputs.tag }}
+
+  publish:
+    needs: [meta, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+          pattern: installers-*
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          tag="${{ needs.meta.outputs.tag }}"
+          files=$(find dist-artifacts -type f)
+          # Create the release; if it already exists (re-run), just (re)upload.
+          gh release create "$tag" \
+            --title "mineco $tag" \
+            --generate-notes \
+            $files \
+            || gh release upload "$tag" $files --clobber
