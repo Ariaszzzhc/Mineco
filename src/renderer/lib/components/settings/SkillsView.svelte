@@ -7,6 +7,8 @@
 import { i18n } from "@/renderer/lib/stores/i18n.svelte";
 import Icon from "@/renderer/lib/ui/Icon.svelte";
 import SwitchUI from "@/renderer/lib/ui/Switch.svelte";
+import Card from "@/renderer/lib/ui/Card.svelte";
+import SettingsHeader from "@/renderer/lib/ui/SettingsHeader.svelte";
 import { onMount } from "svelte";
 import type { SkillEntry } from "@/shared/agent-protocol";
 import { workspaces } from "@/renderer/lib/stores/workspace.svelte";
@@ -70,24 +72,21 @@ function scopeClass(scope: string) {
 }
 </script>
 
-<div class="flex items-end gap-3">
-  <div class="flex-1 min-w-0">
-    <h1 class="m-0 font-bold text-[22px] leading-tight tracking-tight text-ink">
-      {i18n.t("settings.skills")}
-    </h1>
-    <p class="mt-1.5 text-ink-2 text-[13.5px] leading-[1.55] max-w-[60ch]">
-      Capability packs the engine can call — instructions plus optional scripts. {enabledCount} of {skills.length} enabled.
-    </p>
-  </div>
-  <button
-    type="button"
-    onclick={() => (showCreate = !showCreate)}
-    class="mc-no-drag flex-none inline-flex items-center gap-1.5 px-3 py-2 rounded-[var(--r-field)] border border-line-3 bg-card-2 text-ink text-[12.5px] font-semibold hover:bg-raised transition-colors"
-  >
-    <Icon name="plus" size={13} />
-    {i18n.t("add")} skill
-  </button>
-</div>
+<SettingsHeader title={i18n.t("settings.skills")}>
+  {#snippet desc()}
+    Capability packs the engine can call — instructions plus optional scripts. {enabledCount} of {skills.length} enabled.
+  {/snippet}
+  {#snippet actions()}
+    <button
+      type="button"
+      onclick={() => (showCreate = !showCreate)}
+      class="mc-no-drag flex-none inline-flex items-center gap-1.5 px-3 py-2 rounded-[var(--r-field)] border border-line-3 bg-card-2 text-ink text-[12.5px] font-semibold hover:bg-raised transition-colors"
+    >
+      <Icon name="plus" size={13} />
+      {i18n.t("add")} skill
+    </button>
+  {/snippet}
+</SettingsHeader>
 
 {#if showCreate}
   <div class="flex items-center gap-2 bg-card border border-line rounded-[var(--r-card)] px-4 py-3">
@@ -131,7 +130,7 @@ function scopeClass(scope: string) {
   {/each}
 </div>
 
-<div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
+<Card>
   <div class="flex flex-col">
     {#each shown as sk (sk.name + sk.scope)}
       <div class="flex items-center gap-3 px-4 py-3 border-t border-line first:border-t-0">
@@ -157,7 +156,7 @@ function scopeClass(scope: string) {
       <div class="py-5 px-4 text-center text-ink-3 text-[12.5px]">No skills in this scope.</div>
     {/each}
   </div>
-</div>
+</Card>
 
 <div class="flex items-start gap-2 text-[12px] text-ink-2 leading-[1.5] px-1">
   <Icon name="info" size={14} class="text-ink-3 flex-none mt-[2px]" />

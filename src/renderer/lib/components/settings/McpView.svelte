@@ -7,6 +7,8 @@
 import { i18n } from "@/renderer/lib/stores/i18n.svelte";
 import Icon from "@/renderer/lib/ui/Icon.svelte";
 import SwitchUI from "@/renderer/lib/ui/Switch.svelte";
+import Card from "@/renderer/lib/ui/Card.svelte";
+import SettingsHeader from "@/renderer/lib/ui/SettingsHeader.svelte";
 import { onMount } from "svelte";
 import type { McpServerEntry } from "@/shared/agent-protocol";
 import { workspaces } from "@/renderer/lib/stores/workspace.svelte";
@@ -52,16 +54,11 @@ function scopeClass(scope: string) {
 }
 </script>
 
-<div class="flex items-end gap-3">
-  <div class="flex-1 min-w-0">
-    <h1 class="m-0 font-bold text-[22px] leading-tight tracking-tight text-ink">
-      {i18n.t("settings.mcp")}
-    </h1>
-    <p class="mt-1.5 text-ink-2 text-[13.5px] leading-[1.55] max-w-[60ch]">
-      External tools the engine can call. {enabledCount} of {servers.length} enabled.
-    </p>
-  </div>
-</div>
+<SettingsHeader title={i18n.t("settings.mcp")}>
+  {#snippet desc()}
+    External tools the engine can call. {enabledCount} of {servers.length} enabled.
+  {/snippet}
+</SettingsHeader>
 
 <!-- Scope filter tabs -->
 <div class="flex items-center gap-1.5 flex-wrap -mt-1">
@@ -79,7 +76,7 @@ function scopeClass(scope: string) {
   {/each}
 </div>
 
-<div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
+<Card>
   <div class="flex flex-col">
     {#each shown as sv (sv.name + sv.scope)}
       {@const isOpen = openName === (sv.name + sv.scope)}
@@ -147,7 +144,7 @@ function scopeClass(scope: string) {
       <div class="py-5 px-4 text-center text-ink-3 text-[12.5px]">No servers in this scope.</div>
     {/each}
   </div>
-</div>
+</Card>
 
 <div class="flex items-start gap-2 text-[12px] text-ink-2 leading-[1.5] px-1">
   <Icon name="info" size={14} class="text-ink-3 flex-none mt-[2px]" />
