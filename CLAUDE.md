@@ -221,3 +221,15 @@ vetoes the installer's quit. Guarded by `app.isPackaged` (`supported`), so dev i
 a no-op. **macOS self-update needs a *signed* build** — the unsigned CI artifacts
 install fine but can't auto-update until `mac` signing is configured (the `zip`
 target is already there for Squirrel.Mac).
+
+**Nightly channel:** `nightly.yml` builds (`build.yml` `channel` input →
+`-c.publish.channel=nightly`, set by `nightly.yml`) publish a separate `nightly`
+feed to the rolling `nightly` pre-release. `updater.ts` detects the
+`-nightly.<date>.<sha>` version stamp and sets `autoUpdater.channel = "nightly"`,
+so nightly installs roll forward between nightlies (reading only `nightly.yml`)
+while stable users — `allowPrerelease` false, default `latest` channel — never
+see prereleases. The GitHub provider doesn't infer the channel from the version
+tag, so the build-time `channel` override is required, not optional. Caveat: a
+nightly check can transiently 404 right after a *stable* release is cut (the
+newest GitHub release momentarily lacks `nightly.yml`); the next nightly run
+restores it.

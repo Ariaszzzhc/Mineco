@@ -53,6 +53,16 @@ export function initUpdater(onChange: Broadcast): void {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  // Nightly builds are stamped `X.Y.Z-nightly.<date>.<sha>` and publish a
+  // `nightly.yml` feed to the rolling `nightly` pre-release. Pointing the
+  // updater at that channel makes nightly installs roll forward between
+  // nightlies (reading only `nightly.yml`), fully isolated from the stable
+  // `latest` channel — and stable builds (no prerelease tag) never see them.
+  if (app.getVersion().includes("-nightly.")) {
+    autoUpdater.channel = "nightly";
+    autoUpdater.allowPrerelease = true;
+  }
+
   autoUpdater.on("checking-for-update", () => setState({ status: "checking" }));
   autoUpdater.on("update-available", (info) =>
     setState({

@@ -14,6 +14,15 @@ on:
         description: Stamp package.json to this version before building (optional).
         type: string
         required: false
+      channel:
+        description: >-
+          Update channel to publish (default "latest"). Nightly passes
+          "nightly" so electron-builder emits a `nightly.yml` feed instead of
+          `latest.yml`, keeping nightly's rolling auto-update isolated from
+          stable. The GitHub provider ignores the version tag for channel
+          detection, so it MUST be set explicitly here.
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -54,7 +63,14 @@ jobs:
         # `publish` job (via `gh release`), so electron-builder must only build.
         # (`pnpm dist` is `vite build && electron-builder`; spell it out so the
         # flag reaches electron-builder, not the whole script.)
-        run: pnpm build && pnpm exec electron-builder --publish never
+        # `-c.publish.channel`: override the feed channel for this build (nightly
+        # → `nightly.yml`); empty for stable, which keeps the default `latest`.
+        run: |
+          channel_arg=""
+          if [ -n "${{ inputs.channel }}" ]; then
+            channel_arg="-c.publish.channel=${{ inputs.channel }}"
+          fi
+          pnpm build && pnpm exec electron-builder --publish never $channel_arg
         env:
           # No Apple signing certs in CI — don't let electron-builder try the
           # local keychain. Produces an unsigned (notarization-free) build.
@@ -75,4 +91,7 @@ jobs:
             # macOS auto-update payload (Squirrel.Mac downloads the zip, not the dmg).
             release/**/*.zip
             release/**/*.zip.blockmap
+            # Auto-update feed metadata: `latest*.yml` for stable, `nightly*.yml`
+            # for the nightly channel (only one set exists per build).
             release/**/latest*.yml
+            release/**/nightly*.yml

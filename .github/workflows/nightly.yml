@@ -33,6 +33,9 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       version: ${{ needs.version.outputs.version }}
+      # Publish a `nightly.yml` feed so nightly installs auto-update among
+      # nightlies (see services/updater.ts), isolated from the stable channel.
+      channel: nightly
 
   publish:
     needs: [version, build]
