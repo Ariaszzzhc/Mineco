@@ -18,6 +18,17 @@
  * a roadmap slot for a future engine. */
 export type EngineId = "claude";
 
+/** How an agent authenticates to the engine.
+ * - `api`: a key/token (+ optional Base URL) injected via `settings.json` env
+ *   (`ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL`); pay-per-use or a relay.
+ * - `subscription`: the official Claude CLI's own OAuth login (Pro/Max/Team),
+ *   whose `.credentials.json` lives in the agent's isolated `CLAUDE_CONFIG_DIR`
+ *   and is auto-refreshed by the CLI. mineco never touches the OAuth protocol —
+ *   it launches `claude auth login` in a real terminal (TTY → loopback) and
+ *   reads back status. Each agent logs in independently, so multiple
+ *   subscription accounts can coexist as separate agents. */
+export type AuthMode = "api" | "subscription";
+
 // ---------------------------------------------------------------------------
 // Agents (filesystem-backed: ~/.mineco/engines/claude/<id>/)
 // ---------------------------------------------------------------------------
@@ -30,6 +41,9 @@ export interface Agent {
   engine: EngineId;
   /** Absolute path to `~/.mineco/engines/claude/<id>` (used as CLAUDE_CONFIG_DIR). */
   configDir: string;
+  /** How this agent authenticates. Defaults to `api` for agents created before
+   * this field existed (their manifest omits it). */
+  authMode: AuthMode;
   /** Default model role (`sonnet` | `opus` | `fable` | `haiku`) — the composer
    * default. Carried as the turn's `model`; the SDK resolves it to a concrete
    * id via `ANTHROPIC_DEFAULT_<ROLE>_MODEL`. */
@@ -81,8 +95,21 @@ export interface AgentDetail extends Agent {
 /** Fields a caller supplies to create/update an agent. */
 export interface AgentInput {
   name: string;
+  authMode: AuthMode;
   defaultModel: string;
   connection: AgentConnection;
+}
+
+/** Subscription (OAuth) login state for an agent, decoded from the official
+ * CLI's `.credentials.json` in the agent's `CLAUDE_CONFIG_DIR`. */
+export interface SubscriptionStatus {
+  /** A non-expired (or refreshable) OAuth credential is present. */
+  authenticated: boolean;
+  /** Subscription tier reported by the credential (`max` / `pro` / …), if any. */
+  plan?: string;
+  /** Access-token expiry (ms epoch); the CLI refreshes it automatically, so
+   * this is informational, not a hard logout time. */
+  expiresAt?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +120,17 @@ export interface AgentInput {
 /** A loose view of `settings.json`'s `env` block (values may be absent). */
 export type SettingsEnv = Record<string, string | undefined>;
 
+/** Env keys carrying API-mode credentials. They MUST be absent for a
+ * `subscription` agent so the CLI's OAuth `.credentials.json` is authoritative —
+ * any of these (even inherited from the host env) would otherwise win and bill
+ * the wrong account. Both the settings writer and the engine adapter strip these
+ * in subscription mode. */
+export const API_AUTH_ENV_KEYS: readonly string[] = [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_BASE_URL",
+];
+
 /** `env` key carrying a role's concrete wire model id. */
 export function roleModelEnvKey(role: ModelRoleId): string {
   return `ANTHROPIC_DEFAULT_${role.toUpperCase()}_MODEL`;
@@ -101,6 +139,20 @@ export function roleModelEnvKey(role: ModelRoleId): string {
 /** `env` key carrying a role's display name (`/model` menu label). */
 export function roleNameEnvKey(role: ModelRoleId): string {
   return `ANTHROPIC_DEFAULT_${role.toUpperCase()}_MODEL_NAME`;
+}
+
+/** Every env key mineco derives from an {@link AgentConnection}: API credentials
+ * + the fallback model + each per-role model mapping (id and display name). In
+ * `subscription` mode NONE of these apply — the OAuth login is authoritative and
+ * model roles resolve upstream, so a custom mapping would only mis-route or
+ * mis-bill. Both the settings writer and the engine adapter strip the whole set
+ * in subscription mode. Superset of {@link API_AUTH_ENV_KEYS}. */
+export function connectionEnvKeys(): string[] {
+  const keys = [...API_AUTH_ENV_KEYS, "ANTHROPIC_MODEL"];
+  for (const role of MODEL_ROLES) {
+    keys.push(roleModelEnvKey(role), roleNameEnvKey(role));
+  }
+  return keys;
 }
 
 /** Splits a stored env model id into its concrete id + 1M declaration. The CLI
@@ -293,6 +345,15 @@ export interface MemoryEntry {
   body: string;
 }
 
+/** Static app/runtime info surfaced in Settings (read once, never changes). */
+export interface AppInfo {
+  /** App version (package.json `version`, via `app.getVersion()`). */
+  version: string;
+  electron: string;
+  node: string;
+  chrome: string;
+}
+
 /** Appearance + locale settings (`~/.mineco/settings.json`). */
 export interface AppSettings {
   theme: "dark" | "light";
@@ -430,6 +491,10 @@ export const CH = {
   agentsGet: "mineco:agents:get",
   agentsReadSettings: "mineco:agents:readSettings",
   agentsWriteSettings: "mineco:agents:writeSettings",
+  // Subscription (OAuth) auth — drives the official CLI's `auth` subcommands.
+  agentsAuthLogin: "mineco:agents:authLogin",
+  agentsAuthStatus: "mineco:agents:authStatus",
+  agentsAuthLogout: "mineco:agents:authLogout",
 
   // Global instructions (~/.mineco/MINECO.md)
   globalInstructionsRead: "mineco:globalInstructions:read",
@@ -472,6 +537,9 @@ export const CH = {
 
   // Engine capabilities
   enginesCapabilities: "mineco:engines:capabilities",
+
+  // App info (version + runtime)
+  appGetInfo: "mineco:app:getInfo",
 
   // Turn run (send) / events come back on turnEventChannel(id)
   turnRun: "mineco:turn:run",

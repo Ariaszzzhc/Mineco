@@ -21,10 +21,12 @@ import type {
   Agent,
   AgentDetail,
   AgentInput,
+  AuthMode,
   EngineId,
 } from "@/shared/agent-protocol";
 import {
   applyConnectionToEnv,
+  connectionEnvKeys,
   envToConnection,
 } from "@/shared/agent-protocol";
 
@@ -32,11 +34,13 @@ import {
 // Internal types
 // ---------------------------------------------------------------------------
 
-/** The shape written to / read from `agent.json`. */
+/** The shape written to / read from `agent.json`. `authMode` is optional for
+ * back-compat: agents whose manifest predates it are treated as `api`. */
 interface AgentManifest {
   id: string;
   name: string;
   engine: EngineId;
+  authMode?: AuthMode;
   defaultModel: string;
   createdAt: number;
 }
@@ -113,9 +117,30 @@ function manifestToAgent(manifest: AgentManifest): Agent {
     name: manifest.name,
     engine: manifest.engine,
     configDir: getConfigDir(manifest.id),
+    authMode: manifest.authMode ?? "api",
     defaultModel: manifest.defaultModel,
     createdAt: manifest.createdAt,
   };
+}
+
+/** Builds the settings.json `env` block from the connection. In `api` mode the
+ * connection is folded in as usual. In `subscription` mode the connection does
+ * not apply — OAuth (`.credentials.json`) is authoritative and model roles
+ * resolve upstream — so every connection-derived key (credentials + model
+ * mapping) is dropped, leaving only unrelated keys the user set by hand. */
+function buildEnv(
+  existing: Record<string, string | undefined>,
+  input: AgentInput,
+): Record<string, string> {
+  if (input.authMode === "subscription") {
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(existing)) {
+      if (typeof v === "string") env[k] = v;
+    }
+    for (const key of connectionEnvKeys()) delete env[key];
+    return env;
+  }
+  return applyConnectionToEnv(existing, input.connection);
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +201,7 @@ export async function createAgent(input: AgentInput): Promise<Agent> {
     id,
     name: input.name.trim() || "Agent",
     engine: "claude",
+    authMode: input.authMode,
     defaultModel: input.defaultModel || "sonnet",
     createdAt: Date.now(),
   };
@@ -186,7 +212,7 @@ export async function createAgent(input: AgentInput): Promise<Agent> {
   );
 
   const settings: AgentSettings = {
-    env: applyConnectionToEnv({}, input.connection),
+    env: buildEnv({}, input),
   };
   await writeSettings(id, settings);
 
@@ -209,6 +235,7 @@ export async function updateAgent(
   const manifest: AgentManifest = {
     ...existing,
     name: input.name.trim() || existing.name,
+    authMode: input.authMode,
     defaultModel: input.defaultModel || existing.defaultModel,
   };
   await fs.writeFile(
@@ -221,7 +248,7 @@ export async function updateAgent(
   const existingSettings = await readSettings(agentId);
   const mergedSettings: AgentSettings = {
     ...existingSettings,
-    env: applyConnectionToEnv(existingSettings.env ?? {}, input.connection),
+    env: buildEnv(existingSettings.env ?? {}, input),
   };
   await writeSettings(agentId, mergedSettings);
 

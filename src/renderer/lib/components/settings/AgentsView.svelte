@@ -13,12 +13,15 @@ import type {
   AgentDetail,
   AgentInput,
   AgentConnection,
+  AuthMode,
   ModelRole,
   ModelRoleId,
+  SubscriptionStatus,
 } from "@/shared/agent-protocol";
 import {
   MODEL_ROLES,
   applyConnectionToEnv,
+  connectionEnvKeys,
   envToConnection,
 } from "@/shared/agent-protocol";
 import { i18n } from "@/renderer/lib/stores/i18n.svelte";
@@ -38,6 +41,84 @@ let globalUpdatedAt = $state<number>(0);
 
 // ---- reveal API key ----
 let showToken = $state(false);
+
+// ---- subscription (OAuth) auth ----
+let subStatus = $state<SubscriptionStatus | null>(null);
+let subBusy = $state(false);
+/** Polls status after a login window is opened, until authenticated / timeout. */
+let subPollTimer: ReturnType<typeof setInterval> | null = null;
+
+function stopSubPoll() {
+  if (subPollTimer) {
+    clearInterval(subPollTimer);
+    subPollTimer = null;
+  }
+}
+
+/** Reads the current agent's subscription login status from disk. */
+async function refreshSub(id: string) {
+  try {
+    subStatus = await window.mineco.agents.auth.status(id);
+  } catch {
+    subStatus = { authenticated: false };
+  }
+}
+
+/** Opens the official-CLI login terminal, then polls for the credential to land. */
+async function loginSub() {
+  if (!editAgent) return;
+  const id = editAgent.id;
+  subBusy = true;
+  try {
+    // Persist authMode first so a turn run right after login bills the
+    // subscription (the runtime reads authMode from the manifest).
+    await window.mineco.agents.update(id, buildInput(editAgent));
+    await window.mineco.agents.auth.login(id);
+  } catch (e) {
+    console.error("Subscription login failed to start:", e);
+    subBusy = false;
+    return;
+  }
+  // Poll for up to ~3 min: the user completes the browser flow in the terminal.
+  stopSubPoll();
+  let ticks = 0;
+  subPollTimer = setInterval(async () => {
+    ticks++;
+    await refreshSub(id);
+    if (subStatus?.authenticated || ticks > 90) {
+      stopSubPoll();
+      subBusy = false;
+    }
+  }, 2000);
+}
+
+/** Logs the current agent out of its subscription. */
+async function logoutSub() {
+  if (!editAgent) return;
+  stopSubPoll();
+  subBusy = true;
+  try {
+    await window.mineco.agents.auth.logout(editAgent.id);
+    await refreshSub(editAgent.id);
+  } catch (e) {
+    console.error("Subscription logout failed:", e);
+  } finally {
+    subBusy = false;
+  }
+}
+
+/** Switches an agent between API-key and subscription auth, persisting at once
+ * so the runtime (which reads authMode from the manifest) stays in sync. */
+async function setAuthMode(mode: AuthMode) {
+  if (!editAgent || editAgent.authMode === mode) return;
+  patchAgent({ authMode: mode });
+  try {
+    await window.mineco.agents.update(editAgent.id, buildInput(editAgent));
+  } catch (e) {
+    console.error("Failed to persist auth mode:", e);
+  }
+  if (mode === "subscription") await refreshSub(editAgent.id);
+}
 
 // ---- debounce helper ----
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -62,6 +143,7 @@ onMount(async () => {
 // Flush the open agent to disk if the view is torn down mid-edit (e.g. the
 // user navigates away from Settings without going back to the list first).
 onDestroy(() => {
+  stopSubPoll();
   void flushToDisk();
 });
 
@@ -79,6 +161,7 @@ async function addAgent() {
   showMenu = false;
   const input: AgentInput = {
     name: "New Claude Code agent",
+    authMode: "api",
     defaultModel: "sonnet",
     connection: {
       baseUrl: "https://api.anthropic.com",
@@ -124,12 +207,16 @@ async function openAgent(a: Agent) {
   showMenu = false;
   showToken = false;
   showRaw = false;
+  stopSubPoll();
+  subStatus = null;
+  subBusy = false;
   try {
     const detail = await window.mineco.agents.get(a.id);
     if (detail) {
       editAgent = detail;
       // Also load raw settings.json
       rawSettings = await window.mineco.agents.readSettings(a.id);
+      if (detail.authMode === "subscription") await refreshSub(detail.id);
     }
   } catch (e) {
     console.error("Failed to load agent detail:", e);
@@ -158,6 +245,7 @@ function buildInput(d: AgentDetail): AgentInput {
   // lets it cross the IPC boundary.
   return {
     name: d.name,
+    authMode: d.authMode,
     defaultModel: d.defaultModel,
     connection: {
       baseUrl: d.connection.baseUrl,
@@ -194,10 +282,20 @@ function syncRawFromStructured() {
   } catch {
     /* start fresh from {} if the current text is unparseable */
   }
-  obj.env = applyConnectionToEnv(
-    (obj.env as Record<string, string | undefined>) ?? {},
-    editAgent.connection,
-  );
+  const existingEnv = (obj.env as Record<string, string | undefined>) ?? {};
+  if (editAgent.authMode === "subscription") {
+    // Subscription: OAuth is authoritative — keep only unrelated keys, drop all
+    // connection-derived env (credentials + model mapping) so the raw text we
+    // later write verbatim never re-introduces them.
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(existingEnv)) {
+      if (typeof v === "string") env[k] = v;
+    }
+    for (const key of connectionEnvKeys()) delete env[key];
+    obj.env = env;
+  } else {
+    obj.env = applyConnectionToEnv(existingEnv, editAgent.connection);
+  }
   rawSettings = JSON.stringify(obj, null, 2);
   rawError = false;
 }
@@ -297,6 +395,7 @@ function toggleRaw() {
 
 // ---- back from detail ----
 async function goBack() {
+  stopSubPoll();
   await flushToDisk();
   editAgent = null;
   showRaw = false;
@@ -392,7 +491,7 @@ function fmtUpdated(ts: number): string {
             class="mc-no-drag flex items-center gap-3 px-4 py-3 border-t border-line first:border-t-0 cursor-pointer bg-transparent hover:bg-card-2 transition-colors text-left w-full"
           >
             <span class="w-[30px] h-[30px] flex-none rounded-[9px] overflow-hidden border-none bg-accent-bg grid place-items-center text-accent-tx">
-              <img src="/brand/claude-icon.png" alt="Claude Code" class="w-full h-full object-cover block" />
+              <img src="./brand/claude-icon.png" alt="Claude Code" class="w-full h-full object-cover block" />
             </span>
             <span class="flex flex-col flex-1 min-w-0">
               <span class="font-[650] text-[13px] text-ink">{agent.name}</span>
@@ -453,7 +552,7 @@ function fmtUpdated(ts: number): string {
   <!-- detail header -->
   <div class="flex items-center gap-3 px-0.5 pb-0.5">
     <span class="w-[42px] h-[42px] flex-none rounded-[12px] overflow-hidden border-none bg-accent-bg grid place-items-center">
-      <img src="/brand/claude-icon.png" alt="Claude Code" class="w-full h-full object-cover block" />
+      <img src="./brand/claude-icon.png" alt="Claude Code" class="w-full h-full object-cover block" />
     </span>
     <div class="flex-1 min-w-0 flex flex-col gap-0.5">
       <input
@@ -476,55 +575,140 @@ function fmtUpdated(ts: number): string {
       <span class="font-[650] text-[12.5px] text-ink">Connection</span>
     </div>
     <div class="flex flex-col gap-3 p-4">
-      <!-- Base URL -->
+      <!-- Auth mode segmented toggle -->
       <div class="flex flex-col gap-1.5">
-        <label for="agent-base-url" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">{i18n.t("agent.baseUrl")}</label>
-        <div class="flex items-center gap-1.5 bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_22%,transparent)] transition-all">
-          <input
-            id="agent-base-url"
-            type="text"
-            value={agent.connection.baseUrl}
-            spellcheck="false"
-            oninput={(e) => patchConnection({ baseUrl: (e.target as HTMLInputElement).value })}
-            class="flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full"
-          />
+        <span class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Authentication</span>
+        <div class="flex p-0.5 gap-0.5 bg-card-2 border border-line rounded-[var(--r-field)]">
+          {#each [["api", "API key"], ["subscription", "Subscription (OAuth)"]] as [mode, label] (mode)}
+            <button
+              type="button"
+              onclick={() => setAuthMode(mode as AuthMode)}
+              class="mc-no-drag flex-1 h-[28px] rounded-[calc(var(--r-field)-3px)] text-[12px] font-semibold transition-colors {agent.authMode === mode ? 'bg-accent-bg text-accent-tx border border-accent-ln' : 'bg-transparent text-ink-2 border border-transparent hover:text-ink'}"
+            >
+              {label}
+            </button>
+          {/each}
         </div>
+        <span class="text-[10.5px] text-ink-3 leading-[1.5]">
+          {#if agent.authMode === "subscription"}
+            Sign in with your Claude Pro/Max/Team subscription via the official Claude login. Credentials live in this agent's
+            <code class="font-mono">CLAUDE_CONFIG_DIR</code> and are auto-refreshed — bills your subscription, not API credits.
+          {:else}
+            Use an API key / token (and optional Base URL or relay). Billed pay-per-use.
+          {/if}
+        </span>
       </div>
-      <!-- Auth token -->
-      <div class="flex flex-col gap-1.5">
-        <label for="agent-token" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Auth token (ANTHROPIC_AUTH_TOKEN)</label>
-        <div class="flex items-center gap-1 bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_22%,transparent)] transition-all">
-          <input
-            id="agent-token"
-            type={showToken ? "text" : "password"}
-            value={agent.connection.token}
-            placeholder="sk-ant-…"
-            spellcheck="false"
-            oninput={(e) => patchConnection({ token: (e.target as HTMLInputElement).value })}
-            class="flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full"
-          />
-          <button
-            type="button"
-            title={showToken ? "Hide" : "Reveal"}
-            onclick={() => (showToken = !showToken)}
-            class="mc-no-drag w-[26px] h-[26px] flex-none border-none rounded-[7px] bg-transparent text-ink-3 cursor-pointer grid place-items-center hover:bg-raised hover:text-ink transition-colors"
-          >
-            <Icon name={showToken ? "eyeOff" : "eye"} size={14} />
-          </button>
-          <button
-            type="button"
-            title="Copy"
-            onclick={copyToken}
-            class="mc-no-drag w-[26px] h-[26px] flex-none border-none rounded-[7px] bg-transparent text-ink-3 cursor-pointer grid place-items-center hover:bg-raised hover:text-ink transition-colors"
-          >
-            <Icon name="copy" size={13} />
-          </button>
+
+      {#if agent.authMode === "subscription"}
+        <!-- Subscription login -->
+        <div class="flex flex-col gap-2.5 pt-1">
+          {#if subStatus?.authenticated}
+            <div class="flex items-center gap-2.5 bg-card-2 border border-line rounded-[var(--r-field)] px-3 py-2.5">
+              <span class="w-[26px] h-[26px] flex-none rounded-full grid place-items-center text-ok" style="background: color-mix(in oklab, var(--ok) 14%, transparent);">
+                <Icon name="check" size={14} />
+              </span>
+              <div class="flex flex-col min-w-0">
+                <span class="font-[650] text-[12.5px] text-ink">
+                  Signed in{subStatus.plan ? ` · ${subStatus.plan}` : ""}
+                </span>
+                <span class="text-[10.5px] text-ink-3">OAuth credential active in this agent · auto-refreshed</span>
+              </div>
+              <button
+                type="button"
+                disabled={subBusy}
+                onclick={logoutSub}
+                class="mc-no-drag ml-auto flex-none px-3 h-[30px] rounded-[var(--r-field)] border border-line-3 bg-card text-ink-2 text-[12px] font-semibold hover:bg-raised hover:text-ink transition-colors disabled:opacity-50"
+              >
+                Log out
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={subBusy}
+              onclick={loginSub}
+              class="mc-no-drag self-start text-[11.5px] text-ink-3 hover:text-ink underline underline-offset-2 bg-transparent border-none cursor-pointer disabled:opacity-50"
+            >
+              Re-login (switch account)
+            </button>
+          {:else}
+            <button
+              type="button"
+              disabled={subBusy}
+              onclick={loginSub}
+              class="mc-no-drag inline-flex items-center justify-center gap-2 h-[38px] rounded-[var(--r-field)] border border-accent-ln bg-accent-bg text-accent-tx text-[12.5px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {#if subBusy}
+                <Icon name="replay" size={14} class="animate-spin" />
+                Waiting for login…
+              {:else}
+                <Icon name="key" size={14} />
+                Sign in with Claude subscription
+              {/if}
+            </button>
+            <span class="text-[10.5px] text-ink-3 leading-[1.5]">
+              {#if subBusy}
+                A terminal window opened running <code class="font-mono">claude auth login</code>. Approve in your browser; this updates automatically once it lands.
+                <button type="button" onclick={() => editAgent && refreshSub(editAgent.id)} class="text-ink-2 hover:text-ink underline underline-offset-2 bg-transparent border-none cursor-pointer ml-1">Refresh now</button>
+              {:else}
+                Opens a terminal running the official Claude login, scoped to this agent. Complete the browser sign-in there.
+              {/if}
+            </span>
+          {/if}
         </div>
-      </div>
+      {:else}
+        <!-- Base URL -->
+        <div class="flex flex-col gap-1.5">
+          <label for="agent-base-url" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">{i18n.t("agent.baseUrl")}</label>
+          <div class="flex items-center gap-1.5 bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_22%,transparent)] transition-all">
+            <input
+              id="agent-base-url"
+              type="text"
+              value={agent.connection.baseUrl}
+              spellcheck="false"
+              oninput={(e) => patchConnection({ baseUrl: (e.target as HTMLInputElement).value })}
+              class="flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full"
+            />
+          </div>
+        </div>
+        <!-- Auth token -->
+        <div class="flex flex-col gap-1.5">
+          <label for="agent-token" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Auth token (ANTHROPIC_AUTH_TOKEN)</label>
+          <div class="flex items-center gap-1 bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_22%,transparent)] transition-all">
+            <input
+              id="agent-token"
+              type={showToken ? "text" : "password"}
+              value={agent.connection.token}
+              placeholder="sk-ant-…"
+              spellcheck="false"
+              oninput={(e) => patchConnection({ token: (e.target as HTMLInputElement).value })}
+              class="flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full"
+            />
+            <button
+              type="button"
+              title={showToken ? "Hide" : "Reveal"}
+              onclick={() => (showToken = !showToken)}
+              class="mc-no-drag w-[26px] h-[26px] flex-none border-none rounded-[7px] bg-transparent text-ink-3 cursor-pointer grid place-items-center hover:bg-raised hover:text-ink transition-colors"
+            >
+              <Icon name={showToken ? "eyeOff" : "eye"} size={14} />
+            </button>
+            <button
+              type="button"
+              title="Copy"
+              onclick={copyToken}
+              class="mc-no-drag w-[26px] h-[26px] flex-none border-none rounded-[7px] bg-transparent text-ink-3 cursor-pointer grid place-items-center hover:bg-raised hover:text-ink transition-colors"
+            >
+              <Icon name="copy" size={13} />
+            </button>
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
 
-  <!-- Model mapping card -->
+  <!-- Model mapping card — API mode only. In subscription mode the OAuth login
+       resolves model roles upstream, so a custom role→model mapping doesn't
+       apply (and would mis-route); only the composer default role below matters. -->
+  {#if agent.authMode === "api"}
   <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
     <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
       <Icon name="sparkle" size={13} class="text-accent-tx" />
@@ -613,25 +797,40 @@ function fmtUpdated(ts: number): string {
         </span>
       </div>
 
-      <!-- Composer default role -->
-      <div class="flex flex-col gap-1.5 mt-3 pt-3 border-t border-line">
-        <label for="agent-default-model" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Composer default role</label>
-        <div class="relative flex items-center bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent transition-all">
-          <select
-            id="agent-default-model"
-            value={agent.defaultModel}
-            onchange={(e) => patchAgent({ defaultModel: (e.target as HTMLSelectElement).value })}
-            class="mc-no-drag flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full appearance-none cursor-pointer pr-5"
-          >
-            {#each MODEL_ROLES as role (role)}
-              <option value={role}>{role}</option>
-            {/each}
-          </select>
-          <span class="absolute right-2 text-ink-3 pointer-events-none">
-            <Icon name="chev" size={12} />
-          </span>
-        </div>
+    </div>
+  </div>
+  {/if}
+
+  <!-- Default model card — always shown. The role alias (sonnet/opus/…) is the
+       composer default; in subscription mode it resolves upstream, in API mode
+       via the mapping above. -->
+  <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
+    <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
+      <Icon name="sparkle" size={13} class="text-accent-tx" />
+      <span class="font-[650] text-[12.5px] text-ink">Default model</span>
+    </div>
+    <div class="flex flex-col gap-1.5 p-4">
+      <label for="agent-default-model" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Composer default role</label>
+      <div class="relative flex items-center bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent transition-all">
+        <select
+          id="agent-default-model"
+          value={agent.defaultModel}
+          onchange={(e) => patchAgent({ defaultModel: (e.target as HTMLSelectElement).value })}
+          class="mc-no-drag flex-1 min-w-0 border-none outline-none bg-transparent font-mono text-[12px] text-ink h-full appearance-none cursor-pointer pr-5"
+        >
+          {#each MODEL_ROLES as role (role)}
+            <option value={role}>{role}</option>
+          {/each}
+        </select>
+        <span class="absolute right-2 text-ink-3 pointer-events-none">
+          <Icon name="chev" size={12} />
+        </span>
       </div>
+      {#if agent.authMode === "subscription"}
+        <span class="text-[10.5px] text-ink-3 leading-[1.5]">
+          Resolved by your subscription — <code class="font-mono">opus</code>/<code class="font-mono">sonnet</code>/<code class="font-mono">haiku</code> map to the current Claude models.
+        </span>
+      {/if}
     </div>
   </div>
 

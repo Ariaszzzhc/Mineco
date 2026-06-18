@@ -14,6 +14,7 @@ import {
   type NormalizedUsage,
   type SessionView,
   type SkillEntry,
+  type SubscriptionStatus,
   type TurnResponse,
   turnEventChannel,
   type Workspace,
@@ -53,6 +54,18 @@ const mineco = {
       ipcRenderer.invoke(CH.agentsReadSettings, id),
     writeSettings: (id: string, raw: string): Promise<void> =>
       ipcRenderer.invoke(CH.agentsWriteSettings, id, raw),
+    /** Subscription (OAuth) auth, delegated to the official CLI. */
+    auth: {
+      /** Opens a terminal running `claude auth login --claudeai` for this agent. */
+      login: (id: string): Promise<void> =>
+        ipcRenderer.invoke(CH.agentsAuthLogin, id),
+      /** Reads the agent's OAuth login status from its credentials file. */
+      status: (id: string): Promise<SubscriptionStatus> =>
+        ipcRenderer.invoke(CH.agentsAuthStatus, id),
+      /** Logs the agent out (clears its OAuth credential). */
+      logout: (id: string): Promise<void> =>
+        ipcRenderer.invoke(CH.agentsAuthLogout, id),
+    },
   },
 
   // --- Global instructions -------------------------------------------------

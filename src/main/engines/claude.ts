@@ -6,11 +6,12 @@ import {
   query,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import type {
-  EngineCapabilities,
-  NormalizedEvent,
-  NormalizedUsage,
-  RunMode,
+import {
+  connectionEnvKeys,
+  type EngineCapabilities,
+  type NormalizedEvent,
+  type NormalizedUsage,
+  type RunMode,
 } from "@/shared/agent-protocol";
 import { AsyncQueue } from "./async-queue";
 import {
@@ -222,9 +223,19 @@ class ClaudeSession implements EngineSession {
 
     // The SDK's `env` REPLACES the subprocess environment wholesale (not
     // merged), so spread `process.env` to keep PATH / HOME / ambient creds.
+    // Subscription agents authenticate via the OAuth `.credentials.json` in
+    // their config dir, so drop any inherited connection env (API credentials
+    // AND custom model mapping) as we copy across — either would otherwise win
+    // over the subscription and mis-bill or mis-route.
+    const stripKeys =
+      init.agent.authMode === "subscription"
+        ? new Set(connectionEnvKeys())
+        : null;
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) {
-      if (v !== undefined) env[k] = v;
+      if (v === undefined) continue;
+      if (stripKeys?.has(k)) continue;
+      env[k] = v;
     }
     env.CLAUDE_CONFIG_DIR = init.agent.configDir;
 

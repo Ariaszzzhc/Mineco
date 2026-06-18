@@ -46,6 +46,11 @@ import { isRunning } from "./services/run-registry";
 import type { Scope } from "./services/scope";
 import { createSkill, listSkills, toggleSkillEnabled } from "./services/skills";
 import {
+  loginSubscription,
+  logoutSubscription,
+  subscriptionStatus,
+} from "./services/subscription-auth";
+import {
   activate,
   createWorkspace,
   deleteWorkspace,
@@ -171,6 +176,15 @@ function registerIpc(): void {
       await writeAgentSettings(id, raw);
       broadcastAgentsChanged();
     },
+  );
+  // Subscription (OAuth) auth: launch the official CLI login in a terminal,
+  // read its status back, and log out.
+  ipcMain.handle(CH.agentsAuthLogin, (_e, id: string) => loginSubscription(id));
+  ipcMain.handle(CH.agentsAuthStatus, (_e, id: string) =>
+    subscriptionStatus(id),
+  );
+  ipcMain.handle(CH.agentsAuthLogout, (_e, id: string) =>
+    logoutSubscription(id),
   );
 
   // --- Global instructions (~/.mineco/MINECO.md) --------------------------
