@@ -18,6 +18,7 @@ import {
   type SubscriptionStatus,
   type TurnResponse,
   turnEventChannel,
+  type UpdateState,
   type Workspace,
 } from "@/shared/agent-protocol";
 
@@ -176,6 +177,26 @@ const mineco = {
   // --- App info (version + runtime) ---------------------------------------
   app: {
     getInfo: (): Promise<AppInfo> => ipcRenderer.invoke(CH.appGetInfo),
+  },
+
+  // --- Auto-update (electron-updater) -------------------------------------
+  updates: {
+    /** Current update state (status, versions, progress). */
+    getState: (): Promise<UpdateState> =>
+      ipcRenderer.invoke(CH.updatesGetState),
+    /** Ask the feed whether a newer version exists. */
+    check: (): Promise<UpdateState> => ipcRenderer.invoke(CH.updatesCheck),
+    /** Download the available update (emits progress via onChanged). */
+    download: (): Promise<UpdateState> =>
+      ipcRenderer.invoke(CH.updatesDownload),
+    /** Quit and install the downloaded update (relaunches). */
+    install: (): Promise<void> => ipcRenderer.invoke(CH.updatesInstall),
+    /** Subscribe to update-state transitions. Returns an unsubscribe fn. */
+    onChanged(cb: (state: UpdateState) => void): () => void {
+      const listener = (_e: unknown, state: UpdateState) => cb(state);
+      ipcRenderer.on(CH.updatesChanged, listener);
+      return () => ipcRenderer.removeListener(CH.updatesChanged, listener);
+    },
   },
 
   /** Fetches an engine's static capability descriptor (run modes etc.). */

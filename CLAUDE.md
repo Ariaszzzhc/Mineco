@@ -205,3 +205,31 @@ binary directly (see the gotchas above). The packaging strategy is therefore:
   need a fallback (ship the binary manually / point at a pre-staged path).
 - Per-platform installers must be built on (or cross-built for) each OS;
   binaries can't be cross-compiled.
+
+**Auto-update (electron-updater):** `electron-builder.yml`'s `publish` block
+(GitHub provider) makes the build embed `app-update.yml` and emit the
+`latest*.yml` feeds next to the installers — CI uploads those (plus the mac
+`*.zip`) onto the GitHub Release via `gh release`, so updates resolve even though
+electron-builder itself runs `--publish never`. `services/updater.ts` wraps
+`autoUpdater` (externalized in `vite.config.ts`, like the SDK; it reads its own
+`app-update.yml` and Node deps at runtime): `autoDownload = false` →
+manual-but-guided flow (check → download-with-progress → quit-and-install),
+projected onto the shared `UpdateState` and broadcast to the renderer
+(`CH.updatesChanged`), surfaced in the Settings → Appearance "Updates" card. The
+install IPC handler flips `isQuitting` first, else the close-to-tray handler
+vetoes the installer's quit. Guarded by `app.isPackaged` (`supported`), so dev is
+a no-op. **macOS self-update needs a *signed* build** — the unsigned CI artifacts
+install fine but can't auto-update until `mac` signing is configured (the `zip`
+target is already there for Squirrel.Mac).
+
+**Nightly channel:** `nightly.yml` builds (`build.yml` `channel` input →
+`-c.publish.channel=nightly`, set by `nightly.yml`) publish a separate `nightly`
+feed to the rolling `nightly` pre-release. `updater.ts` detects the
+`-nightly.<date>.<sha>` version stamp and sets `autoUpdater.channel = "nightly"`,
+so nightly installs roll forward between nightlies (reading only `nightly.yml`)
+while stable users — `allowPrerelease` false, default `latest` channel — never
+see prereleases. The GitHub provider doesn't infer the channel from the version
+tag, so the build-time `channel` override is required, not optional. Caveat: a
+nightly check can transiently 404 right after a *stable* release is cut (the
+newest GitHub release momentarily lacks `nightly.yml`); the next nightly run
+restores it.

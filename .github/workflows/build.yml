@@ -14,6 +14,15 @@ on:
         description: Stamp package.json to this version before building (optional).
         type: string
         required: false
+      channel:
+        description: >-
+          Update channel to publish (default "latest"). Nightly passes
+          "nightly" so electron-builder emits a `nightly.yml` feed instead of
+          `latest.yml`, keeping nightly's rolling auto-update isolated from
+          stable. The GitHub provider ignores the version tag for channel
+          detection, so it MUST be set explicitly here.
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -54,22 +63,40 @@ jobs:
         # `publish` job (via `gh release`), so electron-builder must only build.
         # (`pnpm dist` is `vite build && electron-builder`; spell it out so the
         # flag reaches electron-builder, not the whole script.)
-        run: pnpm build && pnpm exec electron-builder --publish never
+        # `-c.publish.channel`: override the feed channel for this build (nightly
+        # → `nightly.yml`); empty for stable, which keeps the default `latest`.
+        run: |
+          channel_arg=""
+          if [ -n "${{ inputs.channel }}" ]; then
+            channel_arg="-c.publish.channel=${{ inputs.channel }}"
+          fi
+          pnpm build && pnpm exec electron-builder --publish never $channel_arg
         env:
           # No Apple signing certs in CI — don't let electron-builder try the
           # local keychain. Produces an unsigned (notarization-free) build.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      # Only ship the installers + autoupdate feeds; skip electron-builder's
-      # debug yml and the unpacked app directories it leaves behind.
+      # Only ship the installers + autoupdate feeds. Match exactly one directory
+      # level (`release/<version>/*`), NOT a recursive `**`: the real artifacts
+      # all sit at `release/<version>/`, while the per-arch `*-unpacked/` and
+      # NSIS build dirs one level deeper hold helper executables (`elevate.exe`,
+      # `mineco.exe`). A recursive glob swept those in, and the two arches'
+      # identically-named `elevate.exe` collided on upload (`gh release` keys
+      # assets by basename → HTTP 422 "ReleaseAsset.name already exists").
       - uses: actions/upload-artifact@v4
         with:
           name: installers-${{ matrix.os }}
           if-no-files-found: error
           path: |
-            release/**/*.dmg
-            release/**/*.dmg.blockmap
-            release/**/*.exe
-            release/**/*.exe.blockmap
-            release/**/*.AppImage
-            release/**/latest*.yml
+            release/*/*.dmg
+            release/*/*.dmg.blockmap
+            release/*/*.exe
+            release/*/*.exe.blockmap
+            release/*/*.AppImage
+            # macOS auto-update payload (Squirrel.Mac downloads the zip, not the dmg).
+            release/*/*.zip
+            release/*/*.zip.blockmap
+            # Auto-update feed metadata: `latest*.yml` for stable, `nightly*.yml`
+            # for the nightly channel (only one set exists per build).
+            release/*/latest*.yml
+            release/*/nightly*.yml

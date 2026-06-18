@@ -23,9 +23,9 @@
     "@tsconfig/svelte": "^5.0.8",
     "@types/node": "^24.12.3",
     "electron": "^42.4.0",
+    "electron-builder": "^25.1.8",
     "svelte": "^5.55.5",
     "svelte-check": "^4.4.8",
-    "electron-builder": "^25.1.8",
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
     "vite-plugin-electron": "^1.0.4"
@@ -36,6 +36,7 @@
     "@tailwindcss/vite": "^4.3.1",
     "bits-ui": "^2.18.1",
     "dompurify": "^3.4.10",
+    "electron-updater": "^6.8.9",
     "highlight.js": "^11.11.1",
     "kysely": "^0.29.2",
     "marked": "^18.0.5",

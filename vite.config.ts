@@ -21,7 +21,10 @@ export default defineConfig({
               // The Claude Agent SDK spawns a CLI subprocess and resolves its
               // own bundled assets at runtime — keep it external and load from
               // node_modules instead of bundling it into main.js.
-              external: ["@anthropic-ai/claude-agent-sdk"],
+              // electron-updater must also stay external: it reads its own
+              // `app-update.yml` from the packaged resources and pulls in Node
+              // deps (js-yaml, lzma, etc.) that don't survive bundling.
+              external: ["@anthropic-ai/claude-agent-sdk", "electron-updater"],
               // Entry source was renamed main.ts -> index.ts; hardcode the
               // output name so dist-electron/main.js (and package.json "main")
               // stay unchanged — zero behavior change.
