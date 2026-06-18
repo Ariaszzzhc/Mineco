@@ -18,13 +18,13 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { Workspace } from "@/shared/agent-protocol";
 import { listSessions } from "@/main/db/sessions";
 import {
   ensurePublicWorkspace,
   getWorkspace,
   setLastSelection,
 } from "@/main/db/workspaces";
+import type { Workspace } from "@/shared/agent-protocol";
 
 // Re-export the underlying DB CRUD so callers only need one import.
 export {

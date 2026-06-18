@@ -4,8 +4,9 @@
  * we map stored `Message` rows into these blocks; during a live turn we build
  * an assistant block incrementally from `NormalizedEvent`s via `applyEvent`.
  */
-import type { EngineId, ToolRecord } from "@/shared/agent-protocol";
+
 import type { ToolItem } from "@/renderer/lib/event-reducer";
+import type { EngineId, ToolRecord } from "@/shared/agent-protocol";
 
 /** A user message bubble. */
 export interface UserBlock {

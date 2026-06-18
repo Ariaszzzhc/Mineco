@@ -76,7 +76,9 @@ export interface MinecoApi {
       cwd?: string;
     }): Promise<SessionView>;
     remove(id: string): Promise<void>;
-    messages(sessionId: string): Promise<import("@/shared/agent-protocol").Message[]>;
+    messages(
+      sessionId: string,
+    ): Promise<import("@/shared/agent-protocol").Message[]>;
   };
   memory: {
     list(workspaceId: string | null): Promise<MemoryEntry[]>;

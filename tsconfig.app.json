@@ -19,5 +19,10 @@
     "checkJs": true,
     "moduleDetection": "force"
   },
-  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.js", "src/renderer/**/*.svelte", "src/shared/**/*.ts"]
+  "include": [
+    "src/renderer/**/*.ts",
+    "src/renderer/**/*.js",
+    "src/renderer/**/*.svelte",
+    "src/shared/**/*.ts"
+  ]
 }

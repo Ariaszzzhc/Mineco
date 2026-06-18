@@ -1,6 +1,6 @@
+import { fileURLToPath, URL } from "node:url";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
-import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import electron from "vite-plugin-electron/simple";
 

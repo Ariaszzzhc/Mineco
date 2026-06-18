@@ -16,9 +16,9 @@
  * holdSession} / {@link releaseSession} bracket each turn).
  */
 
-import type { EngineId } from "@/shared/agent-protocol";
 import { getEngine } from "@/main/engines/registry";
 import type { EngineSession, EngineSessionInit } from "@/main/engines/types";
+import type { EngineId } from "@/shared/agent-protocol";
 
 /** Close a session whose last turn ended more than this long ago. */
 const IDLE_MS = 15 * 60 * 1000;
