@@ -4,6 +4,7 @@
   Font size, Interface language. Each calls theme.set() which persists + applies.
 -->
 <script lang="ts">
+import type { AppInfo } from "@/shared/agent-protocol";
 import { i18n } from "@/renderer/lib/stores/i18n.svelte";
 import Icon from "@/renderer/lib/ui/Icon.svelte";
 import { theme } from "@/renderer/lib/stores/theme.svelte";
@@ -14,6 +15,14 @@ const ACCENTS = ["#43A95A", "#D6A33C", "#8E7BE6", "#3B82C4", "#D9608C"];
 const currentTheme = $derived(theme.theme);
 const currentAccent = $derived(theme.accent);
 const currentLang = $derived(theme.lang);
+
+// App/runtime version — read once from the main process (static for the run).
+let info = $state<AppInfo | null>(null);
+$effect(() => {
+  void window.mineco.app.getInfo().then((i) => {
+    info = i;
+  });
+});
 </script>
 
 <div class="flex flex-col gap-0">
@@ -130,4 +139,32 @@ const currentLang = $derived(theme.lang);
 <div class="flex items-start gap-2 text-[12px] text-ink-2 leading-[1.5] px-1">
   <Icon name="info" size={14} class="text-ink-3 flex-none mt-[2px]" />
   Interface language localizes mineco itself only. What language the <strong class="text-ink-2">engine</strong> thinks and replies in is decided by the engine at runtime — it is not controlled by this setting.
+</div>
+
+<!-- About card -->
+<div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
+  <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
+    <Icon name="info" size={13} class="text-accent-tx" />
+    <span class="font-[650] text-[12.5px] text-ink">About</span>
+  </div>
+
+  <div class="flex items-center gap-4 px-4 py-3.5 border-b border-line">
+    <span class="flex-1 min-w-0 flex flex-col gap-0.5">
+      <span class="font-[650] text-[13px] text-ink">mineco</span>
+      <span class="text-[11.5px] text-ink-3 leading-[1.4]">Desktop agent host</span>
+    </span>
+    <span class="font-mono text-[12.5px] text-ink-2 tabular-nums">
+      v{info?.version ?? "—"}
+    </span>
+  </div>
+
+  <div class="flex items-center gap-4 px-4 py-3.5">
+    <span class="flex-1 min-w-0 flex flex-col gap-0.5">
+      <span class="font-[650] text-[13px] text-ink">Runtime</span>
+      <span class="text-[11.5px] text-ink-3 leading-[1.4]">Electron · Node · Chromium</span>
+    </span>
+    <span class="font-mono text-[11.5px] text-ink-3 tabular-nums">
+      {info ? `${info.electron} · ${info.node} · ${info.chrome}` : "—"}
+    </span>
+  </div>
 </div>

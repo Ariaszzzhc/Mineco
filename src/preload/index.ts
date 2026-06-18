@@ -3,6 +3,7 @@ import {
   type Agent,
   type AgentDetail,
   type AgentInput,
+  type AppInfo,
   type AppSettings,
   CH,
   type EngineCapabilities,
@@ -170,6 +171,11 @@ const mineco = {
     get: (): Promise<AppSettings> => ipcRenderer.invoke(CH.appearanceGet),
     set: (settings: AppSettings): Promise<void> =>
       ipcRenderer.invoke(CH.appearanceSet, settings),
+  },
+
+  // --- App info (version + runtime) ---------------------------------------
+  app: {
+    getInfo: (): Promise<AppInfo> => ipcRenderer.invoke(CH.appGetInfo),
   },
 
   /** Fetches an engine's static capability descriptor (run modes etc.). */

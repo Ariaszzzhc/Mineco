@@ -1,8 +1,18 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeImage,
+  shell,
+  Tray,
+} from "electron";
 import {
   type AgentInput,
+  type AppInfo,
   type AppSettings,
   CH,
   type EngineId,
@@ -72,10 +82,60 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 // `dist-electron/` is one level below the project root.
-process.env.APP_ROOT = path.join(__dirname, "..");
-const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
+const APP_ROOT = path.join(__dirname, "..");
+process.env.APP_ROOT = APP_ROOT;
+const RENDERER_DIST = path.join(APP_ROOT, "dist");
 
 let win: BrowserWindow | null = null;
+let tray: Tray | null = null;
+// Closing the window hides it to the tray rather than quitting; only an
+// explicit Quit (tray menu / before-quit) really exits. This flag flips the
+// window `close` handler from "hide" to "let it close" for the real shutdown.
+let isQuitting = false;
+
+/** Brings the main window back: un-hides, restores from minimized, focuses.
+ * Recreates the window if it was destroyed (shouldn't happen — we hide, not
+ * close — but stays correct on macOS where windows can be gone). */
+function showWindow(): void {
+  if (!win || win.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+
+/** Creates the system-tray icon: double-click (or single-click) reopens the
+ * window; the context menu offers Show / Quit. The icon reuses the app's brand
+ * PNG (in dev it lives under `public/`, in a packaged build under `dist/`). */
+function createTray(): void {
+  if (tray) return;
+  const iconPath = VITE_DEV_SERVER_URL
+    ? path.join(APP_ROOT, "public", "brand", "mineco.png")
+    : path.join(RENDERER_DIST, "brand", "mineco.png");
+  const image = nativeImage
+    .createFromPath(iconPath)
+    .resize({ width: 16, height: 16 });
+  tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image);
+  tray.setToolTip("mineco");
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Show mineco", click: () => showWindow() },
+      { type: "separator" },
+      {
+        label: "Quit mineco",
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        },
+      },
+    ]),
+  );
+  // Windows fires double-click; clicking once is also a reasonable "reopen".
+  tray.on("double-click", () => showWindow());
+  tray.on("click", () => showWindow());
+}
 
 function createWindow(): void {
   win = new BrowserWindow({
@@ -114,6 +174,16 @@ function createWindow(): void {
     if (/^https?:|^mailto:/i.test(url)) {
       event.preventDefault();
       void shell.openExternal(url);
+    }
+  });
+
+  // Closing the window does not quit the app — it hides to the system tray, so
+  // the warm engine sessions stay alive and reopening is instant. A real quit
+  // (tray "Quit" / app.quit) sets `isQuitting` first so the window can close.
+  win.on("close", (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      win?.hide();
     }
   });
 
@@ -314,6 +384,17 @@ function registerIpc(): void {
     getEngine(engine).capabilities(),
   );
 
+  // --- App info (version + runtime) ---------------------------------------
+  ipcMain.handle(
+    CH.appGetInfo,
+    (): AppInfo => ({
+      version: app.getVersion(),
+      electron: process.versions.electron,
+      node: process.versions.node,
+      chrome: process.versions.chrome,
+    }),
+  );
+
   // --- Streaming turn run --------------------------------------------------
   // Events go back on the request's private channel; question/approval bridges
   // flow back in on `turnRespond`.
@@ -338,24 +419,43 @@ function registerIpc(): void {
   });
 }
 
-app.whenReady().then(async () => {
-  await ensurePublicWorkspaceExists();
-  registerIpc();
-  createWindow();
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+// Single-instance: only the first launch owns the app. A second launch fails
+// the lock and quits immediately; the running instance is signalled via
+// `second-instance`, where we surface the existing window instead of spawning
+// a duplicate.
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    showWindow();
   });
-});
 
+  app.whenReady().then(async () => {
+    await ensurePublicWorkspaceExists();
+    registerIpc();
+    createTray();
+    createWindow();
+
+    app.on("activate", () => {
+      // Reopening from the dock (macOS) or after a hide should resurface the
+      // existing window rather than create a second one.
+      showWindow();
+    });
+  });
+}
+
+// The window hides to the tray on close, so it never fully closes during normal
+// use. Override Electron's default "quit when all windows are closed" so the app
+// stays resident in the tray; quitting goes exclusively through the tray menu
+// (or `before-quit`), which sets `isQuitting`.
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-    win = null;
-  }
+  // Intentionally empty: stay alive in the tray.
 });
 
-// Tear down all warm native queries (and their subprocesses) on shutdown.
+// Tear down all warm native queries (and their subprocesses) on shutdown, and
+// remember we're really quitting so the window `close` handler lets it close.
 app.on("before-quit", () => {
+  isQuitting = true;
   void closeAllSessions();
 });
