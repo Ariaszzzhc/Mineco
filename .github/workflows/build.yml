@@ -49,7 +49,12 @@ jobs:
 
       - name: Build installers
         shell: bash
-        run: pnpm dist
+        # `--publish never`: on a tag push electron-builder auto-publishes to
+        # GitHub and fails without a token. Publishing is the caller's separate
+        # `publish` job (via `gh release`), so electron-builder must only build.
+        # (`pnpm dist` is `vite build && electron-builder`; spell it out so the
+        # flag reaches electron-builder, not the whole script.)
+        run: pnpm build && pnpm exec electron-builder --publish never
         env:
           # No Apple signing certs in CI — don't let electron-builder try the
           # local keychain. Produces an unsigned (notarization-free) build.
