@@ -1,38 +1,44 @@
 {
   "name": "mineco",
-  "version": "0.2.0",
   "private": true,
-  "description": "coding agent",
-  "packageManager": "pnpm@10.29.3",
+  "version": "0.3.0",
+  "description": "A minimal Electron + Svelte desktop agent host for the Claude Agent SDK.",
+  "author": "Ariaszzzhc <ariaszzzzhc@gmail.com>",
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
-  "engines": {
-    "node": ">=25",
-    "pnpm": "10.29.3"
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "pack": "vite build && electron-builder --dir",
+    "dist": "vite build && electron-builder"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.9",
-    "@types/node": "^25.5.0",
-    "@vitest/coverage-v8": "^4.1.2",
-    "tsx": "^4.21.0",
-    "turbo": "^2.9.0",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.2"
-  },
-  "scripts": {
-    "build": "turbo run build",
-    "check": "turbo run check",
-    "dev": "turbo run dev --filter=@mineco/core --filter=@mineco/web",
-    "dev:app": "turbo run dev --filter=@mineco/app",
-    "dev:core": "turbo run dev --filter=@mineco/core",
-    "test": "vitest run",
-    "lint": "biome check .",
-    "lint:fix": "biome check --fix .",
-    "format": "biome format --fix ."
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^24.12.3",
+    "electron": "^42.4.0",
+    "svelte": "^5.55.5",
+    "svelte-check": "^4.4.8",
+    "electron-builder": "^25.1.8",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vite-plugin-electron": "^1.0.4"
   },
   "dependencies": {
-    "chart.js": "^4.5.1"
+    "@anthropic-ai/claude-agent-sdk": "^0.3.177",
+    "@lucide/svelte": "^1.20.0",
+    "@tailwindcss/vite": "^4.3.1",
+    "bits-ui": "^2.18.1",
+    "dompurify": "^3.4.10",
+    "highlight.js": "^11.11.1",
+    "kysely": "^0.29.2",
+    "marked": "^18.0.5",
+    "marked-highlight": "^2.2.4",
+    "tailwindcss": "^4.3.1"
   }
 }

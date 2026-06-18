@@ -1,0 +1,632 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   mineco design tokens (exact palette from the HTML/CSS prototype)
+   - :root        -> dark (default)
+   - [data-theme] -> light overrides
+   --accent is user-configurable at runtime: the theme store sets `--accent`
+   inline on <html>, and every derived accent var (-tx/-bg/-ln) is computed
+   from it via color-mix so they track the user's choice automatically.
+   =========================================================================== */
+:root {
+  --ui:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui,
+    "Helvetica Neue", sans-serif;
+  --mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas,
+    monospace;
+
+  /* surfaces */
+  --app: #0c0c0e;
+  --chrome: #161618;
+  --chrome-2: #1b1b1e;
+  --canvas: #1a1a1d;
+  --card: #202023;
+  --card-2: #27272b;
+  --raised: #2d2d32;
+
+  /* hairlines */
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.05);
+  --line-3: rgba(255, 255, 255, 0.13);
+
+  /* text */
+  --ink: #ececee;
+  --ink-2: #9f9fa6;
+  --ink-3: #6b6b72;
+
+  /* accent (runtime-overridable: set `--accent` inline on <html>) */
+  --accent: #43a95a;
+  --accent-tx: color-mix(in oklab, var(--accent) 66%, #fff);
+  --accent-dk: color-mix(in oklab, var(--accent) 88%, #fff);
+  --accent-bg: color-mix(in oklab, var(--accent) 18%, #1b1b1e);
+  --accent-ln: color-mix(in oklab, var(--accent) 38%, #1b1b1e);
+
+  /* status */
+  --amber: #d6a33c;
+  --amber-bg: color-mix(in oklab, #d6a33c 18%, #1b1b1e);
+  --ok: #57bd6c;
+  --del: #e5484d;
+
+  /* scale + layout */
+  --fs: 1;
+  --tbh: 40px;
+  --sbw: 244px;
+  --trw: 264px;
+  --r-panel: 14px;
+  --r-card: 12px;
+  --r-field: 10px;
+}
+
+[data-theme="light"] {
+  --app: #e4e1d7;
+  --chrome: #f4f2eb;
+  --chrome-2: #ebe8de;
+  --canvas: #faf9f4;
+  --card: #ffffff;
+  --card-2: #f5f3eb;
+  --raised: #edeae0;
+
+  --line: rgba(48, 42, 28, 0.1);
+  --line-2: rgba(48, 42, 28, 0.055);
+  --line-3: rgba(48, 42, 28, 0.15);
+
+  --ink: #2a2823;
+  --ink-2: #5f5c52;
+  --ink-3: #94917f;
+
+  --accent: #2f9447;
+  --accent-tx: color-mix(in oklab, var(--accent) 84%, #000);
+  --accent-dk: color-mix(in oklab, var(--accent) 90%, #000);
+  --accent-bg: color-mix(in oklab, var(--accent) 10%, #fff);
+  --accent-ln: color-mix(in oklab, var(--accent) 28%, #fff);
+
+  --amber: #b5821f;
+  --amber-bg: color-mix(in oklab, #b5821f 12%, #fff);
+}
+
+/* ===========================================================================
+   Map tokens into Tailwind v4 (@theme inline) so utilities resolve to the
+   live CSS vars: bg-card, text-ink, border-line, text-accent-tx, etc.
+   `inline` keeps the var() reference (so theme switching is instant) instead
+   of snapshotting the value at build time.
+   =========================================================================== */
+@theme inline {
+  --color-app: var(--app);
+  --color-chrome: var(--chrome);
+  --color-chrome-2: var(--chrome-2);
+  --color-canvas: var(--canvas);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-raised: var(--raised);
+
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-line-3: var(--line-3);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+
+  --color-accent: var(--accent);
+  --color-accent-tx: var(--accent-tx);
+  --color-accent-dk: var(--accent-dk);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-ln: var(--accent-ln);
+
+  --color-amber: var(--amber);
+  --color-amber-bg: var(--amber-bg);
+  --color-ok: var(--ok);
+  --color-del: var(--del);
+
+  --font-ui: var(--ui);
+  --font-mono: var(--mono);
+
+  --radius-panel: var(--r-panel);
+  --radius-card: var(--r-card);
+  --radius-field: var(--r-field);
+}
+
+/* ===========================================================================
+   Base
+   =========================================================================== */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--app);
+}
+body {
+  font-family: var(--ui);
+  color: var(--ink);
+  /* font-size scaling: every rem-based size multiplies by --fs */
+  font-size: calc(1rem * var(--fs));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+#app {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Suppress transitions during a theme/accent switch — Chromium repaints CSS
+   custom properties lazily and would otherwise animate a flash. The theme
+   store toggles html[data-switching] for ~90ms around the change. */
+html[data-switching] *,
+html[data-switching] *::before,
+html[data-switching] *::after {
+  transition: none;
+}
+
+/* ===========================================================================
+   Native window controls. The window is frameless (titleBarStyle: "hidden")
+   and the OS overlays its own controls onto our titlebar — traffic lights at
+   the top-left on macOS, min/max/close at the right elsewhere. This spacer
+   reserves room for the macOS traffic lights so the brand clears them; it
+   collapses to nothing on platforms where the controls sit on the right.
+   =========================================================================== */
+.mac-traffic-spacer {
+  width: 0;
+}
+[data-platform="mac"] .mac-traffic-spacer {
+  width: 62px;
+}
+
+/* ===========================================================================
+   Thin custom scrollbar — add the .mc-scroll class (or @apply it) to scroll
+   containers. Firefox uses scrollbar-width/color; WebKit uses the pseudos.
+   =========================================================================== */
+.mc-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-3) transparent;
+}
+.mc-scroll::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+.mc-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-3);
+  border-radius: 9px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.mc-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--ink-3) 60%, transparent);
+  background-clip: padding-box;
+}
+.mc-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ===========================================================================
+   Shared keyframes used across screens.
+   =========================================================================== */
+
+/* running dot — radiating pulse ring (sidebar thread / status dot) */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 5px color-mix(in oklab, var(--accent) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 0%, transparent);
+  }
+}
+
+/* enter transition for streamed paragraphs / cards */
+@keyframes p-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* popover / menu entrance */
+@keyframes pop {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* spinner */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* shimmering "live"/streaming label */
+@keyframes sheen {
+  from {
+    background-position: 110% 0;
+  }
+  to {
+    background-position: -110% 0;
+  }
+}
+/* alias the prototype's name so either works */
+@keyframes p-live {
+  from {
+    background-position: 110% 0;
+  }
+  to {
+    background-position: -110% 0;
+  }
+}
+
+/* blinking caret */
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ===========================================================================
+   Convenience helpers
+   =========================================================================== */
+
+/* running status dot */
+.mc-rdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.5s ease-out infinite;
+}
+
+/* App-region drag for the custom titlebar (Electron frameless windows). */
+.mc-drag {
+  -webkit-app-region: drag;
+}
+.mc-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-rdot {
+    animation: none;
+  }
+}
+
+/* ===========================================================================
+   Markdown body (.mc-md) — rendered agent prose (Markdown.svelte). Scoped so it
+   only styles that output, and built on the live design tokens so it tracks the
+   dark/light + accent switches. Tailwind v4 preflight resets heading/list/code
+   defaults to nothing, so every block's spacing/typography is re-established
+   here. The wrapper carries the base font-size / leading / text-wrap.
+   =========================================================================== */
+.mc-md > :first-child {
+  margin-top: 0;
+}
+.mc-md > :last-child {
+  margin-bottom: 0;
+}
+
+.mc-md p {
+  margin: 0 0 0.85em;
+  overflow-wrap: break-word;
+}
+
+.mc-md h1,
+.mc-md h2,
+.mc-md h3,
+.mc-md h4,
+.mc-md h5,
+.mc-md h6 {
+  margin: 1.35em 0 0.5em;
+  line-height: 1.3;
+  font-weight: 650;
+  color: var(--ink);
+}
+.mc-md h1 {
+  font-size: 1.45em;
+}
+.mc-md h2 {
+  font-size: 1.28em;
+}
+.mc-md h3 {
+  font-size: 1.14em;
+}
+.mc-md h4,
+.mc-md h5,
+.mc-md h6 {
+  font-size: 1.02em;
+}
+.mc-md :first-child:is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 0;
+}
+
+.mc-md a {
+  color: var(--accent-tx);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+  transition: border-color 0.15s ease;
+}
+.mc-md a:hover {
+  border-bottom-color: var(--accent-tx);
+}
+
+.mc-md strong {
+  font-weight: 640;
+  color: var(--ink);
+}
+.mc-md em {
+  font-style: italic;
+}
+
+/* inline code */
+.mc-md :not(pre) > code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  padding: 0.12em 0.4em;
+  background: var(--card-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-field);
+  color: var(--ink);
+  word-break: break-word;
+}
+
+/* fenced code */
+.mc-md pre {
+  position: relative;
+  margin: 0 0 0.9em;
+  padding: 13px 14px;
+  background: var(--card-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-card);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.mc-md pre code {
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  word-break: normal;
+}
+
+/* per-block copy button — injected by Markdown.svelte once the turn settles */
+.mc-md .mc-copy {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-field);
+  opacity: 0;
+  cursor: default;
+  transition:
+    opacity 0.14s ease,
+    color 0.14s ease,
+    background 0.14s ease;
+}
+.mc-md pre:hover .mc-copy,
+.mc-md .mc-copy:focus-visible {
+  opacity: 1;
+}
+.mc-md .mc-copy:hover {
+  color: var(--ink);
+  background: var(--raised);
+}
+.mc-md .mc-copy[data-copied="1"] {
+  color: var(--accent-tx);
+  opacity: 1;
+}
+
+/* blockquote */
+.mc-md blockquote {
+  margin: 0 0 0.9em;
+  padding: 0.1em 0 0.1em 14px;
+  border-left: 2px solid var(--line-3);
+  color: var(--ink-2);
+}
+.mc-md blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* lists */
+.mc-md ul,
+.mc-md ol {
+  margin: 0 0 0.85em;
+  padding-left: 1.5em;
+}
+.mc-md ul {
+  list-style: disc;
+}
+.mc-md ol {
+  list-style: decimal;
+}
+.mc-md li {
+  margin: 0.2em 0;
+}
+.mc-md li::marker {
+  color: var(--ink-3);
+}
+.mc-md li > p {
+  margin: 0.2em 0;
+}
+
+/* GFM task lists — strip the disc and render the checkbox */
+.mc-md ul:has(> li > input[type="checkbox"]) {
+  list-style: none;
+  padding-left: 0.2em;
+}
+.mc-md li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+.mc-md input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: var(--accent);
+}
+
+/* horizontal rule */
+.mc-md hr {
+  margin: 1.2em 0;
+  border: 0;
+  border-top: 1px solid var(--line-2);
+}
+
+/* tables — block + overflow so wide tables scroll instead of breaking layout */
+.mc-md table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 0.9em;
+  border-collapse: collapse;
+  font-size: 0.95em;
+  overflow-x: auto;
+}
+.mc-md th,
+.mc-md td {
+  padding: 6px 11px;
+  border: 1px solid var(--line-2);
+  text-align: left;
+  white-space: normal;
+}
+.mc-md th {
+  background: var(--card-2);
+  font-weight: 620;
+  color: var(--ink);
+}
+.mc-md tr:nth-child(2n) td {
+  background: color-mix(in oklab, var(--card-2) 45%, transparent);
+}
+
+.mc-md img {
+  max-width: 100%;
+  border-radius: var(--r-field);
+}
+
+/* ---------------------------------------------------------------------------
+   highlight.js token palette. Hand-authored (not a fixed theme file) so it
+   tracks the app theme instead of being locked to one. Dark first; the
+   [data-theme="light"] block overrides below.
+   --------------------------------------------------------------------------- */
+.mc-md .hljs {
+  color: var(--ink);
+  background: transparent;
+}
+.mc-md .hljs-comment,
+.mc-md .hljs-quote {
+  color: var(--ink-3);
+  font-style: italic;
+}
+.mc-md .hljs-keyword,
+.mc-md .hljs-selector-tag,
+.mc-md .hljs-literal,
+.mc-md .hljs-symbol,
+.mc-md .hljs-bullet {
+  color: #c678dd;
+}
+.mc-md .hljs-string,
+.mc-md .hljs-regexp,
+.mc-md .hljs-addition {
+  color: #98c379;
+}
+.mc-md .hljs-number {
+  color: #d19a66;
+}
+.mc-md .hljs-title,
+.mc-md .hljs-section {
+  color: #61afef;
+}
+.mc-md .hljs-attr,
+.mc-md .hljs-attribute,
+.mc-md .hljs-variable,
+.mc-md .hljs-property,
+.mc-md .hljs-template-variable {
+  color: #d19a66;
+}
+.mc-md .hljs-built_in,
+.mc-md .hljs-class .hljs-title,
+.mc-md .hljs-type {
+  color: #e5c07b;
+}
+.mc-md .hljs-tag,
+.mc-md .hljs-name,
+.mc-md .hljs-selector-class,
+.mc-md .hljs-selector-id {
+  color: #e06c75;
+}
+.mc-md .hljs-deletion {
+  color: #e06c75;
+}
+.mc-md .hljs-meta {
+  color: var(--ink-2);
+}
+.mc-md .hljs-emphasis {
+  font-style: italic;
+}
+.mc-md .hljs-strong {
+  font-weight: 600;
+}
+.mc-md .hljs-link {
+  text-decoration: underline;
+}
+
+/* light theme overrides */
+[data-theme="light"] .mc-md .hljs-keyword,
+[data-theme="light"] .mc-md .hljs-selector-tag,
+[data-theme="light"] .mc-md .hljs-literal,
+[data-theme="light"] .mc-md .hljs-symbol,
+[data-theme="light"] .mc-md .hljs-bullet {
+  color: #a626a4;
+}
+[data-theme="light"] .mc-md .hljs-string,
+[data-theme="light"] .mc-md .hljs-regexp,
+[data-theme="light"] .mc-md .hljs-addition {
+  color: #50a14f;
+}
+[data-theme="light"] .mc-md .hljs-number,
+[data-theme="light"] .mc-md .hljs-attr,
+[data-theme="light"] .mc-md .hljs-attribute,
+[data-theme="light"] .mc-md .hljs-variable,
+[data-theme="light"] .mc-md .hljs-property,
+[data-theme="light"] .mc-md .hljs-template-variable {
+  color: #986801;
+}
+[data-theme="light"] .mc-md .hljs-title,
+[data-theme="light"] .mc-md .hljs-section {
+  color: #4078f2;
+}
+[data-theme="light"] .mc-md .hljs-built_in,
+[data-theme="light"] .mc-md .hljs-class .hljs-title,
+[data-theme="light"] .mc-md .hljs-type {
+  color: #c18401;
+}
+[data-theme="light"] .mc-md .hljs-tag,
+[data-theme="light"] .mc-md .hljs-name,
+[data-theme="light"] .mc-md .hljs-selector-class,
+[data-theme="light"] .mc-md .hljs-selector-id,
+[data-theme="light"] .mc-md .hljs-deletion {
+  color: #e45649;
+}
