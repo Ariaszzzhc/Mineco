@@ -1,0 +1,70 @@
+# Reusable build matrix. Builds installers for macOS / Windows / Linux and
+# uploads them as per-OS artifacts. Called by nightly.yml and release.yml; never
+# runs on its own. Publishing (creating GitHub releases) is the caller's job.
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to check out and build (default branch if empty).
+        type: string
+        required: false
+      version:
+        description: Stamp package.json to this version before building (optional).
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Nightly stamps a date/sha version so installers are distinguishable and
+      # the About card reflects the build. Releases skip this (package.json is
+      # already at the tagged version).
+      - name: Stamp version
+        if: inputs.version != ''
+        shell: bash
+        run: npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Build installers
+        shell: bash
+        run: pnpm dist
+        env:
+          # No Apple signing certs in CI — don't let electron-builder try the
+          # local keychain. Produces an unsigned (notarization-free) build.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      # Only ship the installers + autoupdate feeds; skip electron-builder's
+      # debug yml and the unpacked app directories it leaves behind.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            release/**/*.dmg
+            release/**/*.dmg.blockmap
+            release/**/*.exe
+            release/**/*.exe.blockmap
+            release/**/*.AppImage
+            release/**/latest*.yml
