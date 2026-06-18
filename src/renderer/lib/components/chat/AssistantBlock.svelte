@@ -14,7 +14,7 @@ import type { AssistantBlock, LiveBlock } from "./types";
 let { block }: { block: AssistantBlock | LiveBlock } = $props();
 
 // Single engine (Claude) in v1; the byline icon is constant.
-const engineIcon = "/brand/claude-icon.png";
+const engineIcon = "./brand/claude-icon.png";
 </script>
 
 <div class="flex w-full flex-col items-start gap-3 [animation:p-rise_.4s_cubic-bezier(.2,.7,.3,1)_both]">

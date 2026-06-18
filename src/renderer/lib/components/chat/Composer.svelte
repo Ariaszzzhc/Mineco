@@ -237,7 +237,7 @@ function onKeydown(e: KeyboardEvent) {
 const hot = $derived(value.trim().length > 0 && !busy);
 
 function agentIcon(_a: Agent): string {
-  return "/brand/claude-icon.png";
+  return "./brand/claude-icon.png";
 }
 
 // Static per-mode style hints (purely cosmetic; unknown ids fall back).

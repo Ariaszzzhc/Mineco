@@ -56,7 +56,7 @@ let { footerIcon, footerLabel, onfooter, sidebar, main }: Props = $props();
 
       <!-- Brand mark -->
       <div class="flex items-center gap-[9px] px-1 pb-0 pt-0.5">
-        <img src="/brand/mineco.png" alt="mineco" class="size-[30px] rounded-[8px]" />
+        <img src="./brand/mineco.png" alt="mineco" class="size-[30px] rounded-[8px]" />
         <span class="text-[15px] font-bold tracking-[-0.01em]">mineco</span>
       </div>
 

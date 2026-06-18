@@ -336,7 +336,7 @@ function isRunning(id: string): boolean {
     <!-- sidebar -->
     <aside class="flex min-h-0 flex-col gap-1 border-r border-line bg-chrome p-2.5">
       <div class="flex items-center gap-2.5 px-1.5 pb-3 pt-0.5">
-        <img class="size-6 flex-none rounded-[7px] shadow-[0_0_0_1px_var(--line)]" src="/brand/mineco.png" alt="" />
+        <img class="size-6 flex-none rounded-[7px] shadow-[0_0_0_1px_var(--line)]" src="./brand/mineco.png" alt="" />
         <span class="text-[15.5px] font-bold tracking-[-.01em] text-ink">mineco</span>
         <span class="ml-auto font-mono text-[9.5px] font-semibold uppercase tracking-[.08em] text-ink-3">agent</span>
       </div>

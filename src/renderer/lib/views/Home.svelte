@@ -166,7 +166,7 @@ function fillStarter(text: string) {
         <!-- Hero header -->
         <div class="mb-10 flex flex-col items-center gap-[13px]">
           <img
-            src="/brand/mineco.png"
+            src="./brand/mineco.png"
             alt="mineco"
             class="size-16 rounded-[18px] shadow-[0_8px_22px_-12px_rgba(20,18,14,.5)]"
           />
