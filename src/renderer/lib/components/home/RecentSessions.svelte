@@ -66,12 +66,15 @@ function relTime(ts: number): string {
   {:else}
     {#each sessions as session (session.id)}
       {@const running = isRunning(session.id) || session.running}
+      {@const active = session.id === nav.activeSessionId}
       <button
         type="button"
         onclick={() => nav.openSession(session.id)}
-        class="flex flex-col gap-px rounded-[8px] border border-transparent bg-transparent px-[9px] py-[8px] text-left transition-colors hover:bg-chrome-2 cursor-pointer"
+        class="flex flex-col gap-px rounded-[8px] border px-[9px] py-[8px] text-left transition-colors cursor-pointer {active
+          ? 'border-line bg-card-2 shadow-[inset_0_0_0_1px_var(--line)]'
+          : 'border-transparent bg-transparent hover:bg-chrome-2'}"
       >
-        <span class="truncate text-[12.5px] font-[500] text-ink">
+        <span class="truncate text-[12.5px] text-ink {active ? 'font-semibold' : 'font-[500]'}">
           {session.title || "Untitled session"}
         </span>
         {#if running}

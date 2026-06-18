@@ -1,8 +1,9 @@
 <!--
-  Chat.svelte — the session view. A solid (non-glass) 3-pane Electron shell:
-  a custom titlebar, a left sidebar (brand + workspace switcher + New session +
-  Recent sessions + Settings link), a centered scrolling transcript column, and
-  a floating bottom composer.
+  Chat.svelte — the session view. Uses the shared SidebarShell for window chrome
+  (titlebar + brand + left rail + footer) so it stays visually identical to Home
+  and Settings. Its sidebar snippet is a New-session button + the shared
+  RecentSessions list; its main snippet is a centered scrolling transcript column
+  with a floating bottom composer.
 
   The transcript is the canonical SQLite transcript loaded via
   window.mineco.sessions.messages on mount / when the active session changes.
@@ -12,8 +13,10 @@
 -->
 <script lang="ts">
 import Icon from "@/renderer/lib/ui/Icon.svelte";
+import SidebarShell from "@/renderer/lib/ui/SidebarShell.svelte";
 import Composer from "@/renderer/lib/components/chat/Composer.svelte";
 import MessageStream from "@/renderer/lib/components/chat/MessageStream.svelte";
+import RecentSessions from "@/renderer/lib/components/home/RecentSessions.svelte";
 import { onDestroy, onMount, tick } from "svelte";
 import type {
   Agent,
@@ -29,14 +32,12 @@ import {
   fmtTime,
 } from "@/renderer/lib/components/chat/types";
 import { applyEvent, makeLiveBlock } from "@/renderer/lib/event-reducer";
-import { onRunStateChanged } from "@/renderer/lib/ipc";
 import { i18n } from "@/renderer/lib/stores/i18n.svelte";
 import { nav } from "@/renderer/lib/stores/nav.svelte";
 import { workspaces } from "@/renderer/lib/stores/workspace.svelte";
 
 // ---- data --------------------------------------------------------------
 let agents = $state<Agent[]>([]);
-let sessions = $state<SessionView[]>([]);
 let session = $state<SessionView | null>(null);
 let blocks = $state<(Block | LiveBlock)[]>([]);
 let loading = $state(false);
@@ -66,10 +67,6 @@ let mode = $state<string>("default");
 let activeRun: { id: string; stop: () => void } | null = null;
 let busy = $state(false);
 
-/** Running session ids from the main process broadcast. */
-let runningIds = $state<Set<string>>(new Set());
-
-const curWorkspace = $derived(workspaces.current);
 const curAgent = $derived(
   agents.find((a) => a.id === agentId) ?? agents[0] ?? null,
 );
@@ -97,11 +94,6 @@ async function scrollToBottom(force = false) {
   const el = scrollEl;
   if (el) el.scrollTop = el.scrollHeight;
 }
-
-// Subscribe to run-state broadcasts.
-const unsubRunState = onRunStateChanged((ids) => {
-  runningIds = new Set(ids);
-});
 
 // ---- loading -----------------------------------------------------------
 
@@ -155,29 +147,18 @@ async function loadMessages(id: string) {
 }
 
 async function loadSession(id: string) {
-  let found = sessions.find((s) => s.id === id) ?? null;
-  if (!found) {
-    try {
-      const all = (await window.mineco.sessions.list()) ?? [];
-      found = all.find((s) => s.id === id) ?? null;
-    } catch {
-      /* ignore */
-    }
+  let found: SessionView | null = null;
+  try {
+    const all = (await window.mineco.sessions.list()) ?? [];
+    found = all.find((s) => s.id === id) ?? null;
+  } catch {
+    /* ignore */
   }
   session = found;
   // Reflect the session's own workspace as the active selection so the sidebar
-  // (recent sessions) and the next new-session default match the open session.
+  // (RecentSessions) and the next new-session default match the open session.
   if (found) workspaces.setCurrent(found.workspaceId);
   await loadMessages(id);
-}
-
-async function refreshSessions() {
-  try {
-    sessions =
-      (await window.mineco.sessions.list(curWorkspace?.id ?? null)) ?? [];
-  } catch {
-    sessions = [];
-  }
 }
 
 // ---- run a turn --------------------------------------------------------
@@ -216,7 +197,6 @@ function startTurn(prompt: string) {
   const finish = () => {
     busy = false;
     activeRun = null;
-    void refreshSessions();
   };
 
   activeRun = window.mineco.runTurn(
@@ -251,14 +231,9 @@ function onStop() {
   busy = false;
 }
 
-// ---- session switching from the sidebar --------------------------------
-function openRecent(id: string) {
-  if (id === nav.activeSessionId) return;
-  if (busy) onStop();
-  nav.openSession(id);
-}
-
-// react to active-session changes (sidebar clicks, Home -> Chat)
+// react to active-session changes (RecentSessions clicks, Home -> Chat).
+// Switching while a turn is live stops it first; RecentSessions reloads itself
+// when loadSession sets the active workspace.
 let lastSid: string | null = null;
 $effect(() => {
   const sid = nav.activeSessionId;
@@ -270,12 +245,6 @@ $effect(() => {
       if (pending && !busy) startTurn(pending);
     });
   }
-});
-
-// keep sessions list in sync with the workspace selection
-$effect(() => {
-  void curWorkspace;
-  void refreshSessions();
 });
 
 /** (Re)loads the agent list. Preserves the current selection when it survives. */
@@ -301,7 +270,6 @@ onMount(() => void loadAgents());
 
 onDestroy(() => {
   if (activeRun) activeRun.stop();
-  unsubRunState();
   unsubAgents();
 });
 
@@ -314,91 +282,32 @@ const headerScope = $derived(
 const sessionTitle = $derived(
   session?.title || nav.activeSessionId || "Session",
 );
-
-function isRunning(id: string): boolean {
-  return runningIds.has(id);
-}
 </script>
 
-<div class="absolute inset-0 grid grid-rows-[var(--tbh)_1fr] bg-app font-ui text-ink">
-  <!-- titlebar -->
-  <div class="mc-drag relative z-20 flex items-center border-b border-line bg-chrome px-2">
-    <!-- Reserve space for the native macOS traffic lights overlaid here -->
-    <div class="mac-traffic-spacer flex-none" aria-hidden="true"></div>
-    <div class="pointer-events-none absolute left-1/2 -translate-x-1/2">
-      <span class="text-[12.5px] font-bold tracking-[-.01em] text-ink">mineco</span>
-    </div>
-    <div class="flex-1"></div>
-  </div>
+<SidebarShell
+  footerIcon="gear"
+  footerLabel={i18n.t("nav.settings")}
+  onfooter={() => nav.openSettings()}
+>
+  <!-- ─────────────────────── SIDEBAR ────────────────────────────────────── -->
+  {#snippet sidebar()}
+    <!-- New session → back to the Home / new-session screen -->
+    <button
+      type="button"
+      onclick={() => nav.goHome()}
+      class="mc-no-drag flex h-[38px] cursor-pointer items-center justify-center gap-2 rounded-[9px] border-none bg-accent text-[13px] font-semibold text-white shadow-[0_1px_0_rgba(0,0,0,.04)] transition-[filter] hover:brightness-105"
+      aria-label={i18n.t("nav.newSession")}
+    >
+      <Icon name="plus" size={14} stroke={2.2} />
+      {i18n.t("nav.newSession")}
+    </button>
 
-  <!-- body: sidebar + main -->
-  <div class="grid min-h-0 grid-cols-[var(--sbw)_1fr]">
-    <!-- sidebar -->
-    <aside class="flex min-h-0 flex-col gap-1 border-r border-line bg-chrome p-2.5">
-      <div class="flex items-center gap-2.5 px-1.5 pb-3 pt-0.5">
-        <img class="size-6 flex-none rounded-[7px] shadow-[0_0_0_1px_var(--line)]" src="./brand/mineco.png" alt="" />
-        <span class="text-[15.5px] font-bold tracking-[-.01em] text-ink">mineco</span>
-        <span class="ml-auto font-mono text-[9.5px] font-semibold uppercase tracking-[.08em] text-ink-3">agent</span>
-      </div>
+    <RecentSessions />
+  {/snippet}
 
-      <button
-        type="button"
-        onclick={() => nav.goHome()}
-        class="mc-no-drag mt-1 flex items-center justify-center gap-1.5 rounded-[var(--r-field)] bg-accent px-3 py-2 text-[12.5px] font-semibold text-white outline-none transition-[filter] hover:brightness-110 active:translate-y-px"
-      >
-        <Icon name="plus" size={14} /> {i18n.t("nav.newSession")}
-      </button>
-
-      <div class="px-2 pb-1.5 pt-3 font-mono text-[10px] font-semibold uppercase tracking-[.1em] text-ink-3">
-        {i18n.t("nav.recent")}
-      </div>
-      <div class="mc-scroll flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-        {#if sessions.length === 0}
-          <div class="px-2 py-2 text-[12px] text-ink-3">{i18n.t("empty.noSessions")}</div>
-        {:else}
-          {#each sessions as s (s.id)}
-            {@const running = isRunning(s.id) || s.running}
-            <button
-              type="button"
-              onclick={() => openRecent(s.id)}
-              class="mc-no-drag flex flex-col gap-1 rounded-[var(--r-field)] px-2.5 py-2 text-left outline-none transition-colors {s.id ===
-              nav.activeSessionId
-                ? 'bg-card-2 shadow-[inset_0_0_0_1px_var(--line)]'
-                : 'hover:bg-chrome-2'}"
-            >
-              <span
-                class="truncate text-[12.5px] leading-tight {s.id === nav.activeSessionId
-                  ? 'font-semibold text-ink'
-                  : 'font-medium text-ink-2'}"
-              >
-                {s.title || "Untitled session"}
-              </span>
-              {#if running}
-                <span class="inline-flex items-center gap-1.5 font-mono text-[9.5px] font-semibold tracking-[.04em] text-accent-tx">
-                  <span class="mc-rdot"></span> running
-                </span>
-              {:else}
-                <span class="font-mono text-[10px] text-ink-3">{fmtTime(s.createdAt)}</span>
-              {/if}
-            </button>
-          {/each}
-        {/if}
-      </div>
-
-      <div class="mt-1 border-t border-line pt-2.5">
-        <button
-          type="button"
-          onclick={() => nav.openSettings()}
-          class="mc-no-drag flex w-full items-center gap-2 rounded-[var(--r-field)] px-2 py-1.5 text-left font-mono text-[10.5px] text-ink-2 outline-none hover:bg-chrome-2"
-        >
-          <span class="text-ink-3"><Icon name="gear" size={13} /></span>
-          {i18n.t("nav.settings")}
-        </button>
-      </div>
-    </aside>
-
-    <!-- main: transcript + composer -->
-    <div class="relative min-h-0 bg-canvas">
+  <!-- ─────────────────────── MAIN: transcript + composer ────────────────── -->
+  {#snippet main()}
+    <main class="relative min-h-0 bg-canvas">
       <div bind:this={scrollEl} class="mc-scroll absolute inset-0 overflow-y-auto">
         <div class="mx-auto flex max-w-[720px] flex-col gap-[18px] px-9 pb-[220px] pt-[34px]">
           <!-- session header -->
@@ -462,6 +371,6 @@ function isRunning(id: string): boolean {
           {/if}
         </div>
       </div>
-    </div>
-  </div>
-</div>
+    </main>
+  {/snippet}
+</SidebarShell>

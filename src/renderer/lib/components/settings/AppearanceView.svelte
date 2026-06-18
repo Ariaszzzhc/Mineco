@@ -7,6 +7,10 @@
 import type { AppInfo } from "@/shared/agent-protocol";
 import { i18n } from "@/renderer/lib/stores/i18n.svelte";
 import Icon from "@/renderer/lib/ui/Icon.svelte";
+import Card from "@/renderer/lib/ui/Card.svelte";
+import CardHeader from "@/renderer/lib/ui/CardHeader.svelte";
+import SettingsHeader from "@/renderer/lib/ui/SettingsHeader.svelte";
+import Segmented from "@/renderer/lib/ui/Segmented.svelte";
 import { theme } from "@/renderer/lib/stores/theme.svelte";
 
 const ACCENTS = ["#43A95A", "#D6A33C", "#8E7BE6", "#3B82C4", "#D9608C"];
@@ -25,23 +29,17 @@ $effect(() => {
 });
 </script>
 
-<div class="flex flex-col gap-0">
-  <div class="flex-1 min-w-0 mb-3">
-    <h1 class="m-0 font-bold text-[22px] leading-tight tracking-tight text-ink">
-      {i18n.t("settings.appearance")}
-    </h1>
-    <p class="mt-1.5 text-ink-2 text-[13.5px] leading-[1.55] max-w-[60ch]">
+<div class="mb-3">
+  <SettingsHeader title={i18n.t("settings.appearance")}>
+    {#snippet desc()}
       How the mineco shell looks on this machine. Applies across all three surfaces — Home, the session view and Settings.
-    </p>
-  </div>
+    {/snippet}
+  </SettingsHeader>
 </div>
 
 <!-- Theme & color card -->
-<div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
-  <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
-    <Icon name="paint" size={13} class="text-accent-tx" />
-    <span class="font-[650] text-[12.5px] text-ink">Theme &amp; color</span>
-  </div>
+<Card>
+  <CardHeader icon="paint" title="Theme & color" />
 
   <!-- Theme row -->
   <div class="flex items-center gap-4 px-4 py-3.5 border-b border-line">
@@ -99,42 +97,27 @@ $effect(() => {
       {/each}
     </div>
   </div>
-</div>
+</Card>
 
 <!-- Interface language card -->
-<div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
-  <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
-    <Icon name="globe" size={13} class="text-accent-tx" />
-    <span class="font-[650] text-[12.5px] text-ink">Interface language</span>
-  </div>
+<Card>
+  <CardHeader icon="globe" title="Interface language" />
 
   <div class="flex items-center gap-4 px-4 py-3.5">
     <span class="flex-1 min-w-0 flex flex-col gap-0.5">
       <span class="font-[650] text-[13px] text-ink">{i18n.t("language")}</span>
       <span class="text-[11.5px] text-ink-3 leading-[1.4]">Menus, buttons and labels of the mineco shell</span>
     </span>
-    <div class="flex gap-1.5">
-      <button
-        type="button"
-        onclick={() => theme.set({ lang: "en" })}
-        class="mc-no-drag inline-flex items-center gap-1.5 cursor-pointer border rounded-[var(--r-field)] px-3.5 py-[7px] font-ui font-semibold text-[12.5px] transition-colors {currentLang === 'en'
-          ? 'bg-accent-bg text-accent-tx border-accent-ln'
-          : 'border-line bg-card-2 text-ink-2 hover:bg-raised hover:text-ink'}"
-      >
-        {i18n.t("lang.en")}
-      </button>
-      <button
-        type="button"
-        onclick={() => theme.set({ lang: "zh" })}
-        class="mc-no-drag inline-flex items-center gap-1.5 cursor-pointer border rounded-[var(--r-field)] px-3.5 py-[7px] font-ui font-semibold text-[12.5px] transition-colors {currentLang === 'zh'
-          ? 'bg-accent-bg text-accent-tx border-accent-ln'
-          : 'border-line bg-card-2 text-ink-2 hover:bg-raised hover:text-ink'}"
-      >
-        {i18n.t("lang.zh")}
-      </button>
-    </div>
+    <Segmented
+      value={currentLang}
+      options={[
+        { value: "en", label: i18n.t("lang.en") },
+        { value: "zh", label: i18n.t("lang.zh") },
+      ]}
+      onchange={(v) => theme.set({ lang: v as "en" | "zh" })}
+    />
   </div>
-</div>
+</Card>
 
 <div class="flex items-start gap-2 text-[12px] text-ink-2 leading-[1.5] px-1">
   <Icon name="info" size={14} class="text-ink-3 flex-none mt-[2px]" />
@@ -142,11 +125,8 @@ $effect(() => {
 </div>
 
 <!-- About card -->
-<div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
-  <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
-    <Icon name="info" size={13} class="text-accent-tx" />
-    <span class="font-[650] text-[12.5px] text-ink">About</span>
-  </div>
+<Card>
+  <CardHeader icon="info" title="About" />
 
   <div class="flex items-center gap-4 px-4 py-3.5 border-b border-line">
     <span class="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -167,4 +147,4 @@ $effect(() => {
       {info ? `${info.electron} · ${info.node} · ${info.chrome}` : "—"}
     </span>
   </div>
-</div>
+</Card>

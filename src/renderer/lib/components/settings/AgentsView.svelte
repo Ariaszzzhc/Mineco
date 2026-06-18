@@ -7,6 +7,10 @@
 -->
 <script lang="ts">
 import Icon from "@/renderer/lib/ui/Icon.svelte";
+import Card from "@/renderer/lib/ui/Card.svelte";
+import CardHeader from "@/renderer/lib/ui/CardHeader.svelte";
+import SettingsHeader from "@/renderer/lib/ui/SettingsHeader.svelte";
+import Segmented from "@/renderer/lib/ui/Segmented.svelte";
 import { onDestroy, onMount } from "svelte";
 import type {
   Agent,
@@ -439,20 +443,13 @@ function fmtUpdated(ts: number): string {
 
 <!-- ======================================================= LIST VIEW ======= -->
 {#if !editAgent}
-  <div class="flex items-end gap-3">
-    <div class="flex-1 min-w-0">
-      <h1 class="m-0 font-bold text-[22px] leading-tight tracking-tight text-ink">
-        {i18n.t("settings.agents")}
-      </h1>
-      <p class="mt-1.5 text-ink-2 text-[13.5px] leading-[1.55] max-w-[60ch]">
-        mineco drives Claude Code under the hood. Each agent is an isolated
-        <code class="text-ink font-mono text-[12px]">CLAUDE_CONFIG_DIR</code>
-        with its own credentials, model aliases, and standing instructions.
-      </p>
-    </div>
-
-    <!-- New agent button -->
-    <div class="relative flex-none">
+  <SettingsHeader title={i18n.t("settings.agents")}>
+    {#snippet desc()}
+      mineco drives Claude Code under the hood. Each agent is an isolated
+      <code class="text-ink font-mono text-[12px]">CLAUDE_CONFIG_DIR</code>
+      with its own credentials, model aliases, and standing instructions.
+    {/snippet}
+    {#snippet actions()}
       <button
         type="button"
         onclick={addAgent}
@@ -461,12 +458,12 @@ function fmtUpdated(ts: number): string {
         <Icon name="plus" size={13} />
         {i18n.t("agent.new")}
       </button>
-    </div>
-  </div>
+    {/snippet}
+  </SettingsHeader>
 
   {#if agents.length === 0}
     <!-- empty state -->
-    <div class="bg-card border border-line rounded-[var(--r-card)] p-8 text-center flex flex-col items-center gap-3">
+    <Card class="p-8 text-center flex flex-col items-center gap-3">
       <div class="w-10 h-10 rounded-[12px] bg-raised border border-line grid place-items-center text-ink-3">
         <Icon name="bot" size={20} />
       </div>
@@ -479,10 +476,10 @@ function fmtUpdated(ts: number): string {
         <Icon name="plus" size={13} />
         {i18n.t("empty.noAgentsCta")}
       </button>
-    </div>
+    </Card>
   {:else}
     <!-- agent list card -->
-    <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
+    <Card>
       <div class="flex flex-col">
         {#each agents as agent (agent.id)}
           <button
@@ -506,19 +503,19 @@ function fmtUpdated(ts: number): string {
           </button>
         {/each}
       </div>
-    </div>
+    </Card>
   {/if}
 
   <!-- ── Global Instructions card ────────────────────────────────────────── -->
-  <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden flex flex-col mt-2">
-    <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
-      <Icon name="prompt" size={13} class="text-accent-tx" />
-      <span class="font-[650] text-[12.5px] text-ink">Global Instructions</span>
-      <span class="ml-auto font-mono text-[10.5px] text-ink-3">~{globalTokenEstimate} tokens</span>
-      {#if globalUpdatedAt}
-        <span class="font-mono text-[9.5px] text-ink-3">· updated {fmtUpdated(globalUpdatedAt)}</span>
-      {/if}
-    </div>
+  <Card class="flex flex-col mt-2">
+    <CardHeader icon="prompt" title="Global Instructions">
+      {#snippet trailing()}
+        <span class="ml-auto font-mono text-[10.5px] text-ink-3">~{globalTokenEstimate} tokens</span>
+        {#if globalUpdatedAt}
+          <span class="font-mono text-[9.5px] text-ink-3">· updated {fmtUpdated(globalUpdatedAt)}</span>
+        {/if}
+      {/snippet}
+    </CardHeader>
     <textarea
       value={globalInstructions}
       spellcheck="false"
@@ -529,7 +526,7 @@ function fmtUpdated(ts: number): string {
     <div class="px-4 py-2 border-t border-line text-[11px] text-ink-3">
       Appended to the Claude Code system prompt preset on every turn. Stored at <code class="font-mono">~/.mineco/MINECO.md</code>.
     </div>
-  </div>
+  </Card>
 
   <div class="flex items-start gap-2 text-[12px] text-ink-2 leading-[1.5] px-1">
     <Icon name="info" size={14} class="text-ink-3 flex-none mt-[2px]" />
@@ -569,26 +566,20 @@ function fmtUpdated(ts: number): string {
   </div>
 
   <!-- Connection card -->
-  <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
-    <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
-      <Icon name="key" size={13} class="text-accent-tx" />
-      <span class="font-[650] text-[12.5px] text-ink">Connection</span>
-    </div>
+  <Card>
+    <CardHeader icon="key" title="Connection" />
     <div class="flex flex-col gap-3 p-4">
       <!-- Auth mode segmented toggle -->
       <div class="flex flex-col gap-1.5">
         <span class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Authentication</span>
-        <div class="flex p-0.5 gap-0.5 bg-card-2 border border-line rounded-[var(--r-field)]">
-          {#each [["api", "API key"], ["subscription", "Subscription (OAuth)"]] as [mode, label] (mode)}
-            <button
-              type="button"
-              onclick={() => setAuthMode(mode as AuthMode)}
-              class="mc-no-drag flex-1 h-[28px] rounded-[calc(var(--r-field)-3px)] text-[12px] font-semibold transition-colors {agent.authMode === mode ? 'bg-accent-bg text-accent-tx border border-accent-ln' : 'bg-transparent text-ink-2 border border-transparent hover:text-ink'}"
-            >
-              {label}
-            </button>
-          {/each}
-        </div>
+        <Segmented
+          value={agent.authMode}
+          options={[
+            { value: "api", label: "API key" },
+            { value: "subscription", label: "Subscription (OAuth)" },
+          ]}
+          onchange={(v) => setAuthMode(v as AuthMode)}
+        />
         <span class="text-[10.5px] text-ink-3 leading-[1.5]">
           {#if agent.authMode === "subscription"}
             Sign in with your Claude Pro/Max/Team subscription via the official Claude login. Credentials live in this agent's
@@ -703,18 +694,18 @@ function fmtUpdated(ts: number): string {
         </div>
       {/if}
     </div>
-  </div>
+  </Card>
 
   <!-- Model mapping card — API mode only. In subscription mode the OAuth login
        resolves model roles upstream, so a custom role→model mapping doesn't
        apply (and would mis-route); only the composer default role below matters. -->
   {#if agent.authMode === "api"}
-  <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
-    <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
-      <Icon name="sparkle" size={13} class="text-accent-tx" />
-      <span class="font-[650] text-[12.5px] text-ink">Model mapping</span>
-      <span class="ml-auto font-mono text-[10.5px] text-ink-3">role → ANTHROPIC_DEFAULT_&lt;ROLE&gt;_MODEL[_NAME]</span>
-    </div>
+  <Card>
+    <CardHeader icon="sparkle" title="Model mapping">
+      {#snippet trailing()}
+        <span class="ml-auto font-mono text-[10.5px] text-ink-3">role → ANTHROPIC_DEFAULT_&lt;ROLE&gt;_MODEL[_NAME]</span>
+      {/snippet}
+    </CardHeader>
 
     <p class="px-4 pt-3 text-[11.5px] text-ink-3 leading-[1.5]">
       <strong class="text-ink-2">Display name</strong> is the label shown in the composer's model menu
@@ -798,17 +789,14 @@ function fmtUpdated(ts: number): string {
       </div>
 
     </div>
-  </div>
+  </Card>
   {/if}
 
   <!-- Default model card — always shown. The role alias (sonnet/opus/…) is the
        composer default; in subscription mode it resolves upstream, in API mode
        via the mapping above. -->
-  <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
-    <div class="flex items-center gap-2.5 px-4 py-[11px] border-b border-line">
-      <Icon name="sparkle" size={13} class="text-accent-tx" />
-      <span class="font-[650] text-[12.5px] text-ink">Default model</span>
-    </div>
+  <Card>
+    <CardHeader icon="sparkle" title="Default model" />
     <div class="flex flex-col gap-1.5 p-4">
       <label for="agent-default-model" class="font-mono text-[10px] font-semibold tracking-[.06em] uppercase text-ink-3">Composer default role</label>
       <div class="relative flex items-center bg-card-2 border border-line rounded-[var(--r-field)] px-3 h-[34px] focus-within:border-accent transition-all">
@@ -832,10 +820,11 @@ function fmtUpdated(ts: number): string {
         </span>
       {/if}
     </div>
-  </div>
+  </Card>
 
-  <!-- Raw settings.json escape-hatch -->
-  <div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden flex flex-col">
+  <!-- Raw settings.json escape-hatch — non-standard header (it's a <button> for
+       the collapsible toggle), so the card wrapper is used but CardHeader is not. -->
+  <Card class="flex flex-col">
     <button
       type="button"
       onclick={toggleRaw}
@@ -866,7 +855,7 @@ function fmtUpdated(ts: number): string {
         </div>
       </div>
     {/if}
-  </div>
+  </Card>
 
   <!-- Danger zone -->
   <div class="flex justify-end py-0.5">

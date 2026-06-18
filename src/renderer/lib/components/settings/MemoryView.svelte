@@ -7,6 +7,8 @@
 <script lang="ts">
 import { i18n } from "@/renderer/lib/stores/i18n.svelte";
 import Icon from "@/renderer/lib/ui/Icon.svelte";
+import Card from "@/renderer/lib/ui/Card.svelte";
+import SettingsHeader from "@/renderer/lib/ui/SettingsHeader.svelte";
 import { onMount } from "svelte";
 import type { MemoryEntry } from "@/shared/agent-protocol";
 import { workspaces } from "@/renderer/lib/stores/workspace.svelte";
@@ -142,24 +144,21 @@ function resizeOnMount(el: HTMLTextAreaElement) {
 }
 </script>
 
-<div class="flex items-end gap-3">
-  <div class="flex-1 min-w-0">
-    <h1 class="m-0 font-bold text-[22px] leading-tight tracking-tight text-ink">
-      {i18n.t("settings.memory")}
-    </h1>
-    <p class="mt-1.5 text-ink-2 text-[13.5px] leading-[1.55] max-w-[60ch]">
-      Long-term memory mineco keeps <strong class="text-ink">per workspace</strong> — facts, conventions and references injected at the start of each turn.
-    </p>
-  </div>
-  <button
-    type="button"
-    onclick={addEntry}
-    class="mc-no-drag flex-none inline-flex items-center gap-1.5 px-3 py-2 rounded-[var(--r-field)] border border-line-3 bg-card-2 text-ink text-[12.5px] font-semibold hover:bg-raised transition-colors"
-  >
-    <Icon name="plus" size={13} />
-    {i18n.t("add")} memory
-  </button>
-</div>
+<SettingsHeader title={i18n.t("settings.memory")}>
+  {#snippet desc()}
+    Long-term memory mineco keeps <strong class="text-ink">per workspace</strong> — facts, conventions and references injected at the start of each turn.
+  {/snippet}
+  {#snippet actions()}
+    <button
+      type="button"
+      onclick={addEntry}
+      class="mc-no-drag flex-none inline-flex items-center gap-1.5 px-3 py-2 rounded-[var(--r-field)] border border-line-3 bg-card-2 text-ink text-[12.5px] font-semibold hover:bg-raised transition-colors"
+    >
+      <Icon name="plus" size={13} />
+      {i18n.t("add")} memory
+    </button>
+  {/snippet}
+</SettingsHeader>
 
 <!-- Workspace selector tabs -->
 <div class="flex items-center gap-2.5 flex-wrap">
@@ -199,7 +198,7 @@ function resizeOnMount(el: HTMLTextAreaElement) {
   {/if}
 </div>
 
-<div class="bg-card border border-line rounded-[var(--r-card)] overflow-hidden">
+<Card>
   <div class="flex flex-col">
     {#if currentEntries.length === 0}
       <div class="py-5 px-4 text-center text-ink-3 text-[12.5px]">No memory yet for this workspace.</div>
@@ -253,7 +252,7 @@ function resizeOnMount(el: HTMLTextAreaElement) {
       {/each}
     {/if}
   </div>
-</div>
+</Card>
 
 <div class="flex items-start gap-2 text-[12px] text-ink-2 leading-[1.5] px-1">
   <Icon name="info" size={14} class="text-ink-3 flex-none mt-[2px]" />
