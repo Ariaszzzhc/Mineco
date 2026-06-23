@@ -72,8 +72,12 @@ jobs:
           fi
           pnpm build && pnpm exec electron-builder --publish never $channel_arg
         env:
-          # No Apple signing certs in CI — don't let electron-builder try the
-          # local keychain. Produces an unsigned (notarization-free) build.
+          # No Apple signing certs in CI — don't let electron-builder probe the
+          # local keychain for a Developer ID. It therefore skips its own macOS
+          # signing; build/after-pack.cjs ad-hoc re-signs the .app so the bundle
+          # seal is valid (otherwise Gatekeeper marks it "damaged"). Still
+          # notarization-free: downloaded apps need `xattr -dr
+          # com.apple.quarantine` until Developer ID signing is configured.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       # Only ship the installers + autoupdate feeds. Match exactly one directory
