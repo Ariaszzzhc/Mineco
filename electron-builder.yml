@@ -26,6 +26,16 @@ asar: true
 asarUnpack:
   - node_modules/@anthropic-ai/claude-agent-sdk/**
 
+# CI builds without an Apple cert (CSC_IDENTITY_AUTO_DISCOVERY=false), so
+# electron-builder skips macOS signing and would leave a BROKEN seal (only the
+# linker's ad-hoc sig on the Mach-O, no _CodeSignature/CodeResources). codesign
+# then fails "code has no resources but signature indicates they must be
+# present" and Gatekeeper marks the quarantined app "damaged, move to Trash".
+# This hook ad-hoc re-signs the .app after pack so the seal is valid. A
+# downloaded app still needs notarization (or a user `xattr -dr
+# com.apple.quarantine`) to open; ad-hoc only avoids the unrecoverable error.
+afterPack: build/after-pack.cjs
+
 # Production node_modules are bundled automatically; these add the build output
 # and prune what must NOT ship.
 files:
@@ -68,9 +78,10 @@ mac:
     # artifacts install fine but can't self-update until signing is configured.
     - target: zip
       arch: [arm64, x64]
-  # The native CLI is fetched at runtime (no quarantine xattr) and lives outside
-  # the bundle, so hardened-runtime signing only needs to cover the app itself.
-  hardenedRuntime: true
+  # No hardenedRuntime: it requires a real (Developer ID) signature + notarization
+  # to mean anything, and pairing it with the skipped/ad-hoc signing above only
+  # produces contradictory, broken bundles. Re-enable it together with Developer
+  # ID signing when notarization is set up (see build/after-pack.cjs).
 
 linux:
   category: Development
