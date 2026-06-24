@@ -2,9 +2,9 @@
  * Run registry — in-memory tracking of which sessions are currently running
  * (EDD §6.6).
  *
- * Run state is intentionally NOT persisted to mineco.db. On app restart the
+ * Run state is intentionally NOT persisted. On app restart the
  * registry starts empty, meaning no session shows as "running" — even if the
- * previous process was interrupted mid-turn. The canonical transcript in SQLite
+ * previous process was interrupted mid-turn. The canonical transcript (NDJSON)
  * is the source of truth for history; run state is only for the live UI badge.
  *
  * Architecture:

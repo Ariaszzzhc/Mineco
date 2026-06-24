@@ -216,6 +216,12 @@ class ClaudeSession implements EngineSession {
   /** The turn currently streaming, or null between turns. */
   private active: ActiveTurn | null = null;
   private readonly init: EngineSessionInit;
+  /**
+   * Tracks tool_use block ids for Task (subagent) invocations so that
+   * tool_result blocks can be emitted as `subagent{phase:"end"}` rather than
+   * a generic `tool` end event.
+   */
+  private readonly taskToolUseIds = new Set<string>();
 
   constructor(init: EngineSessionInit) {
     this.init = init;
@@ -323,8 +329,18 @@ class ClaudeSession implements EngineSession {
 
     // Apply per-turn model + permission mode on the live query. Best-effort:
     // `canUseTool` is the real gate, and an unknown alias falls back to default.
+    //
+    // Pass the CONCRETE wire model id (e.g. `glm-5.2[1m]`), not the role alias.
+    // The startup `--model` flag resolves `sonnet`/`opus`/… through the config
+    // dir's `ANTHROPIC_DEFAULT_<ROLE>_MODEL` env, but the runtime `set_model`
+    // control request does NOT — handing it a bare alias silently no-ops, so
+    // the query keeps running its seeded default and the user's per-turn pick is
+    // ignored. Fall back to the alias only when no concrete mapping exists (lets
+    // the CLI's own default drive). See TurnInput.model.
+    const turnModel =
+      input.model?.trim() || resolveModelAlias(input.modelAlias);
     try {
-      await this.query.setModel(resolveModelAlias(input.modelAlias));
+      await this.query.setModel(turnModel);
     } catch {
       /* control request unavailable; default model stands */
     }
@@ -448,6 +464,19 @@ class ClaudeSession implements EngineSession {
                 continue;
               }
 
+              // Task tool = native subagent dispatch. Emit a subagent start event
+              // and track the id so the paired tool_result emits a subagent end.
+              if (block.name === "Task") {
+                this.taskToolUseIds.add(block.id);
+                a.out.push({
+                  type: "subagent",
+                  subId: block.id,
+                  agentName: subagentName(inputObj),
+                  phase: "start",
+                });
+                continue;
+              }
+
               a.out.push({
                 type: "tool",
                 id: block.id,
@@ -476,6 +505,19 @@ class ClaudeSession implements EngineSession {
                 is_error?: boolean;
                 content?: unknown;
               };
+              // Paired end for a Task (subagent) tool_use: emit subagent event.
+              if (this.taskToolUseIds.has(tr.tool_use_id)) {
+                this.taskToolUseIds.delete(tr.tool_use_id);
+                a.out.push({
+                  type: "subagent",
+                  subId: tr.tool_use_id,
+                  agentName: "",
+                  phase: "end",
+                  status: tr.is_error ? "error" : "ok",
+                  summary: flattenResult(tr.content) ?? undefined,
+                });
+                continue;
+              }
               a.out.push({
                 type: "tool",
                 id: tr.tool_use_id,
@@ -484,6 +526,22 @@ class ClaudeSession implements EngineSession {
                 status: tr.is_error ? "error" : "ok",
                 result: flattenResult(tr.content),
                 output: flattenResult(tr.content),
+              });
+            }
+            break;
+          }
+
+          case "system": {
+            // The memory-recall supervisor surfaced relevant memories into the
+            // turn (ADR-0.4-6 / OD-4). Project it to a subtle renderer affordance.
+            if (message.subtype === "memory_recall") {
+              const memories = Array.isArray(message.memories)
+                ? message.memories
+                : [];
+              a.out.push({
+                type: "memory-recall",
+                count: memories.length,
+                detail: message.mode,
               });
             }
             break;
@@ -531,6 +589,10 @@ export const claudeEngine: Engine = {
       supportsThinking: true,
       supportsMcp: true,
       supportsSkills: true,
+      // Claude reads/writes its own auto-memory dir (ADR-0.4-6); through the
+      // ADR-0.4-3 symlink that dir is mineco's shared per-workspace memory, so
+      // mineco no longer injects a memory block for Claude sessions.
+      memory: "native-dir",
     };
   },
 
@@ -542,6 +604,23 @@ export const claudeEngine: Engine = {
 /** Generates a short opaque id for approval/question correlation. */
 function cryptoId(): string {
   return Math.random().toString(36).slice(2, 11);
+}
+
+/**
+ * Resolves a human-readable agent name from a Task tool_use input block.
+ * Prefers `subagent_type` (e.g. "Explore"), then `description` (trimmed to
+ * the first sentence / 60 chars), then falls back to `"subagent"`.
+ */
+function subagentName(raw: Record<string, unknown>): string {
+  if (typeof raw.subagent_type === "string" && raw.subagent_type.trim())
+    return raw.subagent_type.trim();
+  if (typeof raw.description === "string" && raw.description.trim()) {
+    const s = raw.description.trim();
+    const dot = s.indexOf(".");
+    const short = dot > 0 && dot < 60 ? s.slice(0, dot) : s.slice(0, 60);
+    return short.trim() || "subagent";
+  }
+  return "subagent";
 }
 
 /**

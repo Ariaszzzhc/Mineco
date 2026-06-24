@@ -8,9 +8,9 @@
  *   - `settings.json` — Claude-native settings (env with token/baseURL/model aliases;
  *                        permissions; hooks; etc.)
  *
- * Agents are NEVER stored in mineco.db. The DB only holds runtime state (sessions /
- * turns / messages / workspace pointers). All Agent identity and connection info
- * lives here on the filesystem.
+ * Agents are NEVER stored in the runtime store. That store only holds runtime
+ * state (sessions / messages / workspace pointers). All Agent identity and
+ * connection info lives here on the filesystem.
  */
 
 import { randomUUID } from "node:crypto";
@@ -49,6 +49,10 @@ interface AgentManifest {
  * Unknown top-level keys (permissions, hooks, etc.) are preserved on update. */
 interface AgentSettings {
   env?: Record<string, string | undefined>;
+  /** Claude auto-memory toggle (ADR-0.4-6). mineco merge-writes `true` so the
+   * engine reads/writes memory in the ADR-0.4-3 symlinked dir. The directory
+   * itself stays the default (`autoMemoryDirectory` UNSET) — one link covers it. */
+  autoMemoryEnabled?: boolean;
   [key: string]: unknown;
 }
 
@@ -212,6 +216,9 @@ export async function createAgent(input: AgentInput): Promise<Agent> {
   );
 
   const settings: AgentSettings = {
+    // Enable Claude auto-memory so it reads/writes the ADR-0.4-3 symlinked dir
+    // (ADR-0.4-6 / R10). `autoMemoryDirectory` stays unset — the link covers it.
+    autoMemoryEnabled: true,
     env: buildEnv({}, input),
   };
   await writeSettings(id, settings);
@@ -245,9 +252,12 @@ export async function updateAgent(
   );
 
   // Merge env into existing settings — preserve unknown keys (permissions/hooks).
+  // Also merge-write `autoMemoryEnabled:true` (ADR-0.4-6 / R10) so pre-0.4 agents
+  // pick up native-dir memory on next save, without clobbering token/baseURL/aliases.
   const existingSettings = await readSettings(agentId);
   const mergedSettings: AgentSettings = {
     ...existingSettings,
+    autoMemoryEnabled: true,
     env: buildEnv(existingSettings.env ?? {}, input),
   };
   await writeSettings(agentId, mergedSettings);

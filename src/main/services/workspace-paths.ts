@@ -4,7 +4,7 @@
  * full workspace service (which re-exports DB functions and avoids circular deps).
  */
 
-import { getWorkspace } from "@/main/db/workspaces";
+import { getWorkspace } from "@/main/store/workspaces";
 
 export interface WorkspacePaths {
   rootPath: string | null;

@@ -24,9 +24,6 @@ import {
   turnEventChannel,
   type UpdateState,
 } from "@/shared/agent-protocol";
-import { listMessages } from "./db/messages";
-import { createSession, deleteSession, listSessions } from "./db/sessions";
-import { getLastTurn } from "./db/turns";
 import { getEngine } from "./engines/registry";
 import {
   createAgent,
@@ -83,6 +80,14 @@ import {
   resolveTurnResponse,
   runTurn,
 } from "./session-runner";
+import { bootstrap } from "./store/bootstrap";
+import { listMessages } from "./store/messages";
+import {
+  createSession,
+  deleteSession,
+  getLastTurn,
+  listSessions,
+} from "./store/sessions";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -451,6 +456,10 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(async () => {
+    // One-shot 0.4 fresh-drop: rename any legacy mineco.db aside + sweep
+    // orphaned native sessions (gated against live sessions — none yet at
+    // launch), THEN ensure the public workspace exists in the file store.
+    await bootstrap();
     await ensurePublicWorkspaceExists();
     registerIpc();
     createTray();

@@ -8,7 +8,10 @@
 import AssistantBlock from "./AssistantBlock.svelte";
 import type { Block, LiveBlock } from "./types";
 
-let { blocks }: { blocks: (Block | LiveBlock)[] } = $props();
+let {
+  blocks,
+  requestId = null,
+}: { blocks: (Block | LiveBlock)[]; requestId?: string | null } = $props();
 </script>
 
 {#each blocks as block (block.id)}
@@ -27,6 +30,6 @@ let { blocks }: { blocks: (Block | LiveBlock)[] } = $props();
       </div>
     </div>
   {:else}
-    <AssistantBlock {block} />
+    <AssistantBlock {block} {requestId} />
   {/if}
 {/each}

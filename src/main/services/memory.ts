@@ -1,12 +1,19 @@
 /**
- * Memory service (EDD §8.2, M3).
+ * Memory service (EDD §8.2, M3; ADR-0.4-6).
  *
- * Per-workspace long-term memory lives in markdown files:
+ * Per-workspace long-term memory lives in markdown files inside the SHARED
+ * per-workspace memory dir — the exact directory Claude's auto-memory uses via
+ * the ADR-0.4-3 symlink (`projects/<encoded-cwd>/memory/` → here), so manual
+ * edits and engine-written memory converge:
  *
- *   Workspace:  `<workspaceRoot>/.mineco/memory/<slug>.md`
- *               `<workspaceRoot>/.mineco/memory/MEMORY.md`  (index)
- *   Public:     `~/.mineco/memory/<slug>.md`
- *               `~/.mineco/memory/MEMORY.md`               (index)
+ *   `~/.mineco/sessions/<ws-key>/memory/<slug>.md`
+ *   `~/.mineco/sessions/<ws-key>/memory/mineco-index.md`  (mineco's index)
+ *
+ * `<ws-key>` is the workspace id (or `"public"` for the null workspace).
+ *
+ * R11 — the index file is NAMESPACED (`mineco-index.md`, NOT `MEMORY.md`) so it
+ * never collides with the SDK's own auto-memory `MEMORY.md`. `deleteMemory` is
+ * guarded to mineco-owned filenames so it never removes an engine-authored file.
  *
  * Each `<slug>.md` has YAML frontmatter:
  * ```yaml
@@ -31,28 +38,30 @@
 
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import type { MemoryEntry } from "@/shared/agent-protocol";
-import { getWorkspacePaths } from "./workspace-paths";
+import { sessionsDir } from "../store/paths";
 
 // ---------------------------------------------------------------------------
 // Path helpers
 // ---------------------------------------------------------------------------
 
-/** Returns the memory directory for a workspace, or the public one when null. */
+/**
+ * Returns the SHARED per-workspace memory directory — the exact dir Claude's
+ * auto-memory writes to through the ADR-0.4-3 symlink (a `memory/` sibling of
+ * the native session JSONL under the link target `sessionsDir(workspaceId)`).
+ * Manual memory and engine-written memory therefore converge on one directory.
+ */
 export async function dirFor(workspaceId: string | null): Promise<string> {
-  if (!workspaceId) {
-    return path.join(os.homedir(), ".mineco", "memory");
-  }
-  const { rootPath } = await getWorkspacePaths(workspaceId);
-  if (rootPath) {
-    return path.join(rootPath, ".mineco", "memory");
-  }
-  return path.join(os.homedir(), ".mineco", "memory");
+  return path.join(sessionsDir(workspaceId), "memory");
 }
 
-const INDEX_FILE = "MEMORY.md";
+/** mineco's namespaced index filename (R11 — avoids the SDK's `MEMORY.md`). */
+const INDEX_FILE = "mineco-index.md";
+
+/** Files mineco is allowed to delete: its own index + any `<slug>.md` it wrote.
+ * The SDK's `MEMORY.md` and other engine-authored files are never touched. */
+const SDK_RESERVED = new Set(["MEMORY.md"]);
 
 function indexPath(memDir: string): string {
   return path.join(memDir, INDEX_FILE);
@@ -186,7 +195,12 @@ export async function listMemory(
     const dirents = await fs.readdir(memDir, { withFileTypes: true });
     allSlugs = dirents
       .filter(
-        (d) => d.isFile() && d.name.endsWith(".md") && d.name !== INDEX_FILE,
+        (d) =>
+          d.isFile() &&
+          d.name.endsWith(".md") &&
+          d.name !== INDEX_FILE &&
+          // Don't surface the SDK's own auto-memory file as a mineco entry (R11).
+          !SDK_RESERVED.has(d.name),
       )
       .map((d) => d.name.replace(/\.md$/, ""));
   } catch {
@@ -289,10 +303,21 @@ export async function deleteMemory(
   slug: string,
 ): Promise<void> {
   const memDir = await dirFor(workspaceId);
-  try {
-    await fs.unlink(slugPath(memDir, slug));
-  } catch {
-    // Already gone — continue to index cleanup.
+  // R11 guard: only ever delete mineco-owned files. Refuse a slug that would
+  // resolve to the SDK's `MEMORY.md`, mineco's index, or escape the dir.
+  const fileName = `${slug}.md`;
+  const safe =
+    !slug.includes("/") &&
+    !slug.includes("\\") &&
+    !slug.includes("..") &&
+    fileName !== INDEX_FILE &&
+    !SDK_RESERVED.has(fileName);
+  if (safe) {
+    try {
+      await fs.unlink(slugPath(memDir, slug));
+    } catch {
+      // Already gone — continue to index cleanup.
+    }
   }
   const existing = await listMemory(workspaceId);
   await rebuildIndex(

@@ -73,6 +73,28 @@ const en: Dict = {
   "agent.promptMode.append": "Append",
   "agent.promptMode.replace": "Replace",
   "agent.effort": "Reasoning effort",
+  // plan rail
+  "plan.title": "Plan",
+  "plan.subagents": "Subagents",
+  // memory recall affordance
+  "memory.recalled": "recalled {n}",
+  // question card
+  "question.submit": "Submit",
+  "question.selected": "selected",
+  "question.somethingElse": "Something else…",
+  "question.typeYourOwn": "Type your own…",
+  "question.recommended": "Recommended",
+  "question.optional": "Optional",
+  "question.cancelled": "Cancelled",
+  // approval card
+  "approval.eyebrow": "Permission request",
+  "approval.allow": "Allow",
+  "approval.deny": "Deny",
+  "approval.denyConfirm": "Confirm deny",
+  "approval.reason": "Reason (optional)",
+  "approval.reasonPlaceholder": "Why are you denying this?",
+  "approval.cancelled": "Cancelled",
+  "approval.decided": "Responded",
   // generic actions
   save: "Save",
   cancel: "Cancel",
@@ -145,6 +167,28 @@ const zh: Dict = {
   "agent.promptMode.append": "追加",
   "agent.promptMode.replace": "替换",
   "agent.effort": "推理强度",
+  // plan rail
+  "plan.title": "计划",
+  "plan.subagents": "子智能体",
+  // memory recall affordance
+  "memory.recalled": "已唤起 {n} 条记忆",
+  // question card
+  "question.submit": "提交",
+  "question.selected": "已选",
+  "question.somethingElse": "其他…",
+  "question.typeYourOwn": "输入自定义内容…",
+  "question.recommended": "推荐",
+  "question.optional": "可选",
+  "question.cancelled": "已取消",
+  // approval card
+  "approval.eyebrow": "权限申请",
+  "approval.allow": "允许",
+  "approval.deny": "拒绝",
+  "approval.denyConfirm": "确认拒绝",
+  "approval.reason": "原因（可选）",
+  "approval.reasonPlaceholder": "为什么拒绝此操作？",
+  "approval.cancelled": "已取消",
+  "approval.decided": "已响应",
   save: "保存",
   cancel: "取消",
   delete: "删除",

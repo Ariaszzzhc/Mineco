@@ -37,8 +37,8 @@ src/main/services/           Business logic layer:
                                context-assembly.ts (inject global instructions + memory + MCP + Skills)
                                run-registry.ts (in-flight session state)
                                engine-sessions.ts (live persistent EngineSession per mineco session)
-src/main/db/                 Kysely-on-node:sqlite: workspaces/sessions/turns/messages
-                             (config lives in files, not DB)
+src/main/store/              All-file runtime state: workspaces.json + per-session
+                             sidecar JSON + NDJSON transcript (config lives in files too)
 src/shared/agent-protocol.ts Shared domain model + NormalizedEvent + IPC channels (imported by BOTH processes)
 src/renderer/App.svelte      Renderer: three-view shell (Home/Session/Settings) + sidebar
 src/renderer/main.ts         Renderer entry (mounts App)
@@ -77,8 +77,9 @@ delete / agent switch / app quit. A turn NEVER closes the input stream — doing
 so was the original bug (the SDK keeps the transport open until the input
 iterable ends, so the runner hung and never persisted the assistant message).
 
-**Opening a session (resume vs seed):** the canonical transcript lives in SQLite
-(`messages`). A session is bound to one agent (its `CLAUDE_CONFIG_DIR` is fixed).
+**Opening a session (resume vs seed):** the canonical transcript lives in a
+mineco-owned NDJSON file (`<session>.messages.ndjson`). A session is bound to one
+agent (its `CLAUDE_CONFIG_DIR` is fixed).
 On first turn / cold reopen with the **same agent** + a prior `nativeThreadId` →
 native `resume`; **different agent** (or no thread) → open a fresh query and seed
 its first prompt with the prior transcript via `buildFirstPrompt`. Switching
@@ -96,7 +97,11 @@ session) — NOT re-assembled per turn. Reopen the session to pick up changes.
 - `pnpm lint` / `pnpm format` — Biome
 
 **Data layout**:
-- **Runtime state** (canonical transcript, sessions, turns) → SQLite `~/.mineco/mineco.db`.
+- **Runtime state** (workspaces, sessions, canonical transcript) → files under
+  `~/.mineco/`: `workspaces.json` (versioned envelope) + per-session sidecar
+  `sessions/<ws-key>/<session-id>.json` (session row + last-completed-turn
+  projection) + sibling `<session-id>.messages.ndjson` (append-only transcript).
+  No SQLite. Atomic writes (tmp+fsync+rename), per-path async mutex.
 - **Configuration** (agents, MCP, skills, memory, global instructions) → files under
   `~/.mineco/` and per-workspace directories (`.mcp.json`, `.claude/skills/`, `.mineco/memory/`, etc.).
 - **Agent credentials** (token, Base URL) → each agent's isolated `~/.mineco/engines/claude/<id>/settings.json` (plaintext, not shared, not in git).
@@ -152,13 +157,19 @@ session) — NOT re-assembled per turn. Reopen the session to pick up changes.
   `manifest.json`, version-locked). Extraction is a pure-Node gunzip + ustar
   parser (no deps, streams the body to disk). Registry override:
   `MINECO_CLI_REGISTRY` / `npm_config_registry` (default `registry.npmjs.org`).
-- **Persistence is `node:sqlite`** (built into Node 24 bundled with Electron 42;
-  no native module rebuild needed). Fallback if disabled: `better-sqlite3` +
-  `electron-rebuild`.
-- **Kysely over inlined dialect** (`src/main/db/node-sqlite-dialect.ts`): stock Kysely
-  targets `better-sqlite3`, so we wrap `DatabaseSync` ourselves. `CamelCasePlugin`
-  maps snake_case ↔ camelCase. Repo functions are **async** (Promises); `await`
-  them. Kysely is bundled (pure JS), not externalized.
+- **Persistence is all-file, no SQLite** (`src/main/store/`): `json-file.ts` gives
+  atomic JSON (tmp+fsync+rename), append-only NDJSON, and a per-path async mutex
+  serializing same-path read-modify-write; `paths.ts` resolves the `~/.mineco/`
+  layout (`<ws-key>` = workspaceId or `"public"`). `store/{workspaces,sessions,
+  messages}.ts` keep the same async signatures the old DB repos had, so call sites
+  swapped 1:1. The full turn ledger is dropped — only the last-completed-turn
+  projection (`getLastTurn` → `{nativeThreadId,usage,model}`) is read back, stored
+  in the session sidecar; `finishTurn(sessionId,…)` carries the R4 error-path guard
+  (an error turn never nulls a good resume handle). Store functions are **async**;
+  `await` them. `store/bootstrap.ts` runs one-shot at `whenReady`: renames any
+  legacy `mineco.db` aside (recoverable) + sweeps orphaned native JSONL, gated
+  against the live `engine-sessions` map (ADR-0.4-7) — never touch a dir a warm
+  subprocess holds open.
 - **Build tool:** `vite-plugin-electron@1.x` (required for Vite 8 / rolldown).
   `electron-vite` only supports Vite 7.
 - **Svelte 5 reactivity:** after pushing into a `$state` array, mutate the proxy

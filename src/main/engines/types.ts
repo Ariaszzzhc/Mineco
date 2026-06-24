@@ -17,11 +17,17 @@ import type {
  * control requests, not by reopening.
  *
  * Continuity is established ONCE, when the session is opened:
- *   - `resume` re-attaches the engine's own native thread (cold reopen of an
- *     existing session within the SAME `configDir` / agent).
+ *   - `resume` re-attaches the engine's own native thread by its SDK session
+ *     UUID. After ADR-0.4-3 linking, this is no longer same-*agent* only: every
+ *     same-workspace agent on the SAME engine reaches the prior thread's JSONL
+ *     through the shared `projects/<encoded-cwd>` symlink, so same-engine cold
+ *     reopen resumes natively (ADR-0.4-5 / FR-7). The runner guards resume with
+ *     an `fs.stat` of the JSONL at the linked target.
  *   - `seedHistory` rehydrates a FRESH native thread with the prior canonical
- *     transcript (first turn under a new agent — native state isn't portable
- *     across isolated config dirs). It shapes only the first turn's prompt.
+ *     transcript. It is CROSS-ENGINE-ONLY now (native thread state isn't
+ *     portable between different engines): single-engine this cycle, so it is
+ *     effectively dead code until a 2nd engine ships. It shapes only the first
+ *     turn's prompt.
  *
  * Global instructions and memory are injected by the adapter via the
  * system-prompt `append`; they are fixed for the session's lifetime (a session
@@ -42,10 +48,15 @@ export interface EngineSessionInit {
   memory?: string;
   /** Merged effective MCP server set (M2; may be empty). */
   mcpServers?: McpServerEntry[];
-  /** Same-agent cold reopen: resume the engine's own native thread. */
+  /** Cold reopen: resume the engine's own native thread. `nativeThreadId` is
+   * the SDK session UUID (passed verbatim to the SDK's `resume`). Valid across
+   * same-engine agents in one workspace via the ADR-0.4-3 shared link, not just
+   * the same agent. */
   resume?: { nativeThreadId: string };
-  /** Fresh thread: prior transcript to rehydrate (cross-agent / new agent).
-   * Used only to shape the FIRST turn's prompt; ignored when `resume` is set. */
+  /** Fresh thread: prior transcript to rehydrate. CROSS-ENGINE-ONLY (native
+   * thread state isn't portable between engines) — dead code until a 2nd engine
+   * ships. Used only to shape the FIRST turn's prompt; ignored when `resume` is
+   * set. */
   seedHistory?: Message[];
 }
 
@@ -54,6 +65,14 @@ export interface TurnInput {
   prompt: string;
   /** The model alias chosen this turn (`sonnet` | `opus` | `fable` | `haiku`). */
   modelAlias: string;
+  /** The concrete wire model id the alias resolves to, from the agent's
+   * `settings.json` env (e.g. `glm-5.2[1m]`). Empty when the alias has no
+   * mapping. The runtime `set_model` control request — unlike the startup
+   * `--model` flag — does NOT re-resolve role aliases through
+   * `ANTHROPIC_DEFAULT_<ROLE>_MODEL`, so the engine must switch the live query
+   * to this concrete id; otherwise the per-turn pick silently no-ops and the
+   * session keeps running its seeded default model. */
+  model: string;
   /** The chosen run mode (engine-defined). */
   mode: RunMode;
   /** Bridge for an approval request (e.g. an edit). Defaults to allow when not

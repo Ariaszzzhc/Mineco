@@ -24,9 +24,26 @@ interface Props {
   sidebar: Snippet;
   /** Right-hand content column (renders its own <main>). */
   main: Snippet;
+  /** Optional right rail (e.g. the plan/subagent tracker). */
+  rail?: Snippet;
+  /** Whether the right rail should be shown. When false the body collapses
+   * back to a 2-column grid so no empty column is reserved. */
+  railVisible?: boolean;
 }
 
-let { footerIcon, footerLabel, onfooter, sidebar, main }: Props = $props();
+let {
+  footerIcon,
+  footerLabel,
+  onfooter,
+  sidebar,
+  main,
+  rail,
+  railVisible = false,
+}: Props = $props();
+
+/** Only reserve the third column when there is both a rail snippet and the
+ * caller says it has content to show. */
+const showRail = $derived(railVisible && !!rail);
 </script>
 
 <div class="absolute inset-0 overflow-hidden bg-canvas" style="display:grid;grid-template-rows:var(--tbh) 1fr">
@@ -49,7 +66,11 @@ let { footerIcon, footerLabel, onfooter, sidebar, main }: Props = $props();
   </header>
 
   <!-- ═══════════════════════════ BODY ═══════════════════════════════════════ -->
-  <div style="grid-row:2;display:grid;grid-template-columns:var(--sbw) 1fr;min-height:0">
+  <div
+    style="grid-row:2;display:grid;grid-template-columns:{showRail
+      ? 'var(--sbw) 1fr 320px'
+      : 'var(--sbw) 1fr'};min-height:0"
+  >
 
     <!-- ─────────────────────── SIDEBAR ────────────────────────────────────── -->
     <aside class="flex min-h-0 flex-col gap-3 border-r border-line bg-chrome px-3 py-[14px]">
@@ -76,6 +97,15 @@ let { footerIcon, footerLabel, onfooter, sidebar, main }: Props = $props();
 
     <!-- ─────────────────────── CONTENT COLUMN ─────────────────────────────── -->
     {@render main()}
+
+    <!-- ─────────────────────── RIGHT RAIL (optional) ──────────────────────── -->
+    {#if showRail}
+      <aside
+        class="mc-scroll flex min-h-0 flex-col gap-3 overflow-y-auto border-l border-line bg-chrome px-3 py-[14px]"
+      >
+        {@render rail?.()}
+      </aside>
+    {/if}
 
   </div><!-- /body grid -->
 </div><!-- /window -->

@@ -5,16 +5,56 @@
   Mirrors the prototype's p-agent-block layout.
 -->
 <script lang="ts">
+import { i18n } from "@/renderer/lib/stores/i18n.svelte";
 import Icon from "@/renderer/lib/ui/Icon.svelte";
+import ApprovalCard from "./ApprovalCard.svelte";
 import Markdown from "./Markdown.svelte";
+import QuestionCard from "./QuestionCard.svelte";
 import ThinkBlock from "./ThinkBlock.svelte";
 import ToolGroup from "./ToolGroup.svelte";
 import type { AssistantBlock, LiveBlock } from "./types";
 
-let { block }: { block: AssistantBlock | LiveBlock } = $props();
+let {
+  block,
+  requestId = null,
+}: {
+  block: AssistantBlock | LiveBlock;
+  /** The live turn's request id; non-null only while this turn is streaming.
+   * Drives card interactivity — null means the run ended, so a still-mounted
+   * card renders disabled ("Cancelled"). */
+  requestId?: string | null;
+} = $props();
 
 // Single engine (Claude) in v1; the byline icon is constant.
 const engineIcon = "./brand/claude-icon.png";
+
+/** Answer a mid-turn question: relay to the engine, then clear the card. */
+function answerQuestion(a: { optionIds: string[]; freeText?: string }) {
+  const q = block.question;
+  if (!q || !requestId) return;
+  window.mineco.respond({
+    requestId,
+    kind: "question",
+    id: q.questionId,
+    optionIds: a.optionIds,
+    freeText: a.freeText,
+  });
+  block.question = null;
+}
+
+/** Decide a mid-turn approval: relay the verdict, then clear the card. */
+function decideApproval(d: { approve: boolean; message?: string }) {
+  const ap = block.approval;
+  if (!ap || !requestId) return;
+  window.mineco.respond({
+    requestId,
+    kind: "approval",
+    id: ap.approvalId,
+    approve: d.approve,
+    message: d.message,
+  });
+  block.approval = null;
+}
 </script>
 
 <div class="flex w-full flex-col items-start gap-3 [animation:p-rise_.4s_cubic-bezier(.2,.7,.3,1)_both]">
@@ -31,6 +71,16 @@ const engineIcon = "./brand/claude-icon.png";
     {#if block.status === "running"}
       <span class="mc-rdot" aria-label="running"></span>
     {/if}
+    {#if block.memoryRecalls && block.memoryRecalls > 0}
+      <!-- ADR-0.4-6 / OD-4: subtle native memory-recall affordance. -->
+      <span
+        class="inline-flex items-center gap-1 rounded-full border border-line-2 bg-card-2/60 px-1.5 py-px text-[10px] font-medium text-ink-3"
+        title={i18n.t("memory.recalled").replace("{n}", String(block.memoryRecalls))}
+      >
+        <Icon name="brain" size={11} stroke={2} />
+        {i18n.t("memory.recalled").replace("{n}", String(block.memoryRecalls))}
+      </span>
+    {/if}
   </div>
 
   <ThinkBlock
@@ -39,8 +89,32 @@ const engineIcon = "./brand/claude-icon.png";
     durationMs={block.reasoningMs}
   />
 
-  {#if block.tools.length}
-    <ToolGroup tools={block.tools} running={block.status === "running"} />
+  {#if block.tools.length || (block.subagents && block.subagents.length > 0)}
+    <ToolGroup
+      tools={block.tools}
+      running={block.status === "running"}
+      subagents={block.subagents ?? []}
+    />
+  {/if}
+
+  {#if block.question}
+    <div class="w-full">
+      <QuestionCard
+        question={block.question}
+        disabled={!requestId}
+        onanswer={answerQuestion}
+      />
+    </div>
+  {/if}
+
+  {#if block.approval}
+    <div class="w-full">
+      <ApprovalCard
+        approval={block.approval}
+        disabled={!requestId}
+        ondecision={decideApproval}
+      />
+    </div>
   {/if}
 
   {#if block.text}
