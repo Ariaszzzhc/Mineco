@@ -18,6 +18,14 @@ let activeSessionId = $state<string | null>(null);
  * (or reads `pendingPrompt` and clears it) so it doesn't re-fire.
  */
 let pendingPrompt = $state<string | null>(null);
+/**
+ * The model alias + run mode the user selected on Home alongside the pending
+ * prompt. Carried so the seeded first turn runs with the user's pick — Chat
+ * otherwise initialises `model` from the agent's `defaultModel`, silently
+ * discarding a Home selection. Cleared together with the prompt.
+ */
+let pendingModel = $state<string | null>(null);
+let pendingMode = $state<string | null>(null);
 
 export const nav = {
   get view() {
@@ -32,6 +40,12 @@ export const nav = {
   set pendingPrompt(v: string | null) {
     pendingPrompt = v;
   },
+  get pendingModel() {
+    return pendingModel;
+  },
+  get pendingMode() {
+    return pendingMode;
+  },
 
   /** Go to the Home / new-session screen. */
   goHome() {
@@ -43,9 +57,16 @@ export const nav = {
    * Open a session in the Chat view. Pass `prompt` to seed the first turn
    * (Home does this when the user submits the composer before a session exists).
    */
-  openSession(id: string, prompt: string | null = null) {
+  openSession(
+    id: string,
+    prompt: string | null = null,
+    model: string | null = null,
+    mode: string | null = null,
+  ) {
     activeSessionId = id;
     pendingPrompt = prompt;
+    pendingModel = model;
+    pendingMode = mode;
     view = "chat";
   },
 
@@ -64,10 +85,13 @@ export const nav = {
     }
   },
 
-  /** Read + clear the seed prompt. Returns null if there was none. */
+  /** Read + clear the seed prompt. Returns null if there was none. Also clears
+   * the carried model/mode (read `pendingModel`/`pendingMode` BEFORE calling). */
   consumePendingPrompt(): string | null {
     const p = pendingPrompt;
     pendingPrompt = null;
+    pendingModel = null;
+    pendingMode = null;
     return p;
   },
 };

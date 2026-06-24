@@ -5,7 +5,13 @@
  * an assistant block incrementally from `NormalizedEvent`s via `applyEvent`.
  */
 
-import type { ToolItem } from "@/renderer/lib/event-reducer";
+import type {
+  ApprovalCard,
+  PlanStep,
+  QuestionCard,
+  Subagent,
+  ToolItem,
+} from "@/renderer/lib/event-reducer";
 import type { EngineId, ToolRecord } from "@/shared/agent-protocol";
 
 /** A user message bubble. */
@@ -34,6 +40,19 @@ export interface AssistantBlock {
   text: string;
   /** Tools invoked this turn, in order. ToolItem during streaming; ToolRecord from DB. */
   tools: ToolItem[] | ToolRecord[];
+  /**
+   * Transient live-turn projections. Present (and reactive) on a streaming
+   * LiveBlock; absent on a block rehydrated from the DB transcript — hence
+   * optional, so the `AssistantBlock | LiveBlock` union resolves uniformly in
+   * the renderer. `question`/`approval` are cleared on the terminal event.
+   */
+  plan?: PlanStep[] | null;
+  question?: QuestionCard | null;
+  approval?: ApprovalCard | null;
+  subagents?: Subagent[];
+  /** Count of memories the engine recalled this turn (live-only; absent on a
+   * block rehydrated from the transcript). Drives the "recalled N" affordance. */
+  memoryRecalls?: number;
   /** Engine + model byline. */
   agentName: string;
   model: string;

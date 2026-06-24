@@ -18,6 +18,7 @@
 
 import { getEngine } from "@/main/engines/registry";
 import type { EngineSession, EngineSessionInit } from "@/main/engines/types";
+import { encodeCwd } from "@/main/services/link";
 import type { EngineId } from "@/shared/agent-protocol";
 
 /** Close a session whose last turn ended more than this long ago. */
@@ -27,6 +28,9 @@ const SWEEP_MS = 60 * 1000;
 
 interface Entry {
   session: EngineSession;
+  /** The cwd this session's warm subprocess holds open (its native
+   * `projects/<encoded-cwd>` dir). Used to gate destructive ops (ADR-0.4-7). */
+  cwd: string;
   /** Epoch ms of the last turn start/end — the idle clock. */
   lastUsed: number;
   /** True while a turn is in flight (never evict a busy session). */
@@ -81,6 +85,36 @@ export function getLiveSession(sessionId: string): EngineSession | null {
   return live.get(sessionId)?.session ?? null;
 }
 
+/**
+ * Live-session predicate for `link.ts`'s migration gate and other destructive
+ * ops (ADR-0.4-7). Returns true when some warm session holds a cwd that encodes
+ * to the SAME native `projects/<encoded-cwd>` dir as `realCwd`. We compare by
+ * encoded dir name (not raw path) because the live map stores the session's raw
+ * `cwd` while callers pass `realpath(cwd)`; `encodeCwd` resolves + realpaths
+ * both sides, so the comparison is stable regardless of which form was stored.
+ *
+ * Excluding `sessionId` lets a session's own cold-reopen path migrate its dir
+ * (it isn't "live" against itself — the prior warm query was already closed).
+ */
+export function isCwdLive(realCwd: string, excludeSessionId?: string): boolean {
+  const want = encodeCwd(realCwd);
+  for (const [id, e] of live) {
+    if (id === excludeSessionId) continue;
+    if (encodeCwd(e.cwd) === want) return true;
+  }
+  return false;
+}
+
+/**
+ * The set of native `projects/<encoded-cwd>` dir names that warm sessions
+ * currently hold open. Lets the bootstrap orphan-sweep skip the exact dirs a
+ * live subprocess is writing to (ADR-0.4-7) instead of blanket-gating on
+ * "any session live". At cold launch this is empty (every dir is an orphan).
+ */
+export function liveEncodedDirNames(): Set<string> {
+  return new Set([...live.values()].map((e) => encodeCwd(e.cwd)));
+}
+
 /** Marks a session busy for the duration of a turn (exempt from idle eviction). */
 export function holdSession(sessionId: string): void {
   const e = live.get(sessionId);
@@ -110,7 +144,12 @@ export async function openSession(
 ): Promise<EngineSession> {
   await closeSession(sessionId);
   const session = getEngine(engineId).openSession(init);
-  live.set(sessionId, { session, lastUsed: Date.now(), busy: false });
+  live.set(sessionId, {
+    session,
+    cwd: init.cwd,
+    lastUsed: Date.now(),
+    busy: false,
+  });
   ensureSweeper();
   return session;
 }

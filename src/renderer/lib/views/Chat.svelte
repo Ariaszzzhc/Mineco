@@ -16,6 +16,7 @@ import Icon from "@/renderer/lib/ui/Icon.svelte";
 import SidebarShell from "@/renderer/lib/ui/SidebarShell.svelte";
 import Composer from "@/renderer/lib/components/chat/Composer.svelte";
 import MessageStream from "@/renderer/lib/components/chat/MessageStream.svelte";
+import PlanRail from "@/renderer/lib/components/chat/PlanRail.svelte";
 import RecentSessions from "@/renderer/lib/components/home/RecentSessions.svelte";
 import { onDestroy, onMount, tick } from "svelte";
 import type {
@@ -60,12 +61,33 @@ const contextUsage = $derived.by<NormalizedUsage | null>(() => {
 
 // composer selection
 let agentId = $state<string | null>(null);
-let model = $state<string>("sonnet");
+// Empty until seeded: `loadAgents` fills it with the session agent's default,
+// or the Home-carried selection overrides it (see the session-change effect).
+let model = $state<string>("");
 let mode = $state<string>("default");
 
 // live run handle
 let activeRun: { id: string; stop: () => void } | null = null;
 let busy = $state(false);
+/** The streaming turn's request id, reactive so question/approval cards can
+ * relay answers via window.mineco.respond and disable themselves on stop. */
+let activeRequestId = $state<string | null>(null);
+
+// ---- plan / subagent rail --------------------------------------------------
+/** The most recent assistant block — the rail reflects its plan + subagents. */
+const activeAssistant = $derived.by(() => {
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i];
+    if (b.kind === "assistant") return b;
+  }
+  return null;
+});
+const railPlan = $derived(activeAssistant?.plan ?? null);
+const railSubagents = $derived(activeAssistant?.subagents ?? null);
+/** Show the rail only when there is plan or subagent activity to display. */
+const railVisible = $derived(
+  (railPlan?.length ?? 0) > 0 || (railSubagents?.length ?? 0) > 0,
+);
 
 const curAgent = $derived(
   agents.find((a) => a.id === agentId) ?? agents[0] ?? null,
@@ -155,6 +177,11 @@ async function loadSession(id: string) {
     /* ignore */
   }
   session = found;
+  // A session is bound to one agent at creation — adopt it as the composer
+  // selection. Without this, `loadAgents` defaults `agentId` to the FIRST agent
+  // in the list, so opening a session created with a non-first agent silently
+  // runs the turn under the wrong agent (and resolves models from its env).
+  if (found?.agentId) agentId = found.agentId;
   // Reflect the session's own workspace as the active selection so the sidebar
   // (RecentSessions) and the next new-session default match the open session.
   if (found) workspaces.setCurrent(found.workspaceId);
@@ -197,9 +224,10 @@ function startTurn(prompt: string) {
   const finish = () => {
     busy = false;
     activeRun = null;
+    activeRequestId = null;
   };
 
-  activeRun = window.mineco.runTurn(
+  const run = window.mineco.runTurn(
     { sessionId: sid, agentId: aId, model, mode, prompt },
     (e) => {
       const b = live();
@@ -209,6 +237,8 @@ function startTurn(prompt: string) {
       void scrollToBottom();
     },
   );
+  activeRun = run;
+  activeRequestId = run.id;
 }
 
 function onSend(text: string) {
@@ -220,6 +250,7 @@ function onStop() {
     activeRun.stop();
     activeRun = null;
   }
+  activeRequestId = null;
   const i = blocks.findIndex(
     (b) => b.kind === "assistant" && (b as AssistantBlock).status === "running",
   );
@@ -241,7 +272,14 @@ $effect(() => {
     lastSid = sid;
     if (busy) onStop();
     void loadSession(sid).then(() => {
+      // Apply the model/mode the user picked on Home BEFORE consuming (which
+      // clears them), so the seeded first turn runs with that selection rather
+      // than the agent default. `loadAgents` no longer clobbers a set model.
+      const carriedModel = nav.pendingModel;
+      const carriedMode = nav.pendingMode;
       const pending = nav.consumePendingPrompt();
+      if (carriedModel) model = carriedModel;
+      if (carriedMode) mode = carriedMode;
       if (pending && !busy) startTurn(pending);
     });
   }
@@ -258,9 +296,12 @@ async function loadAgents() {
   agents = next;
   if (!next.length) return;
   // Keep the user's pick if it still exists; otherwise fall back to the first.
+  // Only seed `model` when it is unset — never clobber an explicit selection
+  // (e.g. one carried from Home), which would silently downgrade the turn to
+  // the agent's default model. The Composer corrects an invalid role id.
   if (!next.some((a) => a.id === agentId)) {
     agentId = next[0].id;
-    model = next[0].defaultModel || "sonnet";
+    if (!model) model = next[0].defaultModel || "sonnet";
   }
 }
 
@@ -288,6 +329,7 @@ const sessionTitle = $derived(
   footerIcon="gear"
   footerLabel={i18n.t("nav.settings")}
   onfooter={() => nav.openSettings()}
+  {railVisible}
 >
   <!-- ─────────────────────── SIDEBAR ────────────────────────────────────── -->
   {#snippet sidebar()}
@@ -329,7 +371,7 @@ const sessionTitle = $derived(
                 : i18n.t("composer.placeholder")}
             </div>
           {:else}
-            <MessageStream {blocks} />
+            <MessageStream {blocks} requestId={activeRequestId} />
           {/if}
         </div>
       </div>
@@ -372,5 +414,10 @@ const sessionTitle = $derived(
         </div>
       </div>
     </main>
+  {/snippet}
+
+  <!-- ─────────────────────── RIGHT RAIL: plan + subagents ───────────────── -->
+  {#snippet rail()}
+    <PlanRail plan={railPlan} subagents={railSubagents} />
   {/snippet}
 </SidebarShell>

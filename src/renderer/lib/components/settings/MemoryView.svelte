@@ -256,5 +256,5 @@ function resizeOnMount(el: HTMLTextAreaElement) {
 
 <div class="flex items-start gap-2 text-[12px] text-ink-2 leading-[1.5] px-1">
   <Icon name="info" size={14} class="text-ink-3 flex-none mt-[2px]" />
-  Injected to the engine when a turn starts. Memory files live in <code class="font-mono text-[11px]">~/.mineco/memory/</code> (shared) or <code class="font-mono text-[11px]">&lt;workspace&gt;/.mineco/memory/</code> (per-workspace).
+  Shared with the engine's own auto-memory: edits here and memories the engine writes converge in <code class="font-mono text-[11px]">~/.mineco/sessions/&lt;workspace&gt;/memory/</code> (or <code class="font-mono text-[11px]">sessions/public/memory/</code> for the shared space).
 </div>

@@ -18,21 +18,48 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { listSessions } from "@/main/db/sessions";
+import type { Workspace } from "@/shared/agent-protocol";
+import { sessionsDir } from "../store/paths";
+import { getSessionRealCwd, listSessions } from "../store/sessions";
 import {
+  deleteWorkspace as deleteWorkspaceRow,
   ensurePublicWorkspace,
   getWorkspace,
   setLastSelection,
-} from "@/main/db/workspaces";
-import type { Workspace } from "@/shared/agent-protocol";
+} from "../store/workspaces";
+import { isCwdLive } from "./engine-sessions";
 
-// Re-export the underlying DB CRUD so callers only need one import.
+// Re-export the underlying file-store CRUD so callers only need one import.
 export {
   createWorkspace,
-  deleteWorkspace,
   listWorkspaces,
   updateWorkspace,
-} from "@/main/db/workspaces";
+} from "../store/workspaces";
+
+/**
+ * Deletes a workspace: removes its row from `workspaces.json`, then `rm -rf`s
+ * its per-workspace sessions directory (`~/.mineco/sessions/<id>/`).
+ *
+ * ADR-0.4-7 gate: that directory becomes a SHARED native target after ADR-11,
+ * so we must not `rm -rf` it while a warm subprocess holds it open. We check the
+ * live engine-session map (via `isCwdLive`) for any session in THIS workspace
+ * still warm; if one is, we skip the on-disk sweep (the row is still removed)
+ * and the orphaned dir is reclaimed on the next clean launch.
+ */
+export async function deleteWorkspace(id: string): Promise<void> {
+  // Resolve the realCwds of this workspace's sessions BEFORE dropping the row,
+  // so we can ask the live map whether any warm subprocess still holds them.
+  const sessions = await listSessions(id);
+  const realCwds = await Promise.all(
+    sessions.map((s) => getSessionRealCwd(s.id)),
+  );
+  await deleteWorkspaceRow(id);
+  const anyLive = realCwds.some((c) => c != null && isCwdLive(c));
+  if (anyLive) return;
+  await fs
+    .rm(sessionsDir(id), { recursive: true, force: true })
+    .catch(() => undefined);
+}
 
 /** Default public scratch directory used when `rootPath` is null. */
 function publicScratchDir(): string {

@@ -28,6 +28,9 @@
  * native query lives ONLY in the engine-session registry.
  */
 
+import { randomUUID } from "node:crypto";
+import { stat } from "node:fs/promises";
+import path from "node:path";
 import type {
   NormalizedEvent,
   NormalizedUsage,
@@ -36,10 +39,6 @@ import type {
   TurnResponse,
   TurnRunRequest,
 } from "@/shared/agent-protocol";
-import { getDb } from "./db/index";
-import { addMessage, listMessages } from "./db/messages";
-import { getSession, setSessionTitle } from "./db/sessions";
-import { createTurn, finishTurn, getLastTurn } from "./db/turns";
 import { claudeEngine } from "./engines/claude";
 import { getAgentDetail, resolveModel } from "./services/agent";
 import { ensureClaudeCli } from "./services/cli-binary";
@@ -48,9 +47,11 @@ import {
   getLiveSession,
   getMatchingSession,
   holdSession,
+  isCwdLive,
   openSession,
   releaseSession,
 } from "./services/engine-sessions";
+import { ensureLink } from "./services/link";
 import {
   markIdle,
   markRunning,
@@ -58,6 +59,16 @@ import {
   setListener,
 } from "./services/run-registry";
 import { rememberSelection } from "./services/workspace";
+import { addMessage, listMessages } from "./store/messages";
+import { sessionsDir } from "./store/paths";
+import {
+  finishTurn,
+  getLastTurn,
+  getSession,
+  getSessionRealCwd,
+  rebindSessionAgent,
+  setSessionTitle,
+} from "./store/sessions";
 
 /**
  * Per-request orchestration state for an in-flight turn. Holds the owning
@@ -130,6 +141,33 @@ function resolveMode(modeId: string): RunMode {
   return modes.find((m) => m.id === modeId) ?? modes[0];
 }
 
+/** True if the file at `p` exists and is a regular file (R7 JSONL guard). */
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    const s = await stat(p);
+    return s.isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the session's previously-bound agent runs on the SAME engine as the
+ * agent this turn runs under (ADR-0.4-5). Native resume only crosses agents
+ * within ONE engine: the link makes same-workspace same-engine agents share the
+ * native thread JSONL, but a thread is not portable across engines. A session
+ * with no prior agent (first turn) trivially matches the incoming engine.
+ */
+async function isSameEngineAsSession(
+  priorAgentId: string | null,
+  engine: string,
+): Promise<boolean> {
+  if (!priorAgentId) return true;
+  const prior = await getAgentDetail(priorAgentId);
+  // A missing prior agent (deleted) can't be proven same-engine → seed.
+  return prior?.engine === engine;
+}
+
 /**
  * Rejects every still-pending question/approval for a request — used on abort
  * or error so the engine's `await onApproval/onQuestion` calls unblock and the
@@ -171,16 +209,14 @@ export async function runTurn(
   const lastTurn = await getLastTurn(req.sessionId);
 
   // Reuse the warm session if it is already bound to this agent; otherwise open
-  // a fresh native query, deciding resume-vs-seed by agent identity.
+  // a fresh native query, deciding resume-vs-seed by ENGINE identity (ADR-0.4-5).
   let engineSession = getMatchingSession(req.sessionId, req.agentId);
   if (!engineSession) {
-    const sameAgent = session.agentId === req.agentId;
-    const resume =
-      sameAgent && lastTurn?.nativeThreadId
-        ? { nativeThreadId: lastTurn.nativeThreadId }
-        : undefined;
-    // Seed history is captured BEFORE this turn's user message is recorded, and
-    // only needed when starting a fresh native thread (agent switch / no resume).
+    // The cwd the SDK encodes for `projects/<encoded-cwd>` is `realpath(cwd)`
+    // (R3). Use the value stored at session-create for both the link AND the
+    // query cwd so the encodings line up; fall back to the raw cwd.
+    const realCwd = (await getSessionRealCwd(req.sessionId)) ?? session.cwd;
+
     // The native CLI binary is provisioned on demand (downloaded + verified on
     // first use); fail the turn cleanly if it can't be obtained.
     let cliExecutablePath: string;
@@ -197,12 +233,67 @@ export async function runTurn(
       });
       return;
     }
+
+    // ADR-0.4-3/8: link this agent's `projects/<encoded-cwd>` at the shared
+    // per-workspace target ONCE, in the same cold-open lifecycle slot as the
+    // CLI provisioning (NEVER per turn). The migration step gates against the
+    // live engine-session map (ADR-0.4-7) — excluding THIS session, whose own
+    // prior warm query (if any) is already closed by `openSession`.
+    const link = await ensureLink(
+      agent.configDir,
+      realCwd,
+      session.workspaceId,
+      { isLive: (cwd) => isCwdLive(cwd, req.sessionId) },
+    );
+    // `degraded` (neither symlink nor junction works) → keep the per-agent
+    // isolated dir: no resume sharing, memory falls back to inject-only for
+    // this session (no behavior change yet — native-dir memory is Phase 5).
+    const shared = link.kind !== "degraded";
+    if (!shared) {
+      console.warn(
+        `[link] degraded to per-agent isolation for session ${req.sessionId} ` +
+          `(${link.reason}); resume sharing + native-dir memory unavailable.`,
+      );
+    }
+
+    // Resume pivots on ENGINE identity (ADR-0.4-5): same-workspace Claude→Claude
+    // resumes natively because the link points the new agent's
+    // `projects/<cwd>` at the shared target that holds the prior thread's JSONL.
+    // Cross-engine (future) → seedHistory (the reseed path below stays as
+    // cross-engine-only dead code). Guard: the JSONL must actually exist at the
+    // linked target (stale handle / just-linked / migrated-away → seedHistory).
+    const sameEngine = await isSameEngineAsSession(
+      session.agentId,
+      agent.engine,
+    );
+    let resume: { nativeThreadId: string } | undefined;
+    if (shared && sameEngine && lastTurn?.nativeThreadId) {
+      const jsonl = path.join(
+        sessionsDir(session.workspaceId),
+        `${lastTurn.nativeThreadId}.jsonl`,
+      );
+      if (await fileExists(jsonl)) {
+        resume = { nativeThreadId: lastTurn.nativeThreadId };
+      }
+    }
+
+    // Memory assembly branches on capability (ADR-0.4-6): a `native-dir` engine
+    // (Claude) reads/writes its own auto-memory dir through the ADR-0.4-3 link,
+    // so mineco stops injecting. But a session DEGRADED to per-agent isolation
+    // (ADR-0.4-8, `shared === false`) has no link, so the native dir is private
+    // and unshared — fall back to inject-only so manual memory still reaches it.
+    const engineMemory = claudeEngine.capabilities().memory;
+    const memoryMode =
+      engineMemory === "native-dir" && !shared ? "inject-only" : engineMemory;
+
+    // Seed history is captured BEFORE this turn's user message is recorded, and
+    // only needed when starting a fresh native thread (no native resume).
     const [seedHistory, ctx] = await Promise.all([
       resume ? Promise.resolve(undefined) : listMessages(req.sessionId),
-      assembleContext({ workspaceId: session.workspaceId }),
+      assembleContext({ workspaceId: session.workspaceId, memoryMode }),
     ]);
     engineSession = await openSession(req.sessionId, agent.engine, {
-      cwd: session.cwd,
+      cwd: realCwd,
       agent,
       cliExecutablePath,
       globalInstructions: ctx.globalInstructions,
@@ -213,16 +304,13 @@ export async function runTurn(
     });
   }
 
-  const turn = await createTurn({
-    sessionId: req.sessionId,
-    agentId: req.agentId,
-    mode: mode.id,
-    modeLabel: mode.label,
-    model,
-  });
+  // The turn ledger is gone (ADR-0.4-2); a turn id is now just a correlation
+  // id stamped onto this turn's messages. The last-turn projection that the
+  // resume decision reads back is persisted by `finishTurn` into the sidecar.
+  const turnId = randomUUID();
   await addMessage({
     sessionId: req.sessionId,
-    turnId: turn.id,
+    turnId,
     role: "user",
     content: req.prompt,
     engine: null,
@@ -259,6 +347,10 @@ export async function runTurn(
     for await (const event of engineSession.runTurn({
       prompt: req.prompt,
       modelAlias: req.model || agent.defaultModel,
+      // The concrete id the alias resolves to (already computed above for the
+      // turn record). The engine switches the live query to THIS, because the
+      // runtime set_model control request doesn't resolve role aliases via env.
+      model,
       mode,
       onApproval: (request) =>
         new Promise((resolve) => {
@@ -316,14 +408,19 @@ export async function runTurn(
 
     await addMessage({
       sessionId: req.sessionId,
-      turnId: turn.id,
+      turnId,
       role: "assistant",
       content: assistantText,
       reasoning,
       tools: JSON.stringify(tools),
       engine: agent.engine,
     });
-    await finishTurn({ id: turn.id, status: "done", nativeThreadId, usage });
+    await finishTurn(req.sessionId, {
+      status: "done",
+      nativeThreadId,
+      usage,
+      model,
+    });
     finished = true;
   } catch (err) {
     emit({
@@ -336,14 +433,21 @@ export async function runTurn(
       // Still persist whatever the engine produced before it failed/aborted.
       await addMessage({
         sessionId: req.sessionId,
-        turnId: turn.id,
+        turnId,
         role: "assistant",
         content: assistantText,
         reasoning,
         tools: JSON.stringify(tools),
         engine: agent.engine,
       });
-      await finishTurn({ id: turn.id, status: "error", nativeThreadId, usage });
+      // R4 guard lives in `finishTurn`: on an error turn a null `nativeThreadId`
+      // must NOT clobber a previously-good resume handle.
+      await finishTurn(req.sessionId, {
+        status: "error",
+        nativeThreadId,
+        usage,
+        model,
+      });
     }
     // Remember the workspace's last mode + agent so the composer can restore it.
     if (session.workspaceId) {
@@ -354,16 +458,4 @@ export async function runTurn(
     // Restart the session's idle clock; it can now be evicted when idle.
     releaseSession(req.sessionId);
   }
-}
-
-/** Rebinds a session row to a (possibly new) agent id. */
-async function rebindSessionAgent(
-  sessionId: string,
-  agentId: string,
-): Promise<void> {
-  await getDb()
-    .updateTable("sessions")
-    .set({ agentId })
-    .where("id", "=", sessionId)
-    .execute();
 }

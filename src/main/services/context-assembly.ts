@@ -36,13 +36,22 @@ export interface AssembledContext {
  *
  * @param workspaceId — the workspace whose MCP servers and memory to inject
  *   (null = public/global).
+ * @param memoryMode — the engine's memory capability (ADR-0.4-6). For
+ *   `"native-dir"` (Claude) the engine reads/writes its own auto-memory dir via
+ *   the ADR-0.4-3 symlink, so mineco STOPS injecting and `memory` stays empty.
+ *   `assembleMemoryBlock` is invoked ONLY for `"inject-only"` engines (which is
+ *   also the per-agent-isolation fallback from ADR-0.4-8). For an engine with no
+ *   memory at all (`"none"`) nothing is injected either.
  */
 export async function assembleContext(input: {
   workspaceId: string | null;
+  memoryMode: "native-dir" | "inject-only" | "none";
 }): Promise<AssembledContext> {
   const [instructionsResult, memoryBlock, mcpAll] = await Promise.all([
     readGlobalInstructions(),
-    assembleMemoryBlock(input.workspaceId),
+    input.memoryMode === "inject-only"
+      ? assembleMemoryBlock(input.workspaceId)
+      : Promise.resolve(""),
     listMcp(input.workspaceId),
   ]);
 

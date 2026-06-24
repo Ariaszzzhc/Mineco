@@ -48,6 +48,14 @@ export interface ApprovalCard {
   diff?: { path: string; added: number; removed: number; patch?: string };
 }
 
+/** A native Task subagent tracked in the live block (start + end merged). */
+export interface Subagent {
+  subId: string;
+  agentName: string;
+  status?: "running" | "ok" | "error";
+  summary?: string;
+}
+
 /** The mutable live view-model for a streaming assistant turn. */
 export interface LiveBlock {
   kind: "assistant";
@@ -61,6 +69,10 @@ export interface LiveBlock {
   plan: PlanStep[] | null;
   question: QuestionCard | null;
   approval: ApprovalCard | null;
+  subagents: Subagent[];
+  /** Count of memories the engine's recall supervisor surfaced this turn
+   * (ADR-0.4-6 / OD-4). Drives a subtle "recalled N memories" affordance. */
+  memoryRecalls: number;
   agentName: string;
   model: string;
   engine: string | null;
@@ -160,6 +172,41 @@ export function applyEvent(
       };
       return null;
 
+    case "subagent": {
+      if (e.phase === "start") {
+        b.subagents.push({
+          subId: e.subId,
+          agentName: e.agentName || "subagent",
+          status: "running",
+        });
+      } else {
+        const idx = b.subagents.findIndex((s) => s.subId === e.subId);
+        if (idx !== -1) {
+          const existing = b.subagents[idx];
+          b.subagents[idx] = {
+            ...existing,
+            agentName: e.agentName || existing.agentName,
+            status: e.status ?? "ok",
+            summary: e.summary ?? existing.summary,
+          };
+        } else {
+          // Orphaned end (no matching start) — still record it.
+          b.subagents.push({
+            subId: e.subId,
+            agentName: e.agentName || "subagent",
+            status: e.status ?? "ok",
+            summary: e.summary,
+          });
+        }
+      }
+      return null;
+    }
+
+    case "memory-recall":
+      // Accumulate across multiple recalls in one turn (ADR-0.4-6 / OD-4).
+      b.memoryRecalls += e.count;
+      return null;
+
     case "result":
       if (b.reasoningLive) {
         b.reasoningLive = false;
@@ -168,12 +215,18 @@ export function applyEvent(
       if (e.text && !b.text) b.text = e.text;
       b.usage = e.usage;
       b.status = "done";
+      // Clear transient cards (ADR-0.4-9): a never-answered question/approval
+      // must not survive into the committed block. Plan + subagents persist.
+      b.question = null;
+      b.approval = null;
       return "done";
 
     case "error":
       b.reasoningLive = false;
       b.status = "error";
       b.error = e.message;
+      b.question = null;
+      b.approval = null;
       return "error";
 
     default:
@@ -201,6 +254,8 @@ export function makeLiveBlock(opts: {
     plan: null,
     question: null,
     approval: null,
+    subagents: [],
+    memoryRecalls: 0,
     agentName: opts.agentName,
     model: opts.model,
     engine: opts.engine,

@@ -10,8 +10,9 @@
  * **Workspace** is a local directory (or null = public) that scopes MCP /
  * skills / memory. One turn = (selected Agent's config dir) × (workspace dir as
  * cwd + assembled injection context). Filesystem-backed config (agents, MCP,
- * skills, memory, app settings) lives on disk; mineco.db holds only runtime
- * state (workspaces / sessions / turns / messages).
+ * skills, memory, app settings) lives on disk; the all-file store
+ * (`~/.mineco/workspaces.json` + per-session sidecars/NDJSON) holds only runtime
+ * state (workspaces / sessions / messages).
  */
 
 /** The agent engines mineco can drive. v1 is Claude-only; the abstraction keeps
@@ -224,7 +225,7 @@ export function applyConnectionToEnv(
 }
 
 // ---------------------------------------------------------------------------
-// Workspaces / sessions / messages (mineco.db)
+// Workspaces / sessions / messages (all-file store under ~/.mineco/)
 // ---------------------------------------------------------------------------
 
 /** A project root, or the public/shared space when `rootPath` is null. */
@@ -302,6 +303,17 @@ export interface EngineCapabilities {
   supportsThinking: boolean;
   supportsMcp: boolean;
   supportsSkills: boolean;
+  /**
+   * How the engine handles long-term memory (ADR-0.4-6):
+   * - `"native-dir"` — the engine reads/writes its own auto-memory directory
+   *   (Claude, via the ADR-0.4-3 symlink). mineco STOPS injecting a memory block;
+   *   manual edits and auto-memory converge on the same shared dir.
+   * - `"inject-only"` — the engine has no native memory; mineco assembles a
+   *   budget-capped block and appends it to the system prompt. Also the fallback
+   *   when a session degrades to per-agent isolation (ADR-0.4-8).
+   * - `"none"` — no memory support at all.
+   */
+  memory: "native-dir" | "inject-only" | "none";
 }
 
 // ---------------------------------------------------------------------------
@@ -460,6 +472,37 @@ export type NormalizedEvent =
         status: "pending" | "active" | "done";
       }[];
     }
+  /**
+   * A native Task subagent lifecycle notification (EDD §3.1). Emitted by the
+   * Claude adapter when a Task tool_use begins (`phase:"start"`) and when its
+   * tool_result arrives (`phase:"end"`).
+   *
+   * `subId`       — the SDK tool_use block id, stable across start/end.
+   * `agentName`   — derived from `subagent_type` or `description` in the tool
+   *                 input; falls back to `"subagent"` when absent.
+   * `summary`     — short outcome text extracted from the tool result (end only).
+   * `status`      — `"ok"` | `"error"` derived from `is_error` (end only).
+   *
+   * Memory-recall is a sibling branch below.
+   */
+  | {
+      type: "subagent";
+      subId: string;
+      agentName: string;
+      phase: "start" | "end";
+      summary?: string;
+      status?: "ok" | "error";
+    }
+  /**
+   * The engine's memory-recall supervisor surfaced relevant memories into the
+   * turn (ADR-0.4-6 / OD-4). Mirrors the SDK's `SDKMemoryRecallMessage`
+   * (`subtype:"memory_recall"`): the renderer shows a subtle "recalled N
+   * memories" affordance.
+   *
+   * `count`  — number of memories surfaced (`memories.length`).
+   * `detail` — optional human hint (e.g. the recall `mode`: select/synthesize).
+   */
+  | { type: "memory-recall"; count: number; detail?: string }
   /** Non-terminal engine lifecycle status (e.g. provisioning the native binary
    * on first use). Informational; the renderer may surface or ignore it. */
   | { type: "status"; phase: string; detail?: string }

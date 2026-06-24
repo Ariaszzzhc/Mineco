@@ -15,7 +15,7 @@ import Icon from "@/renderer/lib/ui/Icon.svelte";
 import SidebarShell from "@/renderer/lib/ui/SidebarShell.svelte";
 import Composer from "@/renderer/lib/components/chat/Composer.svelte";
 import RecentSessions from "@/renderer/lib/components/home/RecentSessions.svelte";
-import { onDestroy, onMount } from "svelte";
+import { onDestroy, onMount, untrack } from "svelte";
 import type { Agent } from "@/shared/agent-protocol";
 import { nav } from "@/renderer/lib/stores/nav.svelte";
 import { workspaces } from "@/renderer/lib/stores/workspace.svelte";
@@ -73,10 +73,14 @@ async function loadAgents() {
   }
 }
 
-// Reload prefs when workspace changes
+// Reload prefs when the workspace changes — and ONLY then. `loadPrefs` both
+// reads and writes `agentId`/`model`, so tracking it here would make the effect
+// re-run on every manual selection and immediately revert it to the saved value
+// (the "agent picker does nothing, stays on the first agent" bug). `untrack`
+// pins the dependency to `workspaces.currentId` alone.
 $effect(() => {
   void workspaces.currentId; // track
-  loadPrefs(agents);
+  untrack(() => loadPrefs(agents));
 });
 
 const unsubAgents = window.mineco.onAgentsChanged(() => void loadAgents());
@@ -104,7 +108,9 @@ async function onSend(text: string) {
       title: text.slice(0, 60),
     });
     savePrefs();
-    nav.openSession(session.id, text);
+    // Carry the picked model + mode so the seeded first turn runs with the
+    // user's selection — Chat would otherwise fall back to the agent default.
+    nav.openSession(session.id, text, model, mode);
   } catch (e) {
     console.error("Failed to create session:", e);
     submitting = false;
